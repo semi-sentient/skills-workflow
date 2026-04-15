@@ -59,12 +59,12 @@ Skills that apply to all projects regardless of language or framework.
 
 | Skill | Description |
 | --- | --- |
-| `commit` | Generate a Conventional Commits message from staged changes, preview it, and commit after confirmation. Accepts an optional ticket identifier. |
 | `grill-me` | Stress-test a plan or design through relentless questioning, resolving each branch of the decision tree one by one. |
-| `prd-to-plan` | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory. |
-| `run-plan` | Orchestrate a multi-phase implementation plan by delegating phases to specialized sub-agents (Research, Code, Architect, Debug) with fresh context windows. Takes a plan file path as argument. |
 | `tdd` | Guide test-driven development using red-green-refactor with vertical slices (one test, one implementation, repeat). Includes the prove-it pattern for bug fixes. |
 | `write-a-prd` | Create a PRD through user interview, codebase exploration, and deep-module design. Outputs a Markdown PRD file to the project's plans directory. |
+| `prd-to-plan` | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory. |
+| `run-plan` | Orchestrate a multi-phase implementation plan by delegating phases to specialized sub-agents (Research, Code, Architect, Debug) with fresh context windows. Takes a plan file path as argument. |
+| `commit` | Generate a Conventional Commits message from staged changes, preview it, and commit after confirmation. Accepts an optional ticket identifier. |
 
 ### Frontend
 
