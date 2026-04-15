@@ -150,3 +150,14 @@ Your skill instructions here...
 - **Keep `SKILL.md` under 500 lines.** Move detailed reference material to separate files and reference them from the main skill file.
 - **Avoid agent-specific features in shared skills.** Claude Code frontmatter like `allowed-tools`, `context: fork`, and `paths` won't be understood by other agents. If a skill genuinely needs these, note the agent dependency in the description.
 - **Test before merging.** Install the skill locally and verify it triggers correctly and produces useful output.
+
+## Acknowledgments
+
+The following skills were adapted from [Matt Pocock's skills repo](https://github.com/mattpocock/skills):
+
+- `grill-me`
+- `prd-to-plan`
+- `tdd`
+- `write-a-prd`
+
+Many thanks to Matt for sharing his work.
