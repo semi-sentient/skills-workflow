@@ -4,7 +4,7 @@ Agent skills workflow with an emphasis on orchestration during execution that wo
 
 ## Recommended Workflow
 
-These skills are designed to chain together. See [WORKFLOW.md](WORKFLOW.md) for a guided walkthrough of the full idea-to-implementation workflow using `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan`.
+These skills are designed to chain together. See [WORKFLOW.md](docs/WORKFLOW.md) for a guided walkthrough of the full idea-to-implementation workflow using `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan`.
 
 ## Installation
 
@@ -160,4 +160,4 @@ The following skills were adapted from [Matt Pocock's skills repo](https://githu
 - `tdd`
 - `write-a-prd`
 
-Many thanks to Matt for sharing his work.
+Many thanks to Matt for sharing his work. See [docs/UPSTREAM.md](docs/UPSTREAM.md) for a per-skill summary of how our versions have diverged from upstream.
