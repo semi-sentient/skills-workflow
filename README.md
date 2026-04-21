@@ -61,10 +61,22 @@ Skills that apply to all projects regardless of language or framework.
 | --- | --- |
 | `grill-me` | Stress-test a plan or design through relentless questioning, resolving each branch of the decision tree one by one. |
 | `tdd` | Guide test-driven development using red-green-refactor with vertical slices (one test, one implementation, repeat). Includes the prove-it pattern for bug fixes. |
-| `write-a-prd` | Create a PRD through user interview, codebase exploration, and deep-module design. Outputs a Markdown PRD file to the project's plans directory. |
-| `prd-to-plan` | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory. |
-| `run-plan` | Orchestrate a multi-phase implementation plan by delegating phases to specialized sub-agents (Research, Code, Architect, Debug) with fresh context windows. Takes a plan file path as argument. |
-| `commit` | Generate a Conventional Commits message from staged changes, preview it, and commit after confirmation. Accepts an optional ticket identifier. |
+| `write-a-prd` | Create a PRD through user interview, codebase exploration, and deep-module design. Outputs a Markdown PRD file to the project's plans directory, with an optional prompt to publish it as a GitHub issue labeled `epic`. Pass `--no-github` to stay local-only. |
+| `prd-to-plan` | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory, with an optional prompt to publish it as a sub-issue of the PRD-epic. Accepts a `#N` / issue URL argument to link an existing PRD, or `--no-github` for local-only. |
+| `run-plan` | Orchestrate a multi-phase implementation plan by delegating phases to specialized sub-agents (Research, Code, Architect, Debug) with fresh context windows. Accepts a plan file path, a `#N` plan-sub-issue reference, or a full issue URL. Owns the full git/GH ceremony (work branch, per-phase commits, sub-issue sync, PR submission) with opt-out flags (`--no-branch`, `--no-commits`, `--no-github`, `--no-pr`). |
+| `commit` | Generate a Conventional Commits message from staged changes and commit. Accepts an optional ticket identifier. |
+
+#### Skill dependencies
+
+Most skills are standalone, but a few read or invoke others at runtime. If you install the skill on the left, you should also install everything on the right to get full functionality:
+
+| Skill          | Depends on     | Why                                                                                                                                                  |
+| -------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-plan`     | `commit`       | Invokes `/commit` after each phase for per-phase commits. Without it, the commit step fails (unless `--no-commits` is passed).                       |
+| `run-plan`     | `tdd`          | Every Code agent brief instructs the agent to read the `tdd` skill. Without it, agents silently skip the TDD workflow.                               |
+| `write-a-prd`  | `tdd` _(soft)_ | Reads the `tdd` skill while authoring to shape the PRD's Testing Decisions section. Without it, the PRD still gets written with generic guidance.    |
+
+`grill-me`, `prd-to-plan`, `tdd`, and `commit` have no skill dependencies and work standalone. The install example at the top of this README lists all six workflow skills — use it as the default for any project that will run the full pipeline.
 
 ### Frontend
 
@@ -120,36 +132,7 @@ The domain folders (`universal/`, `frontend/`, `backend/`, `ml/`, etc.) are orga
 
 ## Contributing
 
-### Adding a new skill
-
-1. Choose the appropriate domain folder (or create one if none fits).
-2. Create a new directory with a descriptive, kebab-cased name.
-3. Add a `SKILL.md` with valid frontmatter:
-
-```yaml
----
-name: my-new-skill
-description: A clear, concise description of what this skill does and when to use it. Front-load the key use case — descriptions longer than 250 characters may be truncated.
----
-
-Your skill instructions here...
-```
-
-4. Register the skill in the agent discovery directories. The `skills` CLI discovers skills from `.agents/skills/` and `.claude/skills/` — the domain folders (`universal/`, `frontend/`, etc.) are for organization only and are not scanned directly. Run the registration script, which auto-detects the domain and creates the required symlinks:
-
-```bash
-./scripts/register-skill.sh <skill-name>
-```
-
-5. Update the **Available Skills** table in this README.
-6. Open a PR for review.
-
-### Guidelines
-
-- **Descriptions matter.** The `description` field determines when an agent loads the skill. Be specific about the trigger — "Use when generating React components" is better than "Helps with frontend work."
-- **Keep `SKILL.md` under 500 lines.** Move detailed reference material to separate files and reference them from the main skill file.
-- **Avoid agent-specific features in shared skills.** Claude Code frontmatter like `allowed-tools`, `context: fork`, and `paths` won't be understood by other agents. If a skill genuinely needs these, note the agent dependency in the description.
-- **Test before merging.** Install the skill locally and verify it triggers correctly and produces useful output.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a new skill and the guidelines your contribution should follow.
 
 ## Acknowledgments
 

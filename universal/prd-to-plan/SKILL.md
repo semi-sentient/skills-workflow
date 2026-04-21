@@ -1,6 +1,6 @@
 ---
 name: prd-to-plan
-description: Turn a PRD into a multi-phase implementation plan using tracer-bullet vertical slices, saved as a local Markdown file. Use when user wants to break down a PRD, create an implementation plan, plan phases from a PRD, or mentions "tracer bullets".
+description: Turn a PRD into a multi-phase implementation plan using tracer-bullet vertical slices, saved as a local Markdown file and optionally published as a GitHub sub-issue. Use when user wants to break down a PRD, create an implementation plan, plan phases from a PRD, or mentions "tracer bullets". Accepts an optional GitHub issue reference (e.g. `#123` or a full issue URL) to link the plan as a sub-issue of that PRD-epic.
 ---
 
 # PRD to Plan
@@ -9,9 +9,42 @@ Break a PRD into a phased implementation plan using vertical slices (tracer bull
 
 ## Process
 
-### 1. Confirm the PRD is in context
+### 1. Resolve PRD source and GitHub availability
 
-The PRD should already be in the conversation. If it isn't, ask the user to paste it or point you to the file.
+Determine where the PRD content comes from and whether this invocation will publish to GitHub.
+
+**Step 1a — Detect GitHub availability** (cheap, run once):
+
+- `git remote get-url origin` — if no output or the URL is not `github.com`, GH integration is unavailable (pure local mode)
+- If a GH remote exists, `gh auth status` — if not authenticated, GH integration is unavailable
+
+Capture `<org>/<repo>` from the remote URL for later use.
+
+**Step 1b — Resolve PRD source** by precedence:
+
+1. **Explicit GH issue argument** passed to the skill (e.g. `#123` or `https://github.com/<org>/<repo>/issues/123`)
+2. **In-context GH issue URL** matching the current repo's remote, detected by scanning the conversation
+3. **Local PRD file with `<!-- gh-issue: N -->` footer** — if the user points to a local PRD file (or one is apparent from recent conversation, e.g. `write-a-prd` just wrote it), read it. If it contains the footer, extract `N` and treat equivalent to an explicit GH argument. This is how the `write-a-prd` → `prd-to-plan` handoff works across conversations without the user copying the issue number manually.
+4. **In-context or local PRD content without footer** (pure local mode)
+
+If the user passed `--no-github` (or equivalent), skip GH entirely and operate in local-only mode regardless of context — including ignoring any footer marker in the local PRD file.
+
+**Step 1c — Handle each case:**
+
+- **Explicit arg, GH available:**
+    - Run `gh issue view <n> --json number,title,url,updatedAt` (no body — avoids duplicating content if the PRD is already in conversation). This doubles as a pre-flight that the parent issue exists.
+    - Show confirmation: `Linking plan to #<n> '<title>' — last updated <updatedAt>.` Display the timestamp passively; do not prompt on it.
+    - If the PRD is NOT already in conversation, fetch the full body: `gh issue view <n> --json body,title,number,url`
+    - If conversation references a different issue number for this repo, surface the mismatch before proceeding: `You passed #<n> but I noticed #<m> earlier. Continue with #<n>?`
+- **Explicit arg, GH unavailable:** fail loudly. Explain whether `gh` is missing, not authenticated, or the repo is not GitHub. Do not silently fall back.
+- **In-context issue detected, GH available:**
+    - Single match: `Detected GH issue #<n> '<title>' in this conversation. Link the plan as a sub-issue? (yes / specify different / skip GH)`
+    - Multiple matches: list them, ask which (or `none`)
+    - On confirm, proceed as if the user had passed an explicit arg
+- **In-context issue detected, GH unavailable:** skip detection silently; operate in local-only mode
+- **Local file footer detected, GH available:** proceed as if the footer's issue number were passed explicitly (same as "Explicit arg, GH available" case). Notify the user: `Detected GH issue #<n> from PRD footer — linking plan as a sub-issue. Use --no-github to disable.`
+- **Local file footer detected, GH unavailable:** fail loudly — the PRD claims to be published but GH can't be reached; do not silently drop the sub-issue relationship. User either needs to fix their `gh` setup or pass `--no-github` to explicitly demote to local mode.
+- **Nothing in context and no explicit arg:** operate in local-only mode. If the PRD content is also not apparent in the conversation, ask the user to paste it or point you to the file.
 
 ### 2. Explore the codebase
 
@@ -54,6 +87,17 @@ Break the PRD into **tracer bullet** phases. Each phase is a thin vertical slice
 - DO include implementation details that are durable and resolve ambiguity for the implementing agent (e.g., which library or framework component to use, specific API patterns to follow, error-handling strategy, serialization format)
 - DO include durable decisions: route paths, schema shapes, data model names
 </vertical-slice-rules>
+
+#### Out of scope for plan content
+
+Do NOT include phases or steps for:
+
+- **Branch creation** — `run-plan` creates a `plan/<slug>` work branch automatically at start
+- **Per-phase commits** — `run-plan` commits after each phase using the `commit` skill's format
+- **PR submission** — `run-plan` opens the PR at end of run, linking the plan sub-issue and parent PRD
+- **Merge / deployment ceremony** — these belong to the team's release process, not the plan
+
+Plans describe the **work** (what to build, how to verify it). The **git/GH ceremony** (branch, commits, PR) is handled uniformly by `run-plan`. Users may opt out of individual pieces via `--no-branch`, `--no-commits`, or `--no-pr`; plans don't need to adapt to those overrides — they describe the work either way. If the PRD calls for post-merge verification or production observation, capture that as a phase describing _what to observe and decide_, not as commit/PR steps.
 
 #### Cross-phase evolution
 
@@ -118,19 +162,61 @@ If issues are found, fix them before proceeding. If any phase scores below 9, ad
 
 **Prerequisite**: Step 6 verification results MUST have been presented to the user and explicitly approved before writing. If Step 6 has not been completed and approved, go back and complete it now.
 
-Determine the plans directory using this precedence:
+**Step 7a — Determine the plans directory** using this precedence:
+
 1. If `.agents/plans/` exists, use it
 2. Else if `.claude/plans/` exists, use it
 3. Else if `.agents/` exists, create `.agents/plans/` and use it
 4. Else if `.claude/` exists, create `.claude/plans/` and use it
 5. Otherwise, create `.plans/` and use it
 
-Write the plan as a Markdown file named after the feature (e.g. `.agents/plans/user-onboarding-plan.md`). Use the template below.
+**Step 7b — Derive the plan slug:**
+
+The slugify rule (shared with `write-a-prd` Step 6a):
+
+1. Lowercase
+2. Replace spaces with hyphens
+3. Strip any character that is not alphanumeric or a hyphen
+4. Collapse any run of consecutive hyphens to a single hyphen; trim leading/trailing hyphens
+
+- If a local PRD file is in play (e.g. `.agents/plans/mui-v9-migration-prd.md`), pair the slug by swapping the suffix: `mui-v9-migration-plan.md`
+- Else slugify the GH issue title using the rule above: "MUI v9 Migration" → `mui-v9-migration-plan.md`
+- Confirm the resulting filename with the user before writing
+
+**Step 7c — Re-invocation detection** (run before writing):
+
+Check for existing state:
+
+- Target plan file exists at the computed path?
+- When GH is in play: a sub-issue with title `Plan: <feature name>` exists under the parent? Prefer reading the `<!-- gh-sub-issue: N -->` footer from an existing local file (more reliable than title matching). Otherwise query `gh api /repos/<org>/<repo>/issues/<parent>/sub_issues` and match by title.
+
+Branch based on state:
+
+| Local file | Sub-issue | Prompt                                                                                                        |
+| ---------- | --------- | ------------------------------------------------------------------------------------------------------------- |
+| No         | No        | Proceed normally                                                                                              |
+| Yes        | No        | `Plan file exists. Overwrite (regenerate) / re-publish existing file as sub-issue / cancel?`                  |
+| Yes        | Yes       | `Plan file and sub-issue #N both exist. Regenerate file / update sub-issue body / cancel?`                    |
+| No         | Yes       | `Sub-issue #N exists but no local file. Fetch its body as the local file / regenerate from scratch / cancel?` |
+
+If the user chose a publish-only or update-only path, skip the file write below and jump to Step 8 using the existing file. Otherwise proceed.
+
+**Step 7d — Write the plan** using the template below.
+
+The `Source PRD:` header has two forms — do not mix them:
+
+- **GH in play:** `> Source PRD: #123 — https://github.com/<org>/<repo>/issues/123 ("Title")`
+- **Pure local:** `> Source PRD: .agents/plans/<slug>-prd.md`
+
+When a GH issue is in play, omit any local PRD file reference — the GH issue is the canonical source, and the local PRD file is typically uncommitted (a local path would confuse anyone reading the plan from GitHub).
 
 <plan-template>
 # Plan: <Feature Name>
 
-> Source PRD: <brief identifier or link>
+> Source PRD: <one of:>
+>
+> - GH in play: `#123 — https://github.com/<org>/<repo>/issues/123 ("Title")`
+> - Pure local: `.agents/plans/<slug>-prd.md`
 
 ## Architectural decisions
 
@@ -173,4 +259,84 @@ A concise description of this vertical slice. Describe the end-to-end behavior, 
 - [ ] ...
 
 <!-- Repeat for each phase -->
+
+<!--
+  If published as a GH sub-issue, Step 8 appends a footer line at the very end
+  of the file using an HTML comment of the form:  gh-sub-issue: <issue_number>
+  This marker is used by re-invocation detection to find the linked sub-issue.
+-->
 </plan-template>
+
+---
+
+### 8. Publish to GitHub (only if GH is in play)
+
+Skip this step entirely if operating in local-only mode.
+
+**Step 8 — Determine the operation** based on how Step 7c resolved:
+
+- **Create** — no existing sub-issue (fresh first-time publish, or "re-publish existing file" from the re-invocation matrix). Follow Steps 8a–8e.
+- **Update** — existing sub-issue should be updated in place (from the "update sub-issue body" branch of the re-invocation matrix). Skip 8b–8e and follow Step 8f only.
+
+**Step 8a — Confirmation gate:**
+
+- Create path: `Ready to create sub-issue under #<parent> from <path>. Review the file (and edit if needed), then reply 'create' to proceed, or 'cancel' to stop.`
+- Update path: `Ready to update existing sub-issue #<n> from <path>. Review the file (and edit if needed), then reply 'update' to proceed, or 'cancel' to stop.`
+
+Wait for explicit confirmation. The user may edit the file before confirming.
+
+**Step 8b — Create the sub-issue:**
+
+```
+gh issue create \
+  --title "Plan: <feature name>" \
+  --body-file <path> \
+  --label plan
+```
+
+Capture both the new issue number (for display) and the issue node ID (for the attach call in Step 8c). Use `gh api` or the `--json` flag on a follow-up `gh issue view` to get the node ID.
+
+**Step 8c — Attach the sub-issue relationship:**
+
+`gh` 2.88.1 has no `--parent` flag and no `sub-issue` subcommand. Use the REST API:
+
+```
+gh api --method POST /repos/<org>/<repo>/issues/<parent>/sub_issues \
+  -f sub_issue_id=<child_node_id>
+```
+
+Retry up to 3 times on failure with backoff: 250ms, 1s, 3s (most failures are transient rate-limit or eventual-consistency issues).
+
+**Step 8d — On success:**
+
+- Append `<!-- gh-sub-issue: <child_number> -->` as a footer to the local plan file
+- Report the sub-issue URL to the user
+
+**Step 8e — Failure handling:**
+
+- **Create fails** (Step 8b): the local file is intact. Report the error verbatim and instruct the user to re-run `/prd-to-plan #<parent>` to retry — the re-invocation matrix in Step 7c will detect the existing file and offer the publish-only path.
+- **Attach fails after retries** (Step 8c): the child issue exists but has no parent link (orphan). Do NOT auto-delete. Report the partial state with the exact fix command:
+
+    ```
+    Plan written to <path>.
+    Sub-issue #<n> created: <url>
+    Failed to attach as sub-issue of #<parent>: <error>
+
+    To fix the relationship manually:
+      gh api --method POST /repos/<org>/<repo>/issues/<parent>/sub_issues \
+        -f sub_issue_id=<child_node_id>
+
+    To start over: gh issue delete <n>, then re-run /prd-to-plan #<parent>.
+    ```
+
+**Step 8f — Update path** (when the user chose "update sub-issue body" from Step 7c's re-invocation matrix):
+
+Instead of create + attach, run:
+
+```
+gh issue edit <n> --body-file <path>
+```
+
+This replaces the body wholesale, preserving the issue number, comment history, and the sub-issue relationship. No changelog preamble is added — the local file is the source of truth.
+
+The `<!-- gh-sub-issue: <n> -->` footer is already present in the file from the original create; do NOT re-append. On success, just report the sub-issue URL to the user.

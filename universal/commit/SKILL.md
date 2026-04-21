@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Generate a commit message from staged changes, preview, and commit. Accepts an optional ticket identifier argument.
+description: Generate a commit message from staged changes and commit. Accepts an optional ticket identifier argument.
 ---
 
 1. Run `git diff --cached` to see all staged changes. **If the diff is empty**, inform the user that there are no staged changes and suggest they stage files with `git add` before running this command. Do not proceed further.
@@ -36,4 +36,3 @@ description: Generate a commit message from staged changes, preview, and commit.
     ```
 
 4. Only ever include details about what's changing in files that are staged for commit.
-5. ALWAYS show the generated message and ask for confirmation before running the `git commit` command.
