@@ -13,7 +13,7 @@ description: Test-driven development with red-green-refactor loop. Use when user
 
 **Bad tests** are coupled to implementation. They mock internal collaborators, test private methods, or verify through external means (like querying a database directly instead of using the interface). The warning sign: your test breaks when you refactor, but behavior hasn't changed. If you rename an internal function and tests fail, those tests were testing implementation, not behavior.
 
-See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
+If you need concrete test examples to model yours on, read [references/tests.md](references/tests.md). When a test requires mocks, read [references/mocking.md](references/mocking.md) first — it sets the rules for what is mockable.
 
 ## Anti-Pattern: Horizontal Slices
 
@@ -48,8 +48,8 @@ Before writing any code:
 
 - [ ] Confirm with user what interface changes are needed
 - [ ] Confirm with user which behaviors to test (prioritize)
-- [ ] Identify opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
-- [ ] Design interfaces for [testability](interface-design.md)
+- [ ] Identify opportunities for deep modules (small interface, deep implementation) — when in doubt about what qualifies, read [references/deep-modules.md](references/deep-modules.md)
+- [ ] Design interfaces for testability — if an interface feels awkward to test, read [references/interface-design.md](references/interface-design.md) before committing to it
 - [ ] List the behaviors to test (not implementation steps)
 - [ ] Get user approval on the plan
 
@@ -86,7 +86,7 @@ Rules:
 
 ### 4. Refactor
 
-After all tests pass, look for [refactor candidates](refactoring.md):
+After all tests pass, look for refactor candidates. Before starting the refactor step, read [references/refactoring.md](references/refactoring.md) — it defines which refactors are safe while GREEN and which aren't.
 
 - [ ] Extract duplication
 - [ ] Deepen modules (move complexity behind simple interfaces)

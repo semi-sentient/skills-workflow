@@ -65,15 +65,11 @@ These go in the plan header so every phase can reference them.
 
 ### 3.5. Assess i18n impact
 
-**Skip this step** if the PRD involves only refactoring, testing, configuration, or other changes with no user-facing strings. Also skip if the project does not use i18n.
+**Decision gate:**
 
-If the PRD introduces or modifies user-facing strings:
-
-1. **Discover the i18n setup** — Identify the project's i18n framework, translation file format, supported locales, and key naming conventions by reading existing translation files and configuration.
-2. **Audit for reusable keys** — Read translation files for namespaces/scopes likely to overlap with this feature. Do NOT exhaustively read every file — focus on the ones relevant to the feature area. Build a reusable key reference table mapping feature concepts to existing translation calls.
-3. **Enumerate new keys** — List every new i18n key needed across all phases, with the default-language copy and the namespace/scope it belongs to. Only do this when the PRD has enough UI specificity (column headers, button labels, status labels, section titles, empty states) to enumerate keys confidently. If the PRD is too vague to determine exact copy, note which areas need keys but defer the specifics to each phase.
-4. **Plan a Translations phase** — Include a dedicated "Translations" phase as Phase 1 of the plan. This phase touches only translation files — no source code. It contains: all new keys with default-language values, the reusable key reference table, and the list of translation files to modify. For non-default locales, provide real translated values — do NOT copy default-language strings as placeholders.
-5. **Wire up later phases** — All subsequent phases reference translation keys using the project's standard lookup pattern. No translation file edits in later phases. Include the reusable key reference in the plan's architectural decisions section so every phase can consult it.
+- **Skip this step** if the PRD involves only refactoring, testing, configuration, or other changes with no user-facing strings.
+- **Skip this step** if the project does not use i18n.
+- **Otherwise** (PRD introduces or modifies user-facing strings AND project uses i18n) → STOP and read [references/i18n-phase.md](references/i18n-phase.md) now. It contains the full procedure (discover setup → audit reusable keys → enumerate new keys → plan Translations phase → wire up later phases) plus the acceptance signal used by Step 6 validation. Do not proceed to Step 4 without reading it.
 
 ### 4. Draft vertical slices
 
@@ -149,6 +145,8 @@ Before writing the file, critically verify your own plan against the actual code
 **Decision completeness** — Scan every phase for "either/or", "or alternatively", "if > N lines", or other unresolved language. Each must be resolved to a single prescriptive decision. Plans close decisions; they don't enumerate options.
 
 **PRD coverage** — Every user story from the PRD maps to at least one phase. Every testing decision from the PRD has a corresponding TDD slice.
+
+**i18n completeness** — If the PRD contains user-facing strings and the project uses i18n, verify the plan matches the acceptance signal in [references/i18n-phase.md](references/i18n-phase.md): Phase 1 is a Translations phase, architectural decisions list i18n namespaces and reusable keys, no later phase edits translation files, non-default locales have real translations. If any criterion fails, return to Step 3.5 and rework.
 
 **Architectural feasibility** — For each phase, verify that components can actually access the contexts/hooks/functions they're described as using. Check provider nesting, import paths, and module boundaries.
 

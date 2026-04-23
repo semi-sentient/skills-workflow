@@ -75,6 +75,7 @@ Most skills are standalone, but a few read or invoke others at runtime. If you i
 | `run-plan`     | `commit`       | Invokes `/commit` after each phase for per-phase commits. Without it, the commit step fails (unless `--no-commits` is passed).                       |
 | `run-plan`     | `tdd`          | Every Code agent brief instructs the agent to read the `tdd` skill. Without it, agents silently skip the TDD workflow.                               |
 | `write-a-prd`  | `tdd` _(soft)_ | Reads the `tdd` skill while authoring to shape the PRD's Testing Decisions section. Without it, the PRD still gets written with generic guidance.    |
+| `write-a-prd`  | `grill-me` _(soft)_ | Invokes `grill-me` at step 3 to stress-test the design before writing the PRD (skipped if a grilling session already ran in the same conversation). Without it, step 3 is skipped and the PRD relies on whatever design rigor preceded the invocation.    |
 
 `grill-me`, `prd-to-plan`, `tdd`, and `commit` have no skill dependencies and work standalone. The install example at the top of this README lists all six workflow skills — use it as the default for any project that will run the full pipeline.
 

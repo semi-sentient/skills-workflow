@@ -51,20 +51,28 @@ REGISTERED=0
 for agent_dir in "${AGENT_DIRS[@]}"; do
   target="$REPO_ROOT/$agent_dir/$SKILL_NAME"
 
-  if [[ -d "$target" ]]; then
-    echo "  $agent_dir/$SKILL_NAME already exists — skipping"
-    continue
-  fi
-
   mkdir -p "$target"
 
-  while IFS= read -r file; do
-    filename="$(basename "$file")"
-    ln -s "../../../$DOMAIN/$SKILL_NAME/$filename" "$target/$filename"
-    echo "  $agent_dir/$SKILL_NAME/$filename -> $DOMAIN/$SKILL_NAME/$filename"
-  done < <(find "$SKILL_SOURCE" -maxdepth 1 -type f | sort)
+  ADDED=0
+  # Symlink every top-level entry (files AND directories). Subdirectories are
+  # linked as whole dirs so their contents (e.g. references/*.md) come along.
+  # Idempotent: skips entries that already exist.
+  while IFS= read -r entry; do
+    name="$(basename "$entry")"
+    link="$target/$name"
+    if [[ -L "$link" || -e "$link" ]]; then
+      continue
+    fi
+    ln -s "../../../$DOMAIN/$SKILL_NAME/$name" "$link"
+    echo "  $agent_dir/$SKILL_NAME/$name -> $DOMAIN/$SKILL_NAME/$name"
+    ADDED=$((ADDED + 1))
+  done < <(find "$SKILL_SOURCE" -mindepth 1 -maxdepth 1 \( -type f -o -type d \) | sort)
 
-  REGISTERED=$((REGISTERED + 1))
+  if [[ $ADDED -gt 0 ]]; then
+    REGISTERED=$((REGISTERED + 1))
+  else
+    echo "  $agent_dir/$SKILL_NAME already up to date"
+  fi
 done
 
 echo ""

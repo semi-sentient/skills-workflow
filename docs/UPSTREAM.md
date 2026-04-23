@@ -12,7 +12,8 @@ Three threads run through all of our changes:
 
 1. **Output location flexibility** — Skills that write files no longer hardcode `./plans/`. They walk a precedence chain (`.agents/plans/` → `.claude/plans/` → fallback `.plans/`) so they compose with whichever agent harness is in use.
 2. **Stack-agnostic content** — `tdd`'s companion files no longer assume TypeScript; code samples are pseudocode with an explicit "adapt to your language" note.
-3. **Tighter workflow chaining** — `write-a-prd` explicitly references `tdd`, and `prd-to-plan` gains verification + user-approval gates. The `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan` arc is enforced more deliberately than upstream.
+3. **Tighter workflow chaining** — `write-a-prd` explicitly references `grill-me` and `tdd`, and `prd-to-plan` gains verification + user-approval gates. The `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan` arc is enforced more deliberately than upstream.
+4. **Progressive disclosure via `references/`** — Detailed procedures, templates, and on-demand content are moved into per-skill `references/` subdirectories and loaded on explicit triggers from `SKILL.md`. This keeps the always-loaded core lean and matches the Agent Skills best-practices recommendation to separate conditional content from the entry-point instructions.
 
 ## `write-a-prd`
 
@@ -25,6 +26,7 @@ Three threads run through all of our changes:
 ### Additions
 
 - **New Step 5: Cross-link to `tdd`** — Before drafting the PRD, read the `tdd` skill and incorporate its testing philosophy (vertical slices, behavior over implementation) into the PRD's Testing Decisions section.
+- **Step 3 delegates to `grill-me`** — Upstream inlines a copy of grill-me phrasing at step 3. Ours replaces that with a reference: read the `grill-me` skill and run a grilling session, with a skip condition when an earlier in-conversation grilling already covered the needed ground. Exposes the `--light` flag to the PRD author. Matches the existing delegation pattern at Step 5's `tdd` reference and keeps grill-me as a single source of truth.
 - **Slug derivation rule** — Explicit, documented slugify rule (lowercase, spaces → hyphens, strip non-alphanumeric-non-hyphen, collapse/trim hyphens). The same rule is used by `prd-to-plan` to pair plan filenames to PRD filenames — consistency here is load-bearing for cross-skill re-invocation detection.
 
 ## `prd-to-plan`
@@ -38,7 +40,7 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 
 ### Additions
 
-- **Step 3.5: Assess i18n impact** — Discovers the project's i18n setup, audits reusable translation keys, enumerates new keys, and inserts a dedicated "Translations" phase as Phase 1 of the plan (touches only translation files, no source code). Skipped when the PRD has no user-facing strings.
+- **Step 3.5: Assess i18n impact** — Discovers the project's i18n setup, audits reusable translation keys, enumerates new keys, and inserts a dedicated "Translations" phase as Phase 1 of the plan (touches only translation files, no source code). Skipped when the PRD has no user-facing strings. SKILL.md keeps only the decision gate; the full procedure lives in `references/i18n-phase.md` and is loaded on demand when the gate fires.
 - **Cross-phase evolution subsection** — When a shared function or component is introduced in Phase N and modified in Phase N+K, both phases must explicitly document the before→after change. Prevents downstream agents from rebuilding from scratch or being confused about current state.
 - **Forward-compatibility subsection** — Each phase must identify structural extension/abstraction points that anticipate later phases.
 - **Step 6: Verify the plan** — A full verification pass before writing the file:
@@ -48,6 +50,7 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
   - Verify PRD coverage (every user story → ≥1 phase; every testing decision → TDD slice)
   - Check architectural feasibility (provider nesting, hook accessibility, import paths)
   - **Confidence scoring 0–10** per phase; anything below 9 gets concrete detail added until it reaches 9+
+  - **i18n completeness check** — when Step 3.5 fired, verify Phase 1 is a Translations phase, architectural decisions list the i18n namespaces and reusable keys, no later phase edits translation files, and non-default locales have real translations. Return to Step 3.5 if any criterion fails.
   - Present verification results to the user and require **explicit approval** before Step 7
 - **Step 7 gates on Step 6 approval** — Writing the plan file is now a hard prerequisite on verification having been presented and approved.
 - **Plan template — i18n field** — New entry in the architectural-decisions section listing namespaces/scopes used and the reusable key reference from Step 3.5.
@@ -63,10 +66,12 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 ### Changes
 
 - **Language neutrality in companion files** — `interface-design.md`, `mocking.md`, and `tests.md` had their TypeScript/Jest code blocks rewritten as language-agnostic pseudocode. `tests.md` gained a top-of-file note: *"Examples use pseudocode — adapt to your project's language and test framework."*
+- **Reference-link triggers** — Links to the five companion files (`tests.md`, `mocking.md`, `deep-modules.md`, `interface-design.md`, `refactoring.md`) were rewritten from generic "see X for Y" prose to explicit load conditions ("If you need concrete test examples, read tests.md"; "Before starting the refactor step, read refactoring.md"). Upstream's plain links don't tell the agent *when* to load each file.
+- **Companion files moved to `references/`** — The five supporting docs now live under `universal/tdd/references/` for consistency with `prd-to-plan` and `run-plan`, and to signal at the filesystem level that they are on-demand content. Upstream keeps them at the skill root. SKILL.md's links were updated accordingly; the companion files themselves are unchanged in content.
 
 ### Unchanged
 
-- `deep-modules.md` and `refactoring.md` are byte-identical to upstream.
+- `deep-modules.md` and `refactoring.md` are byte-identical to upstream (now at `references/deep-modules.md` and `references/refactoring.md`; contents unchanged).
 - `SKILL.md`'s core TDD flow, red-green-refactor loop, and checklist are unchanged; only the Prove-It Pattern is additive.
 
 ## `grill-me`
