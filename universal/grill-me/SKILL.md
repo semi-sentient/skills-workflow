@@ -3,7 +3,7 @@ name: grill-me
 description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree and the sub-decisions it unlocks. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me", "devil's advocate", "challenge my assumptions", "poke holes in my plan", "what am I missing". Pass `--light` for a faster pass with no counter-challenges.
 ---
 
-Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving both top-level decisions and the sub-decisions they unlock. For each question, provide your recommended answer.
+Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the decision tree, resolving both top-level decisions and the sub-decisions they unlock. For each question, provide your recommended answer.
 
 Ask one question at a time. You may bundle 2 (rarely 3) sub-decisions into one turn only when they're all parameters of the same choice you just made, such that asking separately would require restating the same setup. If the bundle would require more than a short paragraph of setup plus brief options, split it. Err on the side of splitting.
 
