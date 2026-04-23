@@ -59,7 +59,7 @@ Skills that apply to all projects regardless of language or framework.
 
 | Skill | Description |
 | --- | --- |
-| `grill-me` | Stress-test a plan or design through relentless questioning, resolving each branch of the decision tree one by one. |
+| `grill-me` | Stress-test a plan or design through relentless questioning, resolving each branch of the decision tree one by one. Pass `--light` for a faster pass that skips counter-challenges. |
 | `tdd` | Guide test-driven development using red-green-refactor with vertical slices (one test, one implementation, repeat). Includes the prove-it pattern for bug fixes. |
 | `write-a-prd` | Create a PRD through user interview, codebase exploration, and deep-module design. Outputs a Markdown PRD file to the project's plans directory, with an optional prompt to publish it as a GitHub issue labeled `epic`. Pass `--no-github` to stay local-only. |
 | `prd-to-plan` | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory, with an optional prompt to publish it as a sub-issue of the PRD-epic. Accepts a `#N` / issue URL argument to link an existing PRD, or `--no-github` for local-only. |

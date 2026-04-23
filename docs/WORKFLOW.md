@@ -37,13 +37,15 @@ Start with your rough idea — it doesn't need to be polished. The `grill-me` sk
 
 This step forces you to confront the hard questions early: edge cases, scope boundaries, technical constraints, and user experience tradeoffs. The agent provides its own recommended answer for each question, so you're not starting from a blank page.
 
-**Invoke with:** `/grill-me`
+**Invoke with:** `/grill-me` (or `/grill-me --light` for a faster pass on smaller features or well-understood domains)
 
 **What to expect:**
 
-- A rapid-fire series of questions, asked one at a time
-- Questions that the agent can answer by exploring the codebase are answered automatically
-- The conversation continues until you've reached a shared understanding of the full design
+- A series of questions, usually one at a time — though the agent may bundle 2–3 tightly coupled sub-decisions into a single turn when splitting would just require restating the same setup
+- Each answer can unlock sub-decisions the agent will drill into before moving to the next top-level branch
+- Questions the agent can answer by exploring the codebase are answered automatically; the agent may also re-explore mid-interview when a new constraint reshapes later branches
+- When you answer directly (rather than picking from options the agent offered), expect one counter-challenge before the agent accepts and moves on — skipped under `--light`
+- A structured wrap-up at the end: decisions made, assumptions accepted (each with a one-line justification), open questions still requiring resolution — any default you didn't explicitly confirm lands in assumptions or open questions, never silently in decisions
 
 **Tips:**
 

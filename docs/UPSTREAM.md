@@ -71,4 +71,21 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 
 ## `grill-me`
 
-Used essentially as-is from upstream. Any minor edits are cosmetic. If meaningful divergence develops, add a section here.
+### Additions
+
+- **Progressive sub-decision unfolding** — The walk resolves both top-level decisions and the sub-decisions each answer unlocks, not just a flat branch list. NEVER rule: don't stop at surface-level branches — drill into sub-decisions as they emerge from answers. Upstream walks "each branch" without an explicit sub-decision concept.
+- **Selective challenge step** — When the user answers directly (not from an options menu the skill offered), push back once with a concrete counter before accepting ("Did you consider X?", "What breaks if Y?"). One probe, then move on. Skipped when `--light` is passed. This is the step that turns an interview into an actual grilling.
+- **`--light` flag** — Skips the challenge step for a faster pass. Intended for smaller features or well-understood domains where deep stress-testing is overkill. The full mode remains the default.
+- **Honesty rule on assumptions** — Any default the skill did not explicitly confirm with the user belongs under "assumptions" or "open questions," never silently under "decisions." If assumptions exceed ~3 items, the skill treats it as a signal that questions were missed and loops back. Prevents the failure mode where a "complete" wrap-up quietly papers over skipped questions.
+- **Structured wrap-up** — Closing summary is a required three-section structure: decisions made (with rationale), assumptions accepted (each with a one-line justification), and open questions still requiring resolution. Upstream asks only for a brief summary and loses the assumption/open-question distinction.
+- **Mid-interview codebase re-exploration** — Explicit guidance to keep exploring the codebase during the interview whenever an answer surfaces a new constraint that reshapes later branches, not just as a pre-question lookup. Upstream's "if a question can be answered by exploring the codebase, explore instead" is purely pre-question.
+- **Bundling allowance for coupled sub-decisions** — One turn may bundle 2 (rarely 3) sub-decisions only when they are parameters of the same just-made choice and splitting would require restating the same setup. The default remains one question per turn; bundles must fit in a short paragraph of setup plus brief options.
+- **NEVER rules** — Codified hard rules: never accept "I'll figure that out later," never ask multiple top-level questions per turn, never stop at surface-level branches (must drill sub-decisions), never silently default on something the user didn't confirm.
+
+### Changes
+
+- **Stop condition tightened** — Completion now requires every branch and its unlocked sub-decisions to have either a decision or an explicit open question. Previously stopped when the user signaled satisfaction, which let the user escape grilling prematurely.
+
+### Unchanged
+
+- Core "interview relentlessly, walk each branch, recommend answers, one question at a time, explore the codebase when possible" content matches upstream.
