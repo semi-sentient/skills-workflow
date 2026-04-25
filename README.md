@@ -144,4 +144,4 @@ The following skills were adapted from [Matt Pocock's skills repo](https://githu
 - `tdd`
 - `write-a-prd`
 
-Many thanks to Matt for sharing his work. See [docs/UPSTREAM.md](docs/UPSTREAM.md) for a per-skill summary of how our versions have diverged from upstream.
+Many thanks to Matt for sharing his work. He gave an excellent talk about these and other skills at the [AI Engineer - Europe](https://www.youtube.com/watch?v=v4F1gFy-hqg) conference which you should definitely check out if you're reading this. See [docs/UPSTREAM.md](docs/UPSTREAM.md) for a per-skill summary of how our versions have diverged from upstream.
