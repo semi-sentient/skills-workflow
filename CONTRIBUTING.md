@@ -28,6 +28,16 @@ Your skill instructions here...
 7. If the skill fits into the `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan` chain, update [docs/WORKFLOW.md](docs/WORKFLOW.md) to reflect its place in the flow.
 8. Open a PR for review.
 
+## Modifying an existing skill
+
+If you add, rename, or remove a top-level file or directory inside a skill (for example, introducing a `references/` folder, or moving content out of `SKILL.md`), re-run the registration script for that skill:
+
+```bash
+./scripts/register-skill.sh <skill-name>
+```
+
+The script is idempotent: it adds missing symlinks and prunes dangling ones in `.agents/skills/<skill-name>/` and `.claude/skills/<skill-name>/`. Edits to the contents of an already-linked file don't require a re-run — the symlinks resolve to the source.
+
 ## Guidelines
 
 - **Descriptions matter.** The `description` field determines when an agent loads the skill. Be specific about the trigger — "Use when generating React components" is better than "Helps with frontend work."

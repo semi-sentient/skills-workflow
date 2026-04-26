@@ -53,7 +53,21 @@ for agent_dir in "${AGENT_DIRS[@]}"; do
 
   mkdir -p "$target"
 
-  ADDED=0
+  CHANGED=0
+
+  # Prune dangling symlinks (source file/dir was renamed or moved). Only
+  # removes broken symlinks — never real files or live links.
+  for link in "$target"/* "$target"/.*; do
+    [[ -e "$link" || -L "$link" ]] || continue
+    base="$(basename "$link")"
+    [[ "$base" == "." || "$base" == ".." ]] && continue
+    if [[ -L "$link" && ! -e "$link" ]]; then
+      rm "$link"
+      echo "  pruned $agent_dir/$SKILL_NAME/$base (dangling)"
+      CHANGED=$((CHANGED + 1))
+    fi
+  done
+
   # Symlink every top-level entry (files AND directories). Subdirectories are
   # linked as whole dirs so their contents (e.g. references/*.md) come along.
   # Idempotent: skips entries that already exist.
@@ -65,10 +79,10 @@ for agent_dir in "${AGENT_DIRS[@]}"; do
     fi
     ln -s "../../../$DOMAIN/$SKILL_NAME/$name" "$link"
     echo "  $agent_dir/$SKILL_NAME/$name -> $DOMAIN/$SKILL_NAME/$name"
-    ADDED=$((ADDED + 1))
+    CHANGED=$((CHANGED + 1))
   done < <(find "$SKILL_SOURCE" -mindepth 1 -maxdepth 1 \( -type f -o -type d \) | sort)
 
-  if [[ $ADDED -gt 0 ]]; then
+  if [[ $CHANGED -gt 0 ]]; then
     REGISTERED=$((REGISTERED + 1))
   else
     echo "  $agent_dir/$SKILL_NAME already up to date"
