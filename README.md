@@ -8,7 +8,13 @@ These skills are designed to chain together. See [WORKFLOW.md](docs/WORKFLOW.md)
 
 ## Installation
 
-Requires [Node.js](https://nodejs.org/). Install these skills into any project using the [Vercel Skills CLI](https://github.com/vercel-labs/skills):
+Requires [Node.js](https://nodejs.org/). Install specific skills into any project using the [Vercel Skills CLI](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills@latest add semi-sentient/skills-workflow --skill <skill-name>
+```
+
+Install multiple skills at once:
 
 ```bash
 npx skills@latest add semi-sentient/skills-workflow \
@@ -133,7 +139,7 @@ The domain folders (`universal/`, `frontend/`, `backend/`, `ml/`, etc.) are orga
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a new skill and the guidelines your contribution should follow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills and submitting changes.
 
 ## Acknowledgments
 
