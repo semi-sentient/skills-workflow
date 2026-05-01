@@ -158,17 +158,17 @@ The default flow assumes GitHub is configured and produces per-phase commits on 
 
 ### Flag reference
 
-| Skill          | Flag              | Purpose                                                                               |
-| -------------- | ----------------- | ------------------------------------------------------------------------------------- |
-| `/write-a-prd` | `--no-github`     | Skip the publish prompt — keep the PRD as a local file only                           |
-| `/prd-to-plan` | `--no-github`     | Skip the sub-issue prompt — keep the plan as a local file only                        |
-| `/run-plan`    | `--no-github`     | Force local-only mode (no progress sync, no PR) even when GH metadata is present      |
-| `/run-plan`    | `--no-branch`     | Skip creating a work branch; use the current branch for all commits                   |
-| `/run-plan`    | `--no-commits`    | Skip per-phase commits; let changes accumulate in the working tree for manual review  |
-| `/run-plan`    | `--no-pr`         | Skip opening the PR at end of run                                                     |
-| `/run-plan`    | `--allow-main`    | Permit committing to the default branch when `--no-branch` is set                     |
-| `/run-plan`    | `--base <branch>` | Override the base branch for the work branch and PR (defaults to repo default)        |
-| `/run-plan`    | `--draft`         | Open the PR as a draft regardless of run outcome                                      |
+| Skill          | Flag              | Purpose                                                                              |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------ |
+| `/write-a-prd` | `--no-github`     | Skip the publish prompt — keep the PRD as a local file only                          |
+| `/prd-to-plan` | `--no-github`     | Skip the sub-issue prompt — keep the plan as a local file only                       |
+| `/run-plan`    | `--no-github`     | Force local-only mode (no progress sync, no PR) even when GH metadata is present     |
+| `/run-plan`    | `--no-branch`     | Skip creating a work branch; use the current branch for all commits                  |
+| `/run-plan`    | `--no-commits`    | Skip per-phase commits; let changes accumulate in the working tree for manual review |
+| `/run-plan`    | `--no-pr`         | Skip opening the PR at end of run                                                    |
+| `/run-plan`    | `--allow-main`    | Permit committing to the default branch when `--no-branch` is set                    |
+| `/run-plan`    | `--base <branch>` | Override the base branch for the work branch and PR (defaults to repo default)       |
+| `/run-plan`    | `--draft`         | Open the PR as a draft regardless of run outcome                                     |
 
 `--no-github` on `/write-a-prd` and `/prd-to-plan` means the artifact is never published. `--no-github` on `/run-plan` means progress is not synced and no PR is opened — but a local file with a `<!-- gh-sub-issue: N -->` footer is still valid input; the flag just suppresses the GH side of the run.
 

@@ -13,7 +13,6 @@ Thanks for your interest! This repo is a shared library of agent skills designed
 name: my-new-skill
 description: A clear, concise description of what this skill does and when to use it. Front-load the key use case — descriptions longer than 250 characters may be truncated.
 ---
-
 Your skill instructions here...
 ```
 

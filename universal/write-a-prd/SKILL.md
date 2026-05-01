@@ -18,53 +18,53 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
 5. Read the `tdd` skill and incorporate its testing philosophy into the PRD's Testing Decisions section. Specifically, ensure the PRD specifies:
-    - TDD red-green-refactor workflow using vertical slices (one test → one implementation → repeat), not horizontal slices (all tests first, then all implementation)
-    - Tests verify behavior through public interfaces, not implementation details
-    - Which behaviors each module should be tested for (not implementation steps)
+   - TDD red-green-refactor workflow using vertical slices (one test → one implementation → repeat), not horizontal slices (all tests first, then all implementation)
+   - Tests verify behavior through public interfaces, not implementation details
+   - Which behaviors each module should be tested for (not implementation steps)
 
 6. Once you have a complete understanding of the problem and solution, use the template below to write the PRD.
 
-    **Step 6a — Determine the plans directory** using this precedence:
-    1. If `.agents/plans/` exists, use it
-    2. Else if `.claude/plans/` exists, use it
-    3. Else if `.agents/` exists, create `.agents/plans/` and use it
-    4. Else if `.claude/` exists, create `.claude/plans/` and use it
-    5. Otherwise, create `.plans/` and use it
+   **Step 6a — Determine the plans directory** using this precedence:
+   1. If `.agents/plans/` exists, use it
+   2. Else if `.claude/plans/` exists, use it
+   3. Else if `.agents/` exists, create `.agents/plans/` and use it
+   4. Else if `.claude/` exists, create `.claude/plans/` and use it
+   5. Otherwise, create `.plans/` and use it
 
-    Compute the target path as `<plans-dir>/<slug>-prd.md`. Derive `<slug>` from the feature name by:
-    1. Lowercase
-    2. Replace spaces with hyphens
-    3. Strip any character that is not alphanumeric or a hyphen
-    4. Collapse any run of consecutive hyphens to a single hyphen; trim leading/trailing hyphens
+   Compute the target path as `<plans-dir>/<slug>-prd.md`. Derive `<slug>` from the feature name by:
+   1. Lowercase
+   2. Replace spaces with hyphens
+   3. Strip any character that is not alphanumeric or a hyphen
+   4. Collapse any run of consecutive hyphens to a single hyphen; trim leading/trailing hyphens
 
-    Examples:
-    - "User Onboarding" → `user-onboarding-prd.md`
-    - "MUI v9 Migration" → `mui-v9-migration-prd.md`
-    - "User Onboarding (v2)" → `user-onboarding-v2-prd.md`
+   Examples:
+   - "User Onboarding" → `user-onboarding-prd.md`
+   - "MUI v9 Migration" → `mui-v9-migration-prd.md`
+   - "User Onboarding (v2)" → `user-onboarding-v2-prd.md`
 
-    `prd-to-plan` applies the same slugify rule when pairing the plan filename to this PRD (producing `<slug>-plan.md`), so consistency here is load-bearing for re-invocation detection to work across the two skills.
+   `prd-to-plan` applies the same slugify rule when pairing the plan filename to this PRD (producing `<slug>-plan.md`), so consistency here is load-bearing for re-invocation detection to work across the two skills.
 
-    **Step 6b — Re-invocation detection** (run before writing):
+   **Step 6b — Re-invocation detection** (run before writing):
 
-    Check for existing state:
-    - Does the target PRD file already exist at the computed path?
-    - If GH integration is in scope (Step 7's preconditions met): does the existing local file carry a `<!-- gh-issue: N -->` footer indicating it has been published?
+   Check for existing state:
+   - Does the target PRD file already exist at the computed path?
+   - If GH integration is in scope (Step 7's preconditions met): does the existing local file carry a `<!-- gh-issue: N -->` footer indicating it has been published?
 
-    Branch based on state:
+   Branch based on state:
 
-    | Local file | GH issue | Prompt                                                                                                                 |
-    | ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-    | No         | No       | Proceed normally                                                                                                       |
-    | Yes        | No       | `PRD file exists at <path>. Overwrite (regenerate from interview) / publish existing file as a new GH issue / cancel?` |
-    | Yes        | Yes      | `PRD file exists at <path> and is published as GH issue #N. Overwrite local + update GH / cancel?`                     |
+   | Local file | GH issue | Prompt                                                                                                                 |
+   | ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+   | No         | No       | Proceed normally                                                                                                       |
+   | Yes        | No       | `PRD file exists at <path>. Overwrite (regenerate from interview) / publish existing file as a new GH issue / cancel?` |
+   | Yes        | Yes      | `PRD file exists at <path> and is published as GH issue #N. Overwrite local + update GH / cancel?`                     |
 
-    Branch behavior:
-    - **Overwrite (regenerate)** → proceed to Step 6c (re-run interview steps 1–5 first if needed; then write fresh content)
-    - **Publish existing as new GH issue** → skip Step 6c entirely (file is already authored); jump straight to Step 7 using the existing file
-    - **Overwrite local + update GH** → proceed to Step 6c, then Step 7's update path (7e)
-    - **Cancel** → stop
+   Branch behavior:
+   - **Overwrite (regenerate)** → proceed to Step 6c (re-run interview steps 1–5 first if needed; then write fresh content)
+   - **Publish existing as new GH issue** → skip Step 6c entirely (file is already authored); jump straight to Step 7 using the existing file
+   - **Overwrite local + update GH** → proceed to Step 6c, then Step 7's update path (7e)
+   - **Cancel** → stop
 
-    **Step 6c — Write the PRD** using the template below. The `> GH Issue:` header is omitted on the first write (no issue exists yet); it's added by Step 7 after publish (or carried forward from the prior file content if updating an already-published PRD).
+   **Step 6c — Write the PRD** using the template below. The `> GH Issue:` header is omitted on the first write (no issue exists yet); it's added by Step 7 after publish (or carried forward from the prior file content if updating an already-published PRD).
 
 <prd-template>
 
@@ -136,47 +136,47 @@ Any further notes about the feature.
 
 7. **Publish to GitHub** (only if GH integration is in scope — see preconditions below)
 
-    **Step 7 — Preconditions** (skip the entire step if any fail):
-    - The user did NOT pass `--no-github` to this skill invocation
-    - `git remote get-url origin` returns a `github.com` URL
-    - `gh auth status` reports authenticated
-    - Capture `<org>/<repo>` from the remote URL
+   **Step 7 — Preconditions** (skip the entire step if any fail):
+   - The user did NOT pass `--no-github` to this skill invocation
+   - `git remote get-url origin` returns a `github.com` URL
+   - `gh auth status` reports authenticated
+   - Capture `<org>/<repo>` from the remote URL
 
-    If any precondition fails, the PRD remains local-only — no error, just stop here.
+   If any precondition fails, the PRD remains local-only — no error, just stop here.
 
-    **Step 7a — Confirmation gate:**
+   **Step 7a — Confirmation gate:**
 
-    Report: `PRD written to <path>. Review the file (and edit if needed), then reply 'publish' to create a GitHub issue with label 'epic', or 'cancel' to keep it local.`
+   Report: `PRD written to <path>. Review the file (and edit if needed), then reply 'publish' to create a GitHub issue with label 'epic', or 'cancel' to keep it local.`
 
-    Wait for explicit confirmation. The user may edit the file before confirming.
+   Wait for explicit confirmation. The user may edit the file before confirming.
 
-    **Step 7b — Create the GitHub issue:**
+   **Step 7b — Create the GitHub issue:**
 
-    ```bash
-    gh issue create \
-      --title "<feature_name>" \
-      --body-file <plan_file_path> \
-      --label epic
-    ```
+   ```bash
+   gh issue create \
+     --title "<feature_name>" \
+     --body-file <plan_file_path> \
+     --label epic
+   ```
 
-    Capture the new issue number and URL from the output.
+   Capture the new issue number and URL from the output.
 
-    The PRD title is the feature name only — no Conventional-Commits prefix (PRDs are top-level epics, not constrained by the commit-type convention).
+   The PRD title is the feature name only — no Conventional-Commits prefix (PRDs are top-level epics, not constrained by the commit-type convention).
 
-    **Step 7c — On success:**
-    1. Append `<!-- gh-issue: <issue_number> -->` as a footer to the local PRD file
-    2. Update the `> GH Issue:` header line at the top of the file with the issue reference: `> GH Issue: #<n> — https://github.com/<org>/<repo>/issues/<n>`
-    3. Report the issue URL to the user
+   **Step 7c — On success:**
+   1. Append `<!-- gh-issue: <issue_number> -->` as a footer to the local PRD file
+   2. Update the `> GH Issue:` header line at the top of the file with the issue reference: `> GH Issue: #<n> — https://github.com/<org>/<repo>/issues/<n>`
+   3. Report the issue URL to the user
 
-    **Step 7d — Failure handling:**
-    - **Create fails** (network, auth, permission, etc.): the local file is intact. Report the error verbatim and tell the user to re-run `/write-a-prd` once the issue is resolved — Step 6b's re-invocation matrix will detect the existing file and offer the **"publish existing file as a new GH issue"** option, which skips re-authoring and only retries the publish.
+   **Step 7d — Failure handling:**
+   - **Create fails** (network, auth, permission, etc.): the local file is intact. Report the error verbatim and tell the user to re-run `/write-a-prd` once the issue is resolved — Step 6b's re-invocation matrix will detect the existing file and offer the **"publish existing file as a new GH issue"** option, which skips re-authoring and only retries the publish.
 
-    **Step 7e — Update path** (when Step 6b's re-invocation chose "Overwrite local + update GH"):
+   **Step 7e — Update path** (when Step 6b's re-invocation chose "Overwrite local + update GH"):
 
-    Instead of `gh issue create`, run:
+   Instead of `gh issue create`, run:
 
-    ```bash
-    gh issue edit <existing_issue_number> --body-file <plan_file_path>
-    ```
+   ```bash
+   gh issue edit <existing_issue_number> --body-file <plan_file_path>
+   ```
 
-    This replaces the issue body wholesale, preserving the issue number, comment history, and any sub-issue relationships (e.g., plans created via `prd-to-plan` that reference this PRD as their parent stay linked). The `<!-- gh-issue: <n> -->` footer is already present in the file from the original publish — do NOT re-append. On success, just report the issue URL.
+   This replaces the issue body wholesale, preserving the issue number, comment history, and any sub-issue relationships (e.g., plans created via `prd-to-plan` that reference this PRD as their parent stay linked). The `<!-- gh-issue: <n> -->` footer is already present in the file from the original publish — do NOT re-append. On success, just report the issue URL.

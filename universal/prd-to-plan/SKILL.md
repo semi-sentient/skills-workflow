@@ -32,15 +32,15 @@ If the user passed `--no-github` (or equivalent), skip GH entirely and operate i
 **Step 1c — Handle each case:**
 
 - **Explicit arg, GH available:**
-    - Run `gh issue view <n> --json number,title,url,updatedAt` (no body — avoids duplicating content if the PRD is already in conversation). This doubles as a pre-flight that the parent issue exists.
-    - Show confirmation: `Linking plan to #<n> '<title>' — last updated <updatedAt>.` Display the timestamp passively; do not prompt on it.
-    - If the PRD is NOT already in conversation, fetch the full body: `gh issue view <n> --json body,title,number,url`
-    - If conversation references a different issue number for this repo, surface the mismatch before proceeding: `You passed #<n> but I noticed #<m> earlier. Continue with #<n>?`
+  - Run `gh issue view <n> --json number,title,url,updatedAt` (no body — avoids duplicating content if the PRD is already in conversation). This doubles as a pre-flight that the parent issue exists.
+  - Show confirmation: `Linking plan to #<n> '<title>' — last updated <updatedAt>.` Display the timestamp passively; do not prompt on it.
+  - If the PRD is NOT already in conversation, fetch the full body: `gh issue view <n> --json body,title,number,url`
+  - If conversation references a different issue number for this repo, surface the mismatch before proceeding: `You passed #<n> but I noticed #<m> earlier. Continue with #<n>?`
 - **Explicit arg, GH unavailable:** fail loudly. Explain whether `gh` is missing, not authenticated, or the repo is not GitHub. Do not silently fall back.
 - **In-context issue detected, GH available:**
-    - Single match: `Detected GH issue #<n> '<title>' in this conversation. Link the plan as a sub-issue? (yes / specify different / skip GH)`
-    - Multiple matches: list them, ask which (or `none`)
-    - On confirm, proceed as if the user had passed an explicit arg
+  - Single match: `Detected GH issue #<n> '<title>' in this conversation. Link the plan as a sub-issue? (yes / specify different / skip GH)`
+  - Multiple matches: list them, ask which (or `none`)
+  - On confirm, proceed as if the user had passed an explicit arg
 - **In-context issue detected, GH unavailable:** skip detection silently; operate in local-only mode
 - **Local file footer detected, GH available:** proceed as if the footer's issue number were passed explicitly (same as "Explicit arg, GH available" case). Notify the user: `Detected GH issue #<n> from PRD footer — linking plan as a sub-issue. Use --no-github to disable.`
 - **Local file footer detected, GH unavailable:** fail loudly — the PRD claims to be published but GH can't be reached; do not silently drop the sub-issue relationship. User either needs to fix their `gh` setup or pass `--no-github` to explicitly demote to local mode.

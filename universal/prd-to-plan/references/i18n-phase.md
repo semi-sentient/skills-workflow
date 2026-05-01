@@ -1,6 +1,6 @@
 # i18n Phase Procedure
 
-Load this reference when the PRD introduces or modifies user-facing strings AND the project uses i18n. The SKILL.md gate decides *whether* to do i18n planning; this file is the *how*.
+Load this reference when the PRD introduces or modifies user-facing strings AND the project uses i18n. The SKILL.md gate decides _whether_ to do i18n planning; this file is the _how_.
 
 ## Procedure
 
