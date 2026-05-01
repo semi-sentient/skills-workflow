@@ -1,6 +1,6 @@
 ---
 name: run-plan
-description: 'Execute a multi-phase implementation plan by delegating phases to specialized sub-agents with fresh context windows. Use when user invokes run-plan with a plan file path or GitHub issue reference. Required argument: path to local plan file, GitHub issue number (e.g. `#456`), or full issue URL.'
+description: "Execute a multi-phase implementation plan by delegating phases to specialized sub-agents with fresh context windows. Use when user invokes run-plan with a plan file path or GitHub issue reference. Required argument: path to local plan file, GitHub issue number (e.g. `#456`), or full issue URL."
 ---
 
 You are a strategic workflow orchestrator. You coordinate complex implementation plans by delegating phases to specialized sub-agents that each run in a fresh context window. Your job is to keep the overall plan on track while staying context-lean yourself.
@@ -42,11 +42,11 @@ If a GH ref was passed but GH is unavailable, fail loudly. Do not silently fall 
 **Step 1b — Resolve plan source** based on the argument form. The argument identifies the **plan sub-issue**, not the parent PRD-epic. Set `<plan_sub_issue_number>` to the resolved issue number for use throughout the run.
 
 - **GH ref passed:** grep the project's plans directory (`.agents/plans/`, `.claude/plans/`, etc. — same precedence as `prd-to-plan` Step 7a) for `<!-- gh-sub-issue: <plan_sub_issue_number> -->` matching the target issue number.
-    - **If found** → that file is the canonical local path. Mark `<freshly_fetched> = false`.
-    - **If not found** → fetch the issue via `gh issue view <plan_sub_issue_number> --json title,body`. Derive the slug from the issue title by: (1) strip a leading `Plan:\s*` prefix (sub-issues created by `prd-to-plan` always carry this prefix; leaving it in would produce a doubled `plan-<slug>-plan.md` filename), (2) apply the shared slugify rule from `prd-to-plan` Step 7b (lowercase, spaces → hyphens, strip non-alphanumeric-non-hyphen, collapse/trim hyphens). Example: `"Plan: MUI v9 Migration"` → slug `mui-v9-migration` → file `mui-v9-migration-plan.md`. Write the body to `<plans-dir>/<slug>-plan.md`. Mark `<freshly_fetched> = true`.
+  - **If found** → that file is the canonical local path. Mark `<freshly_fetched> = false`.
+  - **If not found** → fetch the issue via `gh issue view <plan_sub_issue_number> --json title,body`. Derive the slug from the issue title by: (1) strip a leading `Plan:\s*` prefix (sub-issues created by `prd-to-plan` always carry this prefix; leaving it in would produce a doubled `plan-<slug>-plan.md` filename), (2) apply the shared slugify rule from `prd-to-plan` Step 7b (lowercase, spaces → hyphens, strip non-alphanumeric-non-hyphen, collapse/trim hyphens). Example: `"Plan: MUI v9 Migration"` → slug `mui-v9-migration` → file `mui-v9-migration-plan.md`. Write the body to `<plans-dir>/<slug>-plan.md`. Mark `<freshly_fetched> = true`.
 - **File path passed:** read the file. Check for a `<!-- gh-sub-issue: N -->` footer:
-    - **Footer present AND `--no-github` NOT specified** → run Step 1a's GH availability detection now. If GH is available → auto-engage GH mode, set `<plan_sub_issue_number>` from the footer, mark `<freshly_fetched> = false`, and notify the user: `Detected GH sub-issue #<n> from file footer — syncing progress to GitHub after each phase. Use --no-github to disable.`. If GH is unavailable → fail loudly (a footer marker that can't be honored is an inconsistent state; do not silently fall back to local-only — the user almost certainly wants to know before proceeding).
-    - **Otherwise** (no footer, or `--no-github` specified) → operate in local-only mode. `<plan_sub_issue_number>` and `<gh_issue_number>` remain unset.
+  - **Footer present AND `--no-github` NOT specified** → run Step 1a's GH availability detection now. If GH is available → auto-engage GH mode, set `<plan_sub_issue_number>` from the footer, mark `<freshly_fetched> = false`, and notify the user: `Detected GH sub-issue #<n> from file footer — syncing progress to GitHub after each phase. Use --no-github to disable.`. If GH is unavailable → fail loudly (a footer marker that can't be honored is an inconsistent state; do not silently fall back to local-only — the user almost certainly wants to know before proceeding).
+  - **Otherwise** (no footer, or `--no-github` specified) → operate in local-only mode. `<plan_sub_issue_number>` and `<gh_issue_number>` remain unset.
 
 **Step 1b.1 — Derive parent PRD-epic** (GH mode only):
 
@@ -64,18 +64,18 @@ Also capture `<gh_url_for_plan_sub_issue>` as `https://github.com/<org>/<repo>/i
 
 - Fetch GH body: `gh issue view <plan_sub_issue_number> --json body --jq .body`
 - Compare with local file:
-    - **Identical** → proceed using the local file
-    - **Local has more checked criteria than GH** → push local to GH (`gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>`), then proceed
-    - **GH has more checked criteria than local** → overwrite local with GH body, then proceed
-    - **Bodies differ in non-checkbox content** → surface the diff and ask the user which to keep before proceeding. Do NOT auto-resolve.
+  - **Identical** → proceed using the local file
+  - **Local has more checked criteria than GH** → push local to GH (`gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>`), then proceed
+  - **GH has more checked criteria than local** → overwrite local with GH body, then proceed
+  - **Bodies differ in non-checkbox content** → surface the diff and ask the user which to keep before proceeding. Do NOT auto-resolve.
 
 **Step 1d — Read the plan and project conventions:**
 
 1. **The plan file** — Identify:
-    - **Feature name** — from the plan's `# Plan: <Feature Name>` H1 header. Capture as `<feature_name>`. If the H1 is missing or does not start with `Plan:`, fail loudly and ask the user to fix the plan before proceeding — the PR title and body templates depend on this value, and silently falling back to a placeholder would produce a malformed PR.
-    - Architectural decisions that apply across all phases
-    - Phases (sequential units of work — may be labeled "Phase N", "Part N", or similar)
-    - Acceptance criteria per phase (checkbox items)
+   - **Feature name** — from the plan's `# Plan: <Feature Name>` H1 header. Capture as `<feature_name>`. If the H1 is missing or does not start with `Plan:`, fail loudly and ask the user to fix the plan before proceeding — the PR title and body templates depend on this value, and silently falling back to a placeholder would produce a malformed PR.
+   - Architectural decisions that apply across all phases
+   - Phases (sequential units of work — may be labeled "Phase N", "Part N", or similar)
+   - Acceptance criteria per phase (checkbox items)
 
 2. **The workspace's `AGENTS.md` and/or `CLAUDE.md`** (whichever exist) — Extract project conventions (import rules, file naming, coding standards, testing requirements) that must be included in every Code agent brief.
 
@@ -122,20 +122,20 @@ Skip the dirty-tree check only if `--no-commits` is also passed (no commits will
 
 - Run `git branch --show-current` to read the current branch
 - If current branch equals `<base_branch>` AND `--allow-main` was NOT passed → refuse:
-    ```
-    Refusing to commit directly to <base_branch>. Pass --allow-main to override, or omit --no-branch to create a work branch.
-    ```
+  ```
+  Refusing to commit directly to <base_branch>. Pass --allow-main to override, or omit --no-branch to create a work branch.
+  ```
 - Otherwise, leave the current branch as the working branch (do NOT set `<branch_name>` — its absence in working state signals "no dedicated branch was created")
 
 **Otherwise (create the work branch):**
 
 1. Compute `<branch_name>` as `plan/<plan_slug>` (e.g. `plan/mui-v9-migration`)
 2. **Branch already exists handling:**
-    - **Exists locally with commits ahead of base AND plan has some checked criteria** → resuming a prior interrupted run; `git checkout <branch_name>`, continue
-    - **Exists locally with no commits ahead of base** → `git checkout <branch_name>`, continue (no harm)
-    - **Exists locally with commits ahead BUT plan has no checked criteria** → suspicious; surface to user: `Branch <branch_name> exists with commits but plan shows no progress. Use existing / recreate / pick different name?`
-    - **Exists on remote but not locally** → `git fetch origin <branch_name>:<branch_name>` then `git checkout <branch_name>`; treat as resume
-    - **Does not exist** → `git checkout -b <branch_name> <base_branch>`
+   - **Exists locally with commits ahead of base AND plan has some checked criteria** → resuming a prior interrupted run; `git checkout <branch_name>`, continue
+   - **Exists locally with no commits ahead of base** → `git checkout <branch_name>`, continue (no harm)
+   - **Exists locally with commits ahead BUT plan has no checked criteria** → suspicious; surface to user: `Branch <branch_name> exists with commits but plan shows no progress. Use existing / recreate / pick different name?`
+   - **Exists on remote but not locally** → `git fetch origin <branch_name>:<branch_name>` then `git checkout <branch_name>`; treat as resume
+   - **Does not exist** → `git checkout -b <branch_name> <base_branch>`
 
 ### Step 2 — Present the Execution Plan
 
@@ -177,17 +177,17 @@ For each phase, sequentially:
 3. **Spawn the agent** — see Agent Modes for which to use
 4. **Receive the summary** — analyze the result for success, failures, or concerns
 5. **Update the plan file** — Edit the local plan file ALWAYS to check off completed acceptance criteria, regardless of GH mode. **(GH mode, `gh_sync_mode == active` only)** After the Edit, sync to GitHub: `gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>`. Retry 3× with backoff (250ms, 1s, 3s) on failure. On persistent failure, escalate to the user **once** with three options:
-    - `retry` — try the sync again now (e.g. user just refreshed `gh auth`)
-    - `continue` — set `gh_sync_mode = degraded`; skip per-phase sync for the rest of this run; one final sync attempted at end-of-run
-    - `abort` — stop the run; user can resume via re-invocation
+   - `retry` — try the sync again now (e.g. user just refreshed `gh auth`)
+   - `continue` — set `gh_sync_mode = degraded`; skip per-phase sync for the rest of this run; one final sync attempted at end-of-run
+   - `abort` — stop the run; user can resume via re-invocation
 
-    **(GH mode, `gh_sync_mode == degraded`)** Skip the sync; note the degraded state in the next progress tracker output.
+   **(GH mode, `gh_sync_mode == degraded`)** Skip the sync; note the degraded state in the next progress tracker output.
 
 6. **Commit the phase's changes** (skip entirely if `--no-commits`):
-    - `git add -A`
-    - Check `git diff --cached --quiet`; if exit code 0 (no staged changes) → skip the commit and note `(no commit — no changes)` in the progress tracker for this phase
-    - Otherwise, invoke `Skill(skill="commit", args="#<plan_sub_issue_number>")` (omit `args` entirely if local-only mode). Commits reference the plan sub-issue — the narrow scope of what each commit accomplishes. The PR body separately refs the parent PRD-epic (Step 5d) for rollup tracking. The `commit` skill is the single source of truth for commit message format and type selection — do NOT duplicate format guidance here.
-    - **Pre-commit hook failure** — spawn a Debug agent with the hook output, files involved, and what was being committed. After Debug fixes the issue, retry the commit (re-invoke the `commit` skill). If the second attempt fails, escalate to the user with full context. **Never bypass hooks with `--no-verify`.**
+   - `git add -A`
+   - Check `git diff --cached --quiet`; if exit code 0 (no staged changes) → skip the commit and note `(no commit — no changes)` in the progress tracker for this phase
+   - Otherwise, invoke `Skill(skill="commit", args="#<plan_sub_issue_number>")` (omit `args` entirely if local-only mode). Commits reference the plan sub-issue — the narrow scope of what each commit accomplishes. The PR body separately refs the parent PRD-epic (Step 5d) for rollup tracking. The `commit` skill is the single source of truth for commit message format and type selection — do NOT duplicate format guidance here.
+   - **Pre-commit hook failure** — spawn a Debug agent with the hook output, files involved, and what was being committed. After Debug fixes the issue, retry the commit (re-invoke the `commit` skill). If the second attempt fails, escalate to the user with full context. **Never bypass hooks with `--no-verify`.**
 7. **Capture phase end and compute duration** — `phase_end = date +%s`; `phase_duration = phase_end - phase_start`; store `<phase_timings>[phase_index] = phase_duration`. Format for display as `h:mm:ss` (always include the hours field, e.g. `0:03:21`).
 8. **Report progress** — output the progress tracker (see Progress Reporting), including the formatted duration
 9. **Handle failures** — if the summary reports issues, see Error Handling
@@ -237,16 +237,35 @@ Load [references/completion-templates.md](references/completion-templates.md) if
 
 On success: report the PR URL to the user.
 
+#### Step 5e — Delete the local plan and PRD files
+
+Run only if ALL of the following hold:
+
+- GH mode (`<plan_sub_issue_number>` is set)
+- Run outcome is `complete` (not `partial` or `aborted` — partial runs need the file for resumability)
+- Step 5d submitted the PR successfully (skipped or failed → keep the files; without a merged PR, the local file is still the most complete working copy)
+
+When all conditions hold:
+
+1. **Delete the plan file:** `rm <plan_file_path>`
+2. **Delete the upstream PRD file** if it exists locally and was published to GH:
+   - Derive the PRD path by swapping the suffix on the plan filename: `<slug>-plan.md` → `<slug>-prd.md` in the same directory
+   - If that file exists AND its content contains a `<!-- gh-issue: N -->` footer (proving it was published — local-only PRDs are kept as the audit trail), `rm` it
+   - If either condition fails, leave it alone
+3. **Note the deletions in the final summary** (e.g. `Local plan and PRD files removed — GH issues #<parent>/#<plan_sub_issue_number> and PR are the canonical record.` or `Local plan file removed; PRD file kept (not published to GH).`)
+
+Rationale: the GH issues hold the final checkbox state and the PR captures the work itself, so the local files are redundant. Re-runs that need the plan file can re-fetch from GH — Step 1b's "GH ref passed → not found → fetch" path handles that automatically.
+
 ---
 
 ## Agent modes (quick reference)
 
-| Mode         | subagent_type     | model    | When to use                                                                  |
-| ------------ | ----------------- | -------- | ---------------------------------------------------------------------------- |
-| **Research** | `Explore`         | `sonnet` | Gathering codebase context before or mid-execution                           |
-| **Code**     | `general-purpose` | `opus`   | Phases that create or modify code and tests (primary workhorse)              |
-| **Architect**| `general-purpose` | `opus`   | Phase is ambiguous about *how* to structure something; resolve before coding |
-| **Debug**    | `general-purpose` | `opus`   | A Code agent reports failures it couldn't resolve                            |
+| Mode          | subagent_type     | model    | When to use                                                                  |
+| ------------- | ----------------- | -------- | ---------------------------------------------------------------------------- |
+| **Research**  | `Explore`         | `sonnet` | Gathering codebase context before or mid-execution                           |
+| **Code**      | `general-purpose` | `opus`   | Phases that create or modify code and tests (primary workhorse)              |
+| **Architect** | `general-purpose` | `opus`   | Phase is ambiguous about _how_ to structure something; resolve before coding |
+| **Debug**     | `general-purpose` | `opus`   | A Code agent reports failures it couldn't resolve                            |
 
 For each mode's full role definition, protocol, and expected-output format, see [references/agent-operations.md](references/agent-operations.md) — loaded once at Step 2 per Context Discipline.
 
@@ -324,13 +343,13 @@ When a Code agent's summary reports failures:
 1. **Assess severity** — Can the next phase proceed, or is this blocking?
 2. **If non-blocking** — Note it in progress, carry forward as context, continue
 3. **If blocking due to a bug or test failure** — Spawn a Debug agent with:
-    - The failure description from the Code agent's summary
-    - The files and code sections involved
-    - What was being attempted
+   - The failure description from the Code agent's summary
+   - The files and code sections involved
+   - What was being attempted
 4. **If blocking due to insufficient context** — The Code agent may report that it couldn't complete the work because it didn't understand an existing pattern, couldn't find the right interface, or lacked context about how something works. In this case:
-    - Spawn a Research agent scoped to the missing context
-    - Use the research findings to compose an enriched brief
-    - Re-attempt the phase with the additional context included
+   - Spawn a Research agent scoped to the missing context
+   - Use the research findings to compose an enriched brief
+   - Re-attempt the phase with the additional context included
 5. **After Debug or retry resolves** — Verify the fix is sufficient, then continue to the next phase
 6. **If resolution fails** — Report to the user with full context and ask for guidance
 
