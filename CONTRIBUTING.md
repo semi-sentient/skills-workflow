@@ -24,7 +24,7 @@ Your skill instructions here...
 
 5. Update the **Available Skills** table in the [README](README.md).
 6. If the new skill reads or invokes another skill at runtime, add a row to the **Skill dependencies** table in the README so installers know what else to pull in.
-7. If the skill fits into the `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan` chain, update [docs/WORKFLOW.md](docs/WORKFLOW.md) to reflect its place in the flow.
+7. If the skill fits into the `grill-with-docs` (or `grill-me`) → `write-a-prd` → `prd-to-plan` → `run-plan` chain, update [docs/WORKFLOW.md](docs/WORKFLOW.md) to reflect its place in the flow.
 8. Open a PR for review.
 
 ## Modifying an existing skill

@@ -2,11 +2,11 @@
 
 > For a step-by-step walkthrough of the full workflow, see [WORKFLOW.md](WORKFLOW.md).
 
-## Grill Me
+## Grill With Docs (or Grill Me)
 
 ### What it does
 
-A structured interview that pressure-tests your design before any code is written — rigorous, but collaborative.
+A structured interview that pressure-tests your design before any code is written — rigorous, but collaborative. `grill-with-docs` is the preferred entry point: it captures resolved terminology to `CONTEXT.md` and offers ADRs inline as decisions crystallize. `grill-me` runs the same interview without those documentation side-effects — pick it when the project doesn't maintain a domain glossary or ADR set.
 
 ### Key points
 
@@ -51,7 +51,7 @@ Transforms a PRD into a phased implementation plan using tracer-bullet vertical 
 1. **You build a working skeleton before adding muscle.** Instead of building all the backend, then all the frontend, then wiring them together and praying — you build a thin slice through every layer first. You prove the architecture works before you invest in breadth.
    - _For the engineers:_ This is the "tracer bullet" approach from _The Pragmatic Programmer_ — fire one round through the full stack to see if you hit the target, then adjust aim before committing to the full volley.
 2. **Each phase is a self-contained deliverable.** You can stop after any phase and have something that works. This is critical for managing scope, getting early feedback, and avoiding the "90% done, 90% left" trap.
-3. **It encodes all the decisions from the grill-me and PRD into actionable steps.** The coding agent doesn't need to re-derive your intent. Every step has enough context — what to build, where to build it, why it's built that way, and what constraints to respect.
+3. **It encodes all the decisions from the grilling session and PRD into actionable steps.** The coding agent doesn't need to re-derive your intent. Every step has enough context — what to build, where to build it, why it's built that way, and what constraints to respect.
 4. **The plan tracks how code evolves across phases.** When something introduced in an early phase gets modified later, the plan says so — clearly. Both phases reference the change so nothing is silently overwritten or rebuilt from scratch.
    - _Technical detail:_ The earlier phase notes that it will be extended later. The later phase describes the exact before-and-after change. This prevents implementing agents from getting confused about the current state of shared code across phase boundaries.
 5. **Future needs are designed in, not patched on.** The plan identifies where to leave deliberate seams for later phases — not speculative abstractions, but specific hooks based on known future work defined in the plan itself.
@@ -89,6 +89,6 @@ Executes a multi-phase implementation plan by orchestrating specialized sub-agen
 
 ## Overarching Narrative
 
-These skills form a pipeline — `grill-me` sharpens the thinking, `write-a-prd` captures it as requirements with testability and deep module design baked in, `prd-to-plan` turns it into verified, phased execution with explicit cross-phase contracts, and `run-plan` orchestrates the implementation through specialized agents with structured context transfer. Each step reduces ambiguity so that by the time code is written, the agent is executing a well-understood plan rather than guessing at your intent.
+These skills form a pipeline — `grill-with-docs` (or `grill-me`) sharpens the thinking, `write-a-prd` captures it as requirements with testability and deep module design baked in, `prd-to-plan` turns it into verified, phased execution with explicit cross-phase contracts, and `run-plan` orchestrates the implementation through specialized agents with structured context transfer. Each step reduces ambiguity so that by the time code is written, the agent is executing a well-understood plan rather than guessing at your intent.
 
 The pipeline is designed to work in two modes without changing the skills themselves. **Local mode** is the baseline: every artifact is a Markdown file in the project's plans directory, and `run-plan` still creates a work branch and commits per phase but stops short of publishing anything externally. **GitHub mode** layers on formal linkage — the PRD becomes an `epic` issue, the plan becomes a nested `plan` sub-issue, per-phase progress syncs to the sub-issue body, and a PR at end-of-run ties everything together with `Closes` and `Refs` lines. The mode is decided by whichever state is present when each skill runs (a GitHub remote, `gh` auth, a footer marker in the local file) and can be forced off at any stage with `--no-github`. The plan content is identical in both modes; only the git/GH ceremony around it changes.

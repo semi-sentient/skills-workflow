@@ -7,12 +7,12 @@ This walkthrough shows how four skills chain together to take a rough idea throu
 The full workflow looks like this:
 
 ```
- Conversation 1                              Conversation 2
-┌────────────────────────────────────────┐   ┌────────────────────────┐
-│ grill-me → write-a-prd → prd-to-plan  ─┼──▶│ run-plan               │
-│ (shared context builds throughout)     │   │ (fresh context window) │
-└────────────────────────────────────────┘   └────────────────────────┘
-                              plan file or GH issue
+ Conversation 1                                     Conversation 2
+┌───────────────────────────────────────────────┐   ┌────────────────────────┐
+│ grill-with-docs → write-a-prd → prd-to-plan  ─┼──▶│ run-plan               │
+│ (shared context builds throughout)            │   │ (fresh context window) │
+└───────────────────────────────────────────────┘   └────────────────────────┘
+                                     plan file or GH issue
 ```
 
 Steps 1-3 happen in a **single conversation** so that every decision, clarification, and codebase insight carries forward naturally. Step 4 starts a **new conversation** with a fresh context window — by this point, the plan (local file or published GitHub sub-issue) contains everything the agent needs, and starting fresh avoids context rot from the long design session.
@@ -31,13 +31,13 @@ The pipeline is worth running end-to-end when there's design ambiguity to resolv
 
 Each skill accepts `--no-github` to stay local-only, and `run-plan` exposes finer-grained flags for teams that manage the git/GH ceremony themselves. See [Flag Recipes](#flag-recipes) for the full reference and common combinations.
 
-## Step 1: Stress-test the idea with `grill-me`
+## Step 1: Stress-test the idea with `grill-with-docs` (or `grill-me`)
 
-Start with your rough idea — it doesn't need to be polished. The `grill-me` skill will interview you relentlessly about every aspect, walking down each branch of the decision tree and resolving dependencies between decisions one by one.
+Start with your rough idea — it doesn't need to be polished. The `grill-with-docs` skill will interview you relentlessly about every aspect, walking down each branch of the decision tree and resolving dependencies between decisions one by one — capturing terminology decisions to `CONTEXT.md` and offering ADRs inline as they emerge. Use `grill-me` instead if you don't want those documentation side-effects.
 
 This step forces you to confront the hard questions early: edge cases, scope boundaries, technical constraints, and user experience tradeoffs. The agent provides its own recommended answer for each question, so you're not starting from a blank page.
 
-**Invoke with:** `/grill-me` (or `/grill-me --light` for a faster pass on smaller features or well-understood domains)
+**Invoke with:** `/grill-with-docs` (or `/grill-me` if you don't want the inline `CONTEXT.md` / ADR maintenance). Add `--light` for a faster pass on smaller features or well-understood domains.
 
 **What to expect:**
 
@@ -145,7 +145,7 @@ Think of the plan file as the contract between the two conversations. Steps 1-3 
 
 Not everyone needs to run the full pipeline every time. Where you start depends on what you already have:
 
-- **You have a rough idea.** Start at Step 1 (`grill-me`). The interview will sharpen your thinking before anything gets written down.
+- **You have a rough idea.** Start at Step 1 (`grill-with-docs` or `grill-me`). The interview will sharpen your thinking before anything gets written down.
 - **You have a clear design but no formal requirements.** Skip the grilling and start at Step 2 (`write-a-prd`). You already know what you want — you just need it captured in a structured format.
 - **You already have a PRD.** Start at Step 3 (`prd-to-plan`). Point the skill at your existing PRD and it will break it into phased execution.
 - **You already have a plan.** Start at Step 4 (`run-plan`). If someone else wrote the plan — or you wrote it by hand — you can execute it directly.

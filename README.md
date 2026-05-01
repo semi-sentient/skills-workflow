@@ -4,7 +4,7 @@ Agent skills workflow with an emphasis on orchestration during execution that wo
 
 ## Recommended Workflow
 
-These skills are designed to chain together. See [WORKFLOW.md](docs/WORKFLOW.md) for a guided walkthrough of the full idea-to-implementation workflow using `grill-me` → `write-a-prd` → `prd-to-plan` → `run-plan`.
+These skills are designed to chain together. See [WORKFLOW.md](docs/WORKFLOW.md) for a guided walkthrough of the full idea-to-implementation workflow using `grill-with-docs` (or `grill-me`) → `write-a-prd` → `prd-to-plan` → `run-plan`.
 
 ## Installation
 
@@ -20,6 +20,7 @@ Install multiple skills at once:
 npx skills@latest add semi-sentient/skills-workflow \
   --skill commit \
   --skill grill-me \
+  --skill grill-with-docs \
   --skill prd-to-plan \
   --skill run-plan \
   --skill tdd \
@@ -77,14 +78,14 @@ Skills that apply to all projects regardless of language or framework.
 
 Most skills are standalone, but a few read or invoke others at runtime. If you install the skill on the left, you should also install everything on the right to get full functionality:
 
-| Skill         | Depends on          | Why                                                                                                                                                                                                                                                    |
-| ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `run-plan`    | `commit`            | Invokes `/commit` after each phase for per-phase commits. Without it, the commit step fails (unless `--no-commits` is passed).                                                                                                                         |
-| `run-plan`    | `tdd`               | Every Code agent brief instructs the agent to read the `tdd` skill. Without it, agents silently skip the TDD workflow.                                                                                                                                 |
-| `write-a-prd` | `tdd` _(soft)_      | Reads the `tdd` skill while authoring to shape the PRD's Testing Decisions section. Without it, the PRD still gets written with generic guidance.                                                                                                      |
-| `write-a-prd` | `grill-me` _(soft)_ | Invokes `grill-me` at step 3 to stress-test the design before writing the PRD (skipped if a grilling session already ran in the same conversation). Without it, step 3 is skipped and the PRD relies on whatever design rigor preceded the invocation. |
+| Skill         | Depends on                               | Why                                                                                                                                                                                                                                                                                                                |
+| ------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `run-plan`    | `commit`                                 | Invokes `/commit` after each phase for per-phase commits. Without it, the commit step fails (unless `--no-commits` is passed).                                                                                                                                                                                     |
+| `run-plan`    | `tdd`                                    | Every Code agent brief instructs the agent to read the `tdd` skill. Without it, agents silently skip the TDD workflow.                                                                                                                                                                                             |
+| `write-a-prd` | `tdd` _(soft)_                           | Reads the `tdd` skill while authoring to shape the PRD's Testing Decisions section. Without it, the PRD still gets written with generic guidance.                                                                                                                                                                  |
+| `write-a-prd` | `grill-with-docs` or `grill-me` _(soft)_ | Invokes a grilling skill at step 3 to stress-test the design before writing the PRD. `grill-with-docs` is preferred when available (adds inline `CONTEXT.md` / ADR maintenance); `grill-me` is the fallback. Skipped if a grilling session already ran in the same conversation, or if neither skill is installed. |
 
-`grill-me`, `prd-to-plan`, `tdd`, and `commit` have no skill dependencies and work standalone. The install example at the top of this README lists all six workflow skills — use it as the default for any project that will run the full pipeline.
+`grill-me`, `grill-with-docs`, `prd-to-plan`, `tdd`, and `commit` have no skill dependencies and work standalone. The install example at the top of this README lists all six workflow skills — use it as the default for any project that will run the full pipeline.
 
 ### Frontend
 
