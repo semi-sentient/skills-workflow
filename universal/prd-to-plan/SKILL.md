@@ -292,15 +292,21 @@ gh issue create \
   --label plan
 ```
 
-Capture both the new issue number (for display) and the issue node ID (for the attach call in Step 8c). Use `gh api` or the `--json` flag on a follow-up `gh issue view` to get the node ID.
+Capture both the new issue number (for display) and the issue's integer database ID (for the attach call in Step 8c). The REST `sub_issues` endpoint expects the integer database ID, NOT the GraphQL node ID — passing the node ID returns HTTP 422 `is not of type 'integer'`. Fetch it with:
+
+```
+CHILD_DB_ID=$(gh api /repos/<org>/<repo>/issues/<child_number> -q .id)
+```
+
+Do NOT use `gh issue view <n> --json id` — that returns the GraphQL node ID (string starting with `I_kw…`), which the endpoint rejects.
 
 **Step 8c — Attach the sub-issue relationship:**
 
-`gh` 2.88.1 has no `--parent` flag and no `sub-issue` subcommand. Use the REST API:
+`gh` 2.88.1 has no `--parent` flag and no `sub-issue` subcommand. Use the REST API. Note the `-F` (uppercase) flag — `gh api` sends `-f` values as strings, but `sub_issue_id` must be a number:
 
 ```
 gh api --method POST /repos/<org>/<repo>/issues/<parent>/sub_issues \
-  -f sub_issue_id=<child_node_id>
+  -F sub_issue_id=<child_db_id>
 ```
 
 Retry up to 3 times on failure with backoff: 250ms, 1s, 3s (most failures are transient rate-limit or eventual-consistency issues).
@@ -315,17 +321,18 @@ Retry up to 3 times on failure with backoff: 250ms, 1s, 3s (most failures are tr
 - **Create fails** (Step 8b): the local file is intact. Report the error verbatim and instruct the user to re-run `/prd-to-plan #<parent>` to retry — the re-invocation matrix in Step 7c will detect the existing file and offer the publish-only path.
 - **Attach fails after retries** (Step 8c): the child issue exists but has no parent link (orphan). Do NOT auto-delete. Report the partial state with the exact fix command:
 
-    ```
-    Plan written to <path>.
-    Sub-issue #<n> created: <url>
-    Failed to attach as sub-issue of #<parent>: <error>
+  ```
+  Plan written to <path>.
+  Sub-issue #<n> created: <url>
+  Failed to attach as sub-issue of #<parent>: <error>
 
-    To fix the relationship manually:
-      gh api --method POST /repos/<org>/<repo>/issues/<parent>/sub_issues \
-        -f sub_issue_id=<child_node_id>
+  To fix the relationship manually:
+    CHILD_DB_ID=$(gh api /repos/<org>/<repo>/issues/<n> -q .id)
+    gh api --method POST /repos/<org>/<repo>/issues/<parent>/sub_issues \
+      -F sub_issue_id="$CHILD_DB_ID"
 
-    To start over: gh issue delete <n>, then re-run /prd-to-plan #<parent>.
-    ```
+  To start over: gh issue delete <n>, then re-run /prd-to-plan #<parent>.
+  ```
 
 **Step 8f — Update path** (when the user chose "update sub-issue body" from Step 7c's re-invocation matrix):
 
