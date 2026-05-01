@@ -63,25 +63,26 @@ npx skills@latest update <skill-name>
 
 Skills that apply to all projects regardless of language or framework.
 
-| Skill | Description |
-| --- | --- |
-| `grill-me` | Stress-test a plan or design through relentless questioning, resolving each branch of the decision tree one by one. Pass `--light` for a faster pass that skips counter-challenges. |
-| `tdd` | Guide test-driven development using red-green-refactor with vertical slices (one test, one implementation, repeat). Includes the prove-it pattern for bug fixes. |
-| `write-a-prd` | Create a PRD through user interview, codebase exploration, and deep-module design. Outputs a Markdown PRD file to the project's plans directory, with an optional prompt to publish it as a GitHub issue labeled `epic`. Pass `--no-github` to stay local-only. |
-| `prd-to-plan` | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory, with an optional prompt to publish it as a sub-issue of the PRD-epic. Accepts a `#N` / issue URL argument to link an existing PRD, or `--no-github` for local-only. |
-| `run-plan` | Orchestrate a multi-phase implementation plan by delegating phases to specialized sub-agents (Research, Code, Architect, Debug) with fresh context windows. Accepts a plan file path, a `#N` plan-sub-issue reference, or a full issue URL. Owns the full git/GH ceremony (work branch, per-phase commits, sub-issue sync, PR submission) with opt-out flags (`--no-branch`, `--no-commits`, `--no-github`, `--no-pr`). |
-| `commit` | Generate a Conventional Commits message from staged changes and commit. Accepts an optional ticket identifier. |
+| Skill             | Description                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `grill-me`        | Stress-test a plan or design through relentless questioning, resolving each branch of the decision tree one by one. Pass `--light` for a faster pass that skips counter-challenges.                                                                                                                                                                                                                                     |
+| `grill-with-docs` | Stress-test a plan against the project's existing domain model and documented decisions, sharpening terminology and updating `CONTEXT.md` / ADRs inline as decisions crystallise. Pass `--light` for a faster pass that skips counter-challenges.                                                                                                                                                                       |
+| `tdd`             | Guide test-driven development using red-green-refactor with vertical slices (one test, one implementation, repeat). Includes the prove-it pattern for bug fixes.                                                                                                                                                                                                                                                        |
+| `write-a-prd`     | Create a PRD through user interview, codebase exploration, and deep-module design. Outputs a Markdown PRD file to the project's plans directory, with an optional prompt to publish it as a GitHub issue labeled `epic`. Pass `--no-github` to stay local-only.                                                                                                                                                         |
+| `prd-to-plan`     | Break a PRD into a phased implementation plan using tracer-bullet vertical slices. Outputs a Markdown plan file to the project's plans directory, with an optional prompt to publish it as a sub-issue of the PRD-epic. Accepts a `#N` / issue URL argument to link an existing PRD, or `--no-github` for local-only.                                                                                                   |
+| `run-plan`        | Orchestrate a multi-phase implementation plan by delegating phases to specialized sub-agents (Research, Code, Architect, Debug) with fresh context windows. Accepts a plan file path, a `#N` plan-sub-issue reference, or a full issue URL. Owns the full git/GH ceremony (work branch, per-phase commits, sub-issue sync, PR submission) with opt-out flags (`--no-branch`, `--no-commits`, `--no-github`, `--no-pr`). |
+| `commit`          | Generate a Conventional Commits message from staged changes and commit. Accepts an optional ticket identifier.                                                                                                                                                                                                                                                                                                          |
 
 #### Skill dependencies
 
 Most skills are standalone, but a few read or invoke others at runtime. If you install the skill on the left, you should also install everything on the right to get full functionality:
 
-| Skill          | Depends on     | Why                                                                                                                                                  |
-| -------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run-plan`     | `commit`       | Invokes `/commit` after each phase for per-phase commits. Without it, the commit step fails (unless `--no-commits` is passed).                       |
-| `run-plan`     | `tdd`          | Every Code agent brief instructs the agent to read the `tdd` skill. Without it, agents silently skip the TDD workflow.                               |
-| `write-a-prd`  | `tdd` _(soft)_ | Reads the `tdd` skill while authoring to shape the PRD's Testing Decisions section. Without it, the PRD still gets written with generic guidance.    |
-| `write-a-prd`  | `grill-me` _(soft)_ | Invokes `grill-me` at step 3 to stress-test the design before writing the PRD (skipped if a grilling session already ran in the same conversation). Without it, step 3 is skipped and the PRD relies on whatever design rigor preceded the invocation.    |
+| Skill         | Depends on          | Why                                                                                                                                                                                                                                                    |
+| ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `run-plan`    | `commit`            | Invokes `/commit` after each phase for per-phase commits. Without it, the commit step fails (unless `--no-commits` is passed).                                                                                                                         |
+| `run-plan`    | `tdd`               | Every Code agent brief instructs the agent to read the `tdd` skill. Without it, agents silently skip the TDD workflow.                                                                                                                                 |
+| `write-a-prd` | `tdd` _(soft)_      | Reads the `tdd` skill while authoring to shape the PRD's Testing Decisions section. Without it, the PRD still gets written with generic guidance.                                                                                                      |
+| `write-a-prd` | `grill-me` _(soft)_ | Invokes `grill-me` at step 3 to stress-test the design before writing the PRD (skipped if a grilling session already ran in the same conversation). Without it, step 3 is skipped and the PRD relies on whatever design rigor preceded the invocation. |
 
 `grill-me`, `prd-to-plan`, `tdd`, and `commit` have no skill dependencies and work standalone. The install example at the top of this README lists all six workflow skills — use it as the default for any project that will run the full pipeline.
 
@@ -89,33 +90,33 @@ Most skills are standalone, but a few read or invoke others at runtime. If you i
 
 Skills for client-side projects (React, TypeScript, etc.).
 
-| Skill | Description |
-| --- | --- |
-| _coming soon_ | |
+| Skill         | Description |
+| ------------- | ----------- |
+| _coming soon_ |             |
 
 ### Backend
 
 Skills for server-side projects. Stack-agnostic skills apply to any backend; stack-specific skills note their target in the name.
 
-| Skill | Description |
-| --- | --- |
-| _coming soon_ | |
+| Skill         | Description |
+| ------------- | ----------- |
+| _coming soon_ |             |
 
 ### ML
 
 Skills for machine learning and data science projects (Python, PyTorch, etc.).
 
-| Skill | Description |
-| --- | --- |
-| _coming soon_ | |
+| Skill         | Description |
+| ------------- | ----------- |
+| _coming soon_ |             |
 
 ### Infra
 
 Skills for DevOps, CI/CD, and infrastructure tasks.
 
-| Skill | Description |
-| --- | --- |
-| _coming soon_ | |
+| Skill         | Description |
+| ------------- | ----------- |
+| _coming soon_ |             |
 
 ## Repository Structure
 
@@ -146,6 +147,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills and s
 The following skills were adapted from [Matt Pocock's skills repo](https://github.com/mattpocock/skills):
 
 - `grill-me`
+- `grill-with-docs`
 - `prd-to-plan`
 - `tdd`
 - `write-a-prd`

@@ -36,7 +36,7 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 ### Changes
 
 - **Plans directory** — Hardcoded `./plans/` replaced with the precedence chain.
-- **Vertical-slice rules — softened** — Upstream: "Do NOT include specific file names, function names, or implementation details that are likely to change." Ours distinguishes *volatile* details (omit: intermediate variable names, refactorable state shapes, styling) from *durable* ones (include: which library/framework, API patterns, error-handling strategy, serialization format). The change is motivated by downstream agents under-implementing when plans are too abstract.
+- **Vertical-slice rules — softened** — Upstream: "Do NOT include specific file names, function names, or implementation details that are likely to change." Ours distinguishes _volatile_ details (omit: intermediate variable names, refactorable state shapes, styling) from _durable_ ones (include: which library/framework, API patterns, error-handling strategy, serialization format). The change is motivated by downstream agents under-implementing when plans are too abstract.
 
 ### Additions
 
@@ -65,8 +65,8 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 
 ### Changes
 
-- **Language neutrality in companion files** — `interface-design.md`, `mocking.md`, and `tests.md` had their TypeScript/Jest code blocks rewritten as language-agnostic pseudocode. `tests.md` gained a top-of-file note: *"Examples use pseudocode — adapt to your project's language and test framework."*
-- **Reference-link triggers** — Links to the five companion files (`tests.md`, `mocking.md`, `deep-modules.md`, `interface-design.md`, `refactoring.md`) were rewritten from generic "see X for Y" prose to explicit load conditions ("If you need concrete test examples, read tests.md"; "Before starting the refactor step, read refactoring.md"). Upstream's plain links don't tell the agent *when* to load each file.
+- **Language neutrality in companion files** — `interface-design.md`, `mocking.md`, and `tests.md` had their TypeScript/Jest code blocks rewritten as language-agnostic pseudocode. `tests.md` gained a top-of-file note: _"Examples use pseudocode — adapt to your project's language and test framework."_
+- **Reference-link triggers** — Links to the five companion files (`tests.md`, `mocking.md`, `deep-modules.md`, `interface-design.md`, `refactoring.md`) were rewritten from generic "see X for Y" prose to explicit load conditions ("If you need concrete test examples, read tests.md"; "Before starting the refactor step, read refactoring.md"). Upstream's plain links don't tell the agent _when_ to load each file.
 - **Companion files moved to `references/`** — The five supporting docs now live under `universal/tdd/references/` for consistency with `prd-to-plan` and `run-plan`, and to signal at the filesystem level that they are on-demand content. Upstream keeps them at the skill root. SKILL.md's links were updated accordingly; the companion files themselves are unchanged in content.
 
 ### Unchanged
@@ -74,7 +74,9 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 - `deep-modules.md` and `refactoring.md` are byte-identical to upstream (now at `references/deep-modules.md` and `references/refactoring.md`; contents unchanged).
 - `SKILL.md`'s core TDD flow, red-green-refactor loop, and checklist are unchanged; only the Prove-It Pattern is additive.
 
-## `grill-me`
+## `grill-me` & `grill-with-docs`
+
+`grill-with-docs` is a sibling skill that wraps the same interview engine in a `<what-to-do>` block and adds a `<supporting-info>` block for inline `CONTEXT.md` / ADR maintenance during the session. The `<what-to-do>` body is identical to our `grill-me` SKILL.md, so every deviation listed below applies to both skills. The `<supporting-info>` block — domain-glossary challenges, fuzzy-language sharpening, scenario stress-testing, and the three-criterion ADR gate (hard to reverse, surprising without context, real trade-off) — is specific to `grill-with-docs` and not compared against upstream here.
 
 ### Additions
 
