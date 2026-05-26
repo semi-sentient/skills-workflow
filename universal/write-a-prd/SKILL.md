@@ -21,6 +21,7 @@ Check with the user that these modules match their expectations. Check with the 
    - TDD red-green-refactor workflow using vertical slices (one test → one implementation → repeat), not horizontal slices (all tests first, then all implementation)
    - Tests verify behavior through public interfaces, not implementation details
    - Which behaviors each module should be tested for (not implementation steps)
+   - Before recommending test scope, read the project's testing conventions doc and align the recommendation with the project's coverage threshold and per-file test-density rule
 
 6. Once you have a complete understanding of the problem and solution, use the template below to write the PRD.
 
