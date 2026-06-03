@@ -153,6 +153,17 @@ Any further notes about the feature.
 
    **Step 7b — Create the GitHub issue:**
 
+   First ensure the `epic` label exists, since `gh issue create --label epic` fails with HTTP 422 if it doesn't:
+
+   ```bash
+   gh label create epic \
+     --color 5319e7 \
+     --description "Product requirements, user stories, and acceptance criteria for new features" \
+     2>/dev/null || true
+   ```
+
+   This is idempotent: `gh label create` errors when the label already exists, and `2>/dev/null || true` swallows that so a pre-existing `epic` label (with whatever color/description the repo already chose) is left untouched. Do NOT add `--force` — that would overwrite an existing label's color/description. If this command fails for a real reason (auth, network), the `gh issue create` below surfaces it. Then create the issue:
+
    ```bash
    gh issue create \
      --title "<feature_name>" \

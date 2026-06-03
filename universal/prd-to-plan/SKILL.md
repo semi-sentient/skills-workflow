@@ -285,6 +285,17 @@ Wait for explicit confirmation. The user may edit the file before confirming.
 
 **Step 8b — Create the sub-issue:**
 
+First ensure the `plan` label exists, since `gh issue create --label plan` fails with HTTP 422 if it doesn't:
+
+```
+gh label create plan \
+  --color bfd4f2 \
+  --description "Phased implementation steps and technical rollout details" \
+  2>/dev/null || true
+```
+
+This is idempotent: `gh label create` errors when the label already exists, and `2>/dev/null || true` swallows that so a pre-existing `plan` label is left untouched. Do NOT add `--force` — that would overwrite an existing label's color/description. If this command fails for a real reason (auth, network), the `gh issue create` below surfaces it. Then create the sub-issue:
+
 ```
 gh issue create \
   --title "Plan: <feature name>" \
