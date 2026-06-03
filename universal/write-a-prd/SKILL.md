@@ -166,14 +166,14 @@ Any further notes about the feature.
 
    ```bash
    gh issue create \
-     --title "<feature_name>" \
+     --title "PRD: <feature_name>" \
      --body-file <plan_file_path> \
      --label epic
    ```
 
    Capture the new issue number and URL from the output.
 
-   The PRD title is the feature name only — no Conventional-Commits prefix (PRDs are top-level epics, not constrained by the commit-type convention).
+   Prefix the issue title with `PRD: ` so epics are scannable in the issues list, and so the issue title matches the document's `# PRD: <Feature Name>` heading. This is a **display prefix only**: the slug and feature-name derivation in Step 6a stay on the *bare* feature name, and `prd-to-plan` strips the `PRD: ` prefix when deriving the plan slug, plan heading, and sub-issue title from this epic. No Conventional-Commits *type* prefix either — PRDs are top-level epics, not constrained by the commit-type convention.
 
    **Step 7c — On success:**
    1. Append `<!-- gh-issue: <issue_number> -->` as a footer to the local PRD file

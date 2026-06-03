@@ -46,6 +46,8 @@ If the user passed `--no-github` (or equivalent), skip GH entirely and operate i
 - **Local file footer detected, GH unavailable:** fail loudly — the PRD claims to be published but GH can't be reached; do not silently drop the sub-issue relationship. User either needs to fix their `gh` setup or pass `--no-github` to explicitly demote to local mode.
 - **Nothing in context and no explicit arg:** operate in local-only mode. If the PRD content is also not apparent in the conversation, ask the user to paste it or point you to the file.
 
+**Feature name (normalized).** Throughout this skill, `<feature name>` means the source title with a leading `PRD: ` prefix stripped (case-insensitive, surrounding whitespace trimmed). The source title is the GH issue title (GH mode) or the `# PRD: <Feature Name>` heading of the local PRD (pure-local mode) — `write-a-prd` prefixes both with `PRD: ` for scannability. That prefix must NOT leak into the derived artifacts: the plan slug (Step 7b), the plan heading (Step 7d template), or the `Plan: <feature name>` sub-issue title (Step 8b) — otherwise you get `Plan: PRD: …` and a `prd-…-plan.md` slug. Use the *raw* title — prefix intact — only where the actual issue is cited verbatim: the `Linking…` / `Detected…` confirmation messages above and the `("Title")` portion of the `Source PRD:` header.
+
 ### 2. Explore the codebase
 
 If you have not already explored the codebase, do so to understand the current architecture, existing patterns, and integration layers.
@@ -178,7 +180,7 @@ The slugify rule (shared with `write-a-prd` Step 6a):
 4. Collapse any run of consecutive hyphens to a single hyphen; trim leading/trailing hyphens
 
 - If a local PRD file is in play (e.g. `.agents/plans/mui-v9-migration-prd.md`), pair the slug by swapping the suffix: `mui-v9-migration-plan.md`
-- Else slugify the GH issue title using the rule above: "MUI v9 Migration" → `mui-v9-migration-plan.md`
+- Else slugify the GH issue title — strip the leading `PRD: ` prefix first (the feature-name rule in Step 1c) — using the rule above: "PRD: MUI v9 Migration" → "MUI v9 Migration" → `mui-v9-migration-plan.md`
 - Confirm the resulting filename with the user before writing
 
 **Step 7c — Re-invocation detection** (run before writing):
