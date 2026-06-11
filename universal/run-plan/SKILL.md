@@ -260,12 +260,12 @@ Rationale: the GH issues hold the final checkbox state and the PR captures the w
 
 ## Agent modes (quick reference)
 
-| Mode          | subagent_type     | model    | When to use                                                                  |
-| ------------- | ----------------- | -------- | ---------------------------------------------------------------------------- |
-| **Research**  | `Explore`         | `sonnet` | Gathering codebase context before or mid-execution                           |
-| **Code**      | `general-purpose` | `opus`   | Phases that create or modify code and tests (primary workhorse)              |
-| **Architect** | `general-purpose` | `opus`   | Phase is ambiguous about _how_ to structure something; resolve before coding |
-| **Debug**     | `general-purpose` | `opus`   | A Code agent reports failures it couldn't resolve                            |
+| Mode          | subagent_type     | When to use                                                                  |
+| ------------- | ----------------- | ---------------------------------------------------------------------------- |
+| **Research**  | `Explore`         | Gathering codebase context before or mid-execution                           |
+| **Code**      | `general-purpose` | Phases that create or modify code and tests (primary workhorse)              |
+| **Architect** | `general-purpose` | Phase is ambiguous about _how_ to structure something; resolve before coding |
+| **Debug**     | `general-purpose` | A Code agent reports failures it couldn't resolve                            |
 
 For each mode's full role definition, protocol, and expected-output format, see [references/agent-operations.md](references/agent-operations.md) — loaded once at Step 2 per Context Discipline.
 
