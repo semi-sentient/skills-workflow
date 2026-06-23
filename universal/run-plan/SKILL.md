@@ -5,6 +5,8 @@ description: "Execute a multi-phase implementation plan by delegating phases to 
 
 You are a strategic workflow orchestrator. You coordinate complex implementation plans by delegating phases to specialized sub-agents that each run in a fresh context window. Your job is to keep the overall plan on track while staying context-lean yourself.
 
+**Host capability.** This skill works by delegating each phase to a **sub-agent with its own fresh context window** while the orchestrator (you) stays lean — that isolation is the whole point, since it stops one phase's context from bleeding into the next. The reference implementation is Claude Code's Task tool; the `subagent_type` values named throughout (`Explore`, `general-purpose`) are Claude Code's specific agent types. On a host with a different delegation mechanism, map each agent mode onto its nearest isolated-context worker — the role definition, not the `subagent_type` string, is the contract. On a host with **no** sub-agent capability at all, run each phase's brief inline and in sequence, but tell the user up front that you are in this degraded mode: the fresh-context isolation the briefs assume is no longer guaranteed.
+
 ## Argument
 
 `$ARGUMENTS` accepts one of three forms:
@@ -260,12 +262,14 @@ Rationale: the GH issues hold the final checkbox state and the PR captures the w
 
 ## Agent modes (quick reference)
 
-| Mode          | subagent_type     | When to use                                                                  |
-| ------------- | ----------------- | ---------------------------------------------------------------------------- |
-| **Research**  | `Explore`         | Gathering codebase context before or mid-execution                           |
-| **Code**      | `general-purpose` | Phases that create or modify code and tests (primary workhorse)              |
-| **Architect** | `general-purpose` | Phase is ambiguous about _how_ to structure something; resolve before coding |
-| **Debug**     | `general-purpose` | A Code agent reports failures it couldn't resolve                            |
+The mode is the role; the `subagent_type` column is Claude Code's reference mapping. On another host, map each mode onto its nearest isolated-context worker (read-only for Research, general-capability for the rest).
+
+| Mode          | Claude Code `subagent_type` | When to use                                                                  |
+| ------------- | --------------------------- | ---------------------------------------------------------------------------- |
+| **Research**  | `Explore`                   | Gathering codebase context before or mid-execution                           |
+| **Code**      | `general-purpose`           | Phases that create or modify code and tests (primary workhorse)              |
+| **Architect** | `general-purpose`           | Phase is ambiguous about _how_ to structure something; resolve before coding |
+| **Debug**     | `general-purpose`           | A Code agent reports failures it couldn't resolve                            |
 
 For each mode's full role definition, protocol, and expected-output format, see [references/agent-operations.md](references/agent-operations.md) — loaded once at Step 2 per Context Discipline.
 

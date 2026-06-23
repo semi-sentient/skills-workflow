@@ -129,34 +129,31 @@ Iterate until the user approves the breakdown.
 
 ### 6. Verify the plan
 
-Before writing the file, critically verify your own plan against the actual codebase. This catches the #1 source of plan errors: working from stale memory instead of real files.
+Before writing the file, verify the plan against the **actual codebase**, not your memory of it. This catches the #1 source of plan errors: working from stale memory instead of real files. The agent that drafted the plan reads it charitably — it knows what each phase _meant_ — so wherever the host allows, this verification should be done by an **independent reviewer with a fresh context window**, not by the author re-reading its own work.
 
-**Re-read source files** — For every source file referenced in any phase's "What to build" section, re-read the actual file now (not your earlier summary). Verify:
+**Step 6a — Choose the verification mode** (capability gate):
 
-- File paths are correct
-- Function signatures match what the plan describes
-- Provider/component nesting hierarchies are accurate
-- Interfaces and types match what the plan claims to extend
+- **Preferred — independent reviewer.** If the host can spawn a sub-agent with its own context window (the reference implementation is Claude Code's Task tool — e.g. an `Explore` agent for read-only review), delegate verification to one. Hand it the plan and the Step 6b checklist, but NOT your rationale for the plan — it must read the referenced files cold and judge each claim on the evidence. The reviewer **reports findings; it does not edit.** For a large plan you may fan out 2–3 reviewers (e.g. one for source/feasibility accuracy, one for cross-phase coherence + PRD coverage, one for i18n) — keep it small; most checks are cheap. You (the author) then apply the fixes.
+- **Fallback — adversarial self-review.** If the host cannot spawn sub-agents, run the Step 6b checklist yourself as an explicit _red-team_ pass in a distinct turn: assume every phase is wrong until the actual files prove otherwise. This still carries author bias, so it is weaker than an independent reviewer — but far better than a charitable re-read.
 
-**Cross-phase coherence** — For each phase that modifies something from an earlier phase:
+In **both** modes, re-read every source file referenced in any phase's "What to build" section from disk now — not your earlier summary.
 
-- The before→after change is explicitly documented
-- Earlier phases' tests won't break silently from later changes
-- Shared interfaces evolve consistently
+**Step 6b — Verification checklist** (the reviewer runs it; the author fixes what it surfaces):
 
-**Decision completeness** — Scan every phase for "either/or", "or alternatively", "if > N lines", or other unresolved language. Each must be resolved to a single prescriptive decision. Plans close decisions; they don't enumerate options.
+- **Source accuracy** — File paths exist. Function signatures match what the plan describes. Provider/component nesting hierarchies are accurate. Interfaces and types match what the plan claims to extend.
+- **Architectural feasibility** — For each phase, components can actually access the contexts/hooks/functions they're described as using. Check provider nesting, import paths, and module boundaries.
+- **Cross-phase coherence** — For each phase that modifies something from an earlier phase: the before→after change is explicitly documented, earlier phases' tests won't break silently from later changes, and shared interfaces evolve consistently.
+- **Decision completeness** — No "either/or", "or alternatively", "if > N lines", or other unresolved language anywhere. Each must resolve to a single prescriptive decision. Plans close decisions; they don't enumerate options.
+- **PRD coverage** — Every user story from the PRD maps to at least one phase. Every testing decision from the PRD has a corresponding TDD slice.
+- **i18n completeness** — If the PRD contains user-facing strings and the project uses i18n, verify the plan matches the acceptance signal in [references/i18n-phase.md](references/i18n-phase.md): Phase 1 is a Translations phase, architectural decisions list i18n namespaces and reusable keys, no later phase edits translation files, non-default locales have real translations. If any criterion fails, return to Step 3.5 and rework.
 
-**PRD coverage** — Every user story from the PRD maps to at least one phase. Every testing decision from the PRD has a corresponding TDD slice.
+**Step 6c — Confidence scoring** (must be independent of the author):
 
-**i18n completeness** — If the PRD contains user-facing strings and the project uses i18n, verify the plan matches the acceptance signal in [references/i18n-phase.md](references/i18n-phase.md): Phase 1 is a Translations phase, architectural decisions list i18n namespaces and reusable keys, no later phase edits translation files, non-default locales have real translations. If any criterion fails, return to Step 3.5 and rework.
+Rate each phase 0–10 for how likely an AI coding agent is to implement it correctly from the plan alone. **The score must come from whoever ran the verification, not from the plan's author** — a number the author assigns its own plan carries no signal. In independent-reviewer mode, the reviewer returns the scores; in fallback mode, treat the score as a self-checklist prompt and lean on the Step 6d user approval as the real gate.
 
-**Architectural feasibility** — For each phase, verify that components can actually access the contexts/hooks/functions they're described as using. Check provider nesting, import paths, and module boundaries.
+Flag any phase below 9. If issues were found anywhere, fix them before proceeding; for any flagged phase, add concrete implementation details (code snippets, API configurations, exact function signatures) until it reaches 9+.
 
-**Confidence scoring** — Rate each phase 0–10 for how likely an AI coding agent will implement it correctly from the plan alone. Flag any phase below 9 for revision.
-
-If issues are found, fix them before proceeding. If any phase scores below 9, add concrete implementation details (code snippets, API configurations, exact function signatures) until it reaches 9+.
-
-**Present verification results** — Show the user a summary table with each phase's initial confidence score (0–10), any issues found, and the changes made to resolve them. Do NOT proceed to Step 7 until the user explicitly approves. If the user requests changes, revise, re-verify, and present the updated results to the user for approval. Repeat until approved.
+**Step 6d — Present verification results** — Show the user a summary table with each phase's confidence score (0–10), any issues found, and the changes made to resolve them. Do NOT proceed to Step 7 until the user explicitly approves. If the user requests changes, revise, re-verify (same mode as above), and re-present. Repeat until approved.
 
 ### 7. Write the plan file
 

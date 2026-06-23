@@ -6,6 +6,8 @@ Load this reference once at Step 2 (before user confirmation) and keep it in wor
 
 ## Agent Modes (full definitions)
 
+Each mode below lists a `subagent_type` — that value is Claude Code's reference agent type. On a host with a different delegation mechanism, map the mode's role onto its nearest isolated-context worker; the role definition, not the `subagent_type` string, is the contract.
+
 ### Research
 
 | Parameter     | Value     |
