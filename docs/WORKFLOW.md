@@ -2,7 +2,7 @@
 
 > For a deeper dive into the design and rationale behind each skill, see [WORKFLOW_SKILLS.md](WORKFLOW_SKILLS.md).
 
-This walkthrough shows how four skills chain together to take a rough idea through rigorous design, planning, and automated implementation. Two supporting skills, `tdd` and `commit`, are never invoked directly in this workflow but are leveraged behind the scenes: `write-a-prd` reads `tdd` to shape the PRD's Testing Decisions section, `run-plan` includes a TDD directive in every Code agent brief, and `run-plan` delegates to `commit` after each phase to generate a Conventional Commits message from the phase's staged changes.
+This walkthrough shows how four skills chain together to take a rough idea through rigorous design, planning, and automated implementation. Two supporting skills, `tdd` and `commit`, are never invoked directly in this workflow but are leveraged behind the scenes: `write-a-prd` reads `tdd` to shape the PRD's Testing Decisions section, `run-plan` includes a TDD directive in every Code agent brief, and `run-plan` uses `commit` as the source of truth for each phase's Conventional Commits message — the phase's Code agent authors the message against that skill, and the orchestrator invokes `/commit` directly when that fast path doesn't apply.
 
 The full workflow looks like this:
 
@@ -103,7 +103,7 @@ Start a **new conversation** for this step. The plan (local file or GitHub sub-i
 
 Starting fresh is intentional: after a long design conversation, the context window is full of exploratory back-and-forth that would dilute the agent's focus. A clean context window means the orchestrator and its sub-agents operate with maximum clarity.
 
-The `run-plan` skill reads the plan, presents an execution summary for your confirmation, then works through each phase sequentially — spawning specialized sub-agents (Research, Code, Architect, Debug) as needed. It checks off acceptance criteria as phases complete, so progress is persistent and resumable.
+The `run-plan` skill reads the plan, presents an execution summary for your confirmation, then works through each phase sequentially — spawning specialized sub-agents (Research, Code, Architect, Debug, Review) as needed. An independent Review agent audits each Code phase's changes against its acceptance criteria before anything is committed, and criteria are checked off as they're verified — so progress is persistent and resumable.
 
 **Invoke with one of:**
 
@@ -119,10 +119,11 @@ When given a `#N` or URL, `run-plan` first looks for a local file with a matchin
 - A `plan/<slug>` work branch created from the repo default (override with `--base <branch>`)
 - Research agents gathering codebase context before implementation begins
 - Sequential phase execution with progress tracking (including per-phase durations) after each phase
-- A per-phase commit via the `/commit` skill, referencing the plan sub-issue for narrow-scope traceability
+- An independent review gate after each Code phase — a fresh Review agent audits the staged changes against the phase's acceptance criteria before they're checked off or committed (`--no-review` to skip)
+- A per-phase commit referencing the plan sub-issue for narrow-scope traceability — the message is authored against the `commit` skill by the phase's Code agent, with `/commit` invoked directly as the fallback
 - Plan progress synced to the linked GitHub sub-issue body after each phase (GH-backed runs)
 - Automatic error handling: failed phases trigger Debug agents; failed pre-commit hooks trigger a Debug agent rather than `--no-verify` bypass
-- A final summary comment posted to the plan sub-issue, the branch pushed to origin, and a PR opened against the base branch (linking `Closes #<plan-sub-issue>` and `Refs #<prd-epic>`)
+- A final summary comment posted to the plan sub-issue, the branch pushed to origin, a pre-PR branch review hunting integration bugs between phases (`--no-branch-review` to skip; a confirmed bug opens the PR as a draft), and a PR opened against the base branch (linking `Closes #<plan-sub-issue>` and `Refs #<prd-epic>`)
 
 **Tips:**
 
@@ -169,6 +170,8 @@ The default flow assumes GitHub is configured and produces per-phase commits on 
 | `/run-plan`    | `--allow-main`    | Permit committing to the default branch when `--no-branch` is set                    |
 | `/run-plan`    | `--base <branch>` | Override the base branch for the work branch and PR (defaults to repo default)       |
 | `/run-plan`    | `--draft`         | Open the PR as a draft regardless of run outcome                                     |
+| `/run-plan`    | `--no-review`     | Skip the per-phase review gate that audits each Code phase's changes before commit   |
+| `/run-plan`    | `--no-branch-review` | Skip the pre-PR review of the full branch diff                                    |
 
 `--no-github` on `/write-a-prd` and `/prd-to-plan` means the artifact is never published. `--no-github` on `/run-plan` means progress is not synced and no PR is opened — but a local file with a `<!-- gh-sub-issue: N -->` footer is still valid input; the flag just suppresses the GH side of the run.
 

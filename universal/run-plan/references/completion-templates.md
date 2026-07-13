@@ -69,6 +69,7 @@ Determine draft vs. ready:
 
 - `--draft` flag passed → draft
 - Outcome is `partial` → draft (with a "Partial execution" warning at the top of the body)
+- Pre-PR branch review (Step 5c.5) returned a CONFIRMED correctness finding → draft (surface the findings to the user alongside the PR URL)
 - Otherwise → ready
 
 Write the body to a temp file, then run:
@@ -106,10 +107,17 @@ Refs #<gh_issue_number>
 
 ## Test plan
 
-- [ ] <reviewer fills in based on feature area>
+- [ ] <see population rule below>
+
+## Review notes
+
+<!-- include this section ONLY when Step 5c.5 produced surviving findings -->
+- <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
+
+**Test plan population rule:** replace the placeholder with concrete hands-on retest steps drawn from two sources: (a) if any phase touched rendered UI (components, routes, styles — judge from phase summaries and the plan's file manifests), the UI-touching phases' acceptance criteria and reported user-visible behavior; (b) any criteria the per-phase reviews marked NEEDS-RUNTIME — these carry over regardless of whether the run touched UI (Step 4.5 promises every NEEDS-RUNTIME criterion a Test-plan entry). These steps are the manual-retest gate — make each one independently checkable by a human running the app. Only when neither source applies does the single `- [ ] <reviewer fills in based on feature area>` placeholder line remain.
 
 The PR title is the feature name with no Conventional-Commits prefix. Per-phase commits are typed individually by the `commit` skill based on each commit's diff — aggregating them under a single PR-level prefix would mislabel a mixed-type branch. The commit list in the PR shows the full type breakdown for reviewers.
 
