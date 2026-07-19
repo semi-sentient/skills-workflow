@@ -41,7 +41,7 @@ This step forces you to confront the hard questions early: edge cases, scope bou
 
 **What to expect:**
 
-- A series of questions, usually one at a time — though the agent may bundle 2–3 tightly coupled sub-decisions into a single turn when splitting would just require restating the same setup
+- A series of questions, strictly one per turn — tightly coupled sub-decisions arrive as consecutive turns, not bundles
 - Each answer can unlock sub-decisions the agent will drill into before moving to the next top-level branch
 - Questions the agent can answer by exploring the codebase are answered automatically; the agent may also re-explore mid-interview when a new constraint reshapes later branches
 - When you answer directly (rather than picking from options the agent offered), expect one counter-challenge before the agent accepts and moves on — skipped under `--light`
