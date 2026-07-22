@@ -2,6 +2,8 @@
 
 Load this reference only at Step 5, when composing the end-of-run summary comment and PR body. Contains the exact markdown templates.
 
+(The active-time / token figures below come from the run ledger. On a host exposing no usage metadata, drop those figures — or label a wall-clock elapsed as approximate — per SKILL.md → Run Ledger → Host portability; the templates otherwise stand.)
+
 ---
 
 ## Summary comment (Step 5b)
@@ -21,12 +23,13 @@ Pick the template matching the run's outcome.
 
 **Phases:** N of N complete
 **Acceptance criteria:** M of M met
-**Total time:** <h:mm:ss>
+**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger — idle-immune; add wall-clock elapsed only as a clearly-labeled "elapsed, incl. pauses" aside, never as the headline)
+**Total cost:** <sum of `subagent_tokens`> tokens across <N> sub-agents
 
 ### Outcomes
 
-- **Phase 1: <title>** — <one-line distillation> (<h:mm:ss>)
-- **Phase 2: <title>** — <one-line distillation> (<h:mm:ss>)
+- **Phase 1: <title>** — <one-line distillation> (<h:mm:ss> active, <tokens>)
+- **Phase 2: <title>** — <one-line distillation> (<h:mm:ss> active, <tokens>)
 - ...
 
 ### Notes
@@ -41,12 +44,13 @@ Pick the template matching the run's outcome.
 
 **Phases:** X of N complete
 **Acceptance criteria:** Y of M met
-**Total time:** <h:mm:ss>
+**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger — idle-immune)
+**Total cost:** <sum of `subagent_tokens`> tokens across <N> sub-agents
 
-### Completed (with durations)
+### Completed (with active time + cost)
 
-- **Phase 1: <title>** — (<h:mm:ss>)
-- **Phase 2: <title>** — (<h:mm:ss>)
+- **Phase 1: <title>** — (<h:mm:ss> active, <tokens>)
+- **Phase 2: <title>** — (<h:mm:ss> active, <tokens>)
 - ...
 
 ### Incomplete

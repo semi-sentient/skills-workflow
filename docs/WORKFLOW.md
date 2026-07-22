@@ -118,7 +118,7 @@ When given a `#N` or URL, `run-plan` first looks for a local file with a matchin
 - An execution summary showing all phases, which agent mode each will use, the work branch it will create (`plan/<slug>`), and whether GH sync is active
 - A `plan/<slug>` work branch created from the repo default (override with `--base <branch>`)
 - Research agents gathering codebase context before implementation begins
-- Sequential phase execution with progress tracking (including per-phase durations) after each phase
+- Sequential phase execution with progress tracking (per-phase active time and per-mode token cost) after each phase
 - An independent review gate after each Code phase — a fresh Review agent audits the staged changes against the phase's acceptance criteria before they're checked off or committed (`--no-review` to skip)
 - A per-phase commit referencing the plan sub-issue for narrow-scope traceability — the message is authored against the `commit` skill by the phase's Code agent, with `/commit` invoked directly as the fallback
 - Plan progress synced to the linked GitHub sub-issue body after each phase (GH-backed runs)

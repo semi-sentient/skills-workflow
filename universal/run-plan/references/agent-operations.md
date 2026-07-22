@@ -18,7 +18,7 @@ Each mode below lists a `subagent_type` — that value is Claude Code's referenc
 
 **When to use:** Before implementation when the plan references unfamiliar code, or mid-execution when a phase needs more context than prior summaries provide.
 
-**Expected output:** Structured findings — file paths, key interfaces/types, existing patterns, potential issues.
+**Expected output:** Findings WRITTEN to a scratch file — `<scratch_dir>/research-<topic>.md` (the orchestrator resolves `<scratch_dir>` and passes the concrete path in the brief) — with file paths, key interfaces/types, existing patterns, current line numbers, gotchas. The agent RETURNS only the file path plus a ≤8-line digest of the headline facts. This keeps the bulky reference material out of the orchestrator's context — phase briefs point later Code agents at the file to read directly.
 
 ### Code
 
@@ -30,7 +30,7 @@ Each mode below lists a `subagent_type` — that value is Claude Code's referenc
 
 **When to use:** For phases that create or modify code and tests. This is the primary workhorse mode.
 
-**Expected output:** Summary of files created/modified, tests written and their pass/fail status, issues encountered and resolutions, context for subsequent phases.
+**Expected output:** A terse structured summary per the Completion Requirement (status, files, tests, build, issues, deviations, incomplete criteria) PLUS the detailed downstream handoff written to `phase-<n>-handoff.md` and returned only as a path + 3-bullet précis. Judgment-relevant info (did it pass? risks? deviations?) is returned; bulky reference detail (interface signatures, line numbers, patterns) goes to the handoff file the next phase reads.
 
 ### Architect
 
@@ -100,6 +100,8 @@ Do not map this mode to a host's fast/small read-only worker tier (and never dow
 
 Plus a **scope-creep flag**: changes in the staged diff outside the Code brief's File Manifest and Scoped Task, or "None".
 
+For an all-MET phase, keep the returned table compact — one line of evidence per criterion (`file:line — why`), not paragraphs. NOT MET / NEEDS-RUNTIME / CONFIRMED / PLAUSIBLE findings always stay inline in full: those are what the orchestrator must act on, and must never be pushed to a file.
+
 ---
 
 ## Review Brief (dedicated composition)
@@ -127,12 +129,13 @@ State which mode the agent is operating in using the role definition from the Ag
 
 ### 2. Codebase Context
 
-Include:
+**Reference, don't re-embed** (the orchestrator's main context-cost lever): cite the plan section, the research file(s), and the prior phase's handoff by PATH for the agent to read itself — do not paste their contents into the brief. Include:
 
-- Architectural decisions from the plan (verbatim or summarized)
-- Relevant findings from prior Research agents
-- Relevant summaries from prior completed phases (only what this phase needs)
+- The plan's architectural-decisions section BY REFERENCE ("read `## Architectural decisions` in the plan file — verbatim; do not rely on paraphrase"), not re-transcribed
+- Prior Research findings BY PATH (`research-<topic>.md`)
+- Prior phases' handoffs BY PATH (`phase-<n>-handoff.md`)
 - The primary workspace and a directive to read its `AGENTS.md` and/or `CLAUDE.md` files for project conventions
+- Inline ONLY the phase-specific deltas/corrections not captured in those files (e.g. line-number drift since the plan was written, a resolved ambiguity)
 
 ### 3. File Manifest
 
@@ -164,7 +167,7 @@ Include this directive for every Code mode agent:
 
 Include this directive for every Code mode agent in a commit-producing run (drop the ticket sentence in local-only mode):
 
-> After the build gate passes, read the installed `commit` skill — the single source of truth for message format — and write a commit message conforming to it for this phase's changes, saved to `.agents/scratch/run-plan/<plan_slug>/phase-<n>-commit-msg.md`. Nothing is staged in your session: treat your phase's full working-tree diff (`git diff` plus any new files you created) as the staged changes that skill refers to. Use `#<plan_sub_issue_number>` as the ticket identifier. Do NOT run `git commit` — the orchestrator owns commits.
+> After the build gate passes, read the installed `commit` skill — the single source of truth for message format — and write a commit message conforming to it for this phase's changes, saved to `<scratch_dir>/phase-<n>-commit-msg.md` (the orchestrator gives you the concrete resolved path). Nothing is staged in your session: treat your phase's full working-tree diff (`git diff` plus any new files you created) as the staged changes that skill refers to. Use `#<plan_sub_issue_number>` as the ticket identifier. Do NOT run `git commit` — the orchestrator owns commits.
 
 ### 8. Completion Requirement
 
@@ -184,16 +187,7 @@ Include this directive for every Code mode agent in a commit-producing run (drop
 >
 > **Incomplete criteria:** list any acceptance criteria not met and why (or "None")
 >
-> **Implementation details for downstream phases:**
-> Document the following for every file created or significantly modified — this is the primary mechanism for transferring context between phases:
->
-> - Key exported interfaces/types with their property signatures
-> - Function signatures for any helpers or utilities created
-> - Component state management approach (what state exists, how it's managed)
-> - Patterns established that later phases should follow or extend (e.g., "styles defined as `const styles: Record<'card' | 'accent' | ...>` — extend this union when adding new styles")
-> - Any forward-compatibility hooks left for later phases (e.g., "`getCardPath(config)` currently returns `ROUTES[config.routeKey].defaultPath` — Phase 6 should replace this with crew path logic")
->
-> If no downstream phases depend on this work, write "None".
+> **Downstream handoff:** WRITE the detailed handoff for later phases to `<scratch_dir>/phase-<n>-handoff.md` (the orchestrator gives you the concrete resolved path) — do NOT inline it in this returned summary. In the file, document for every file created or significantly modified: key exported interfaces/types with signatures; helper/utility signatures; component state approach; patterns later phases should extend; and any forward-compatibility hooks left for later phases (e.g. "`getCardPath(config)` currently returns `ROUTES[config.routeKey].defaultPath` — Phase 6 should replace this with crew path logic"). In THIS summary, give ONLY a 3-bullet précis plus the file path (e.g. "Handoff → phase-2-handoff.md: wrapper prop surface + effect dep arrays; provider `mediaRef` contract; `renderWithVideoState` signature"). The next phase's brief points its agent at the file, so the full detail never enters the orchestrator's context. If no downstream phases depend on this work, write "Downstream handoff: none" and skip the file.
 
 ### 9. Boundary Statement
 
