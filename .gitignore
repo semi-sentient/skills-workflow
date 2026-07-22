@@ -1,0 +1,33 @@
+# Environment variables
+.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Build Artifacts
+node_modules
+build
+coverage
+dist
+*.local
+*.tsbuildinfo
+
+# Temp directories
+archived/
+temp/
+.temp/
+
+# Editor directories and files
+!.vscode/extensions.json
+.DS_Store
+
+# Agent research / planning files
+.agents/plans
+.agents/scratch
+.agents/settings.local.json
+.claude/plans
+.claude/scratch
+.claude/settings.local.json
+
