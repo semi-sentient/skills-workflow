@@ -2,7 +2,9 @@
 
 Several skills in this repo originated from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) and have diverged. This document is a snapshot of those differences so future-us can decide whether to pull in upstream changes or keep our fork.
 
-> **Last compared against** [`mattpocock/skills@651eab0`](https://github.com/mattpocock/skills/commit/651eab033bdf8f7fd535c274f8cbe839075aba5e) **on 2026-04-15.**
+> **Last compared against** [`mattpocock/skills@651eab0`](https://github.com/mattpocock/skills/commit/651eab033bdf8f7fd535c274f8cbe839075aba5e) **on 2026-04-15.** Covers `write-a-prd`, `tdd`, and `grill-me` directly — all three were imported from that commit on this same date, and none has been re-diffed against upstream since. `grill-with-docs` has no separate comparison; it inherits grill-me's via the shared `<what-to-do>` body (see the `grill-me` & `grill-with-docs` section below).
+>
+> Upstream has since renamed `write-a-prd` to `to-spec` — look for it under that name when next comparing.
 
 Refresh this document whenever upstream is re-synced. It is not a changelog — `git log` handles that. If a skill listed below is no longer meaningfully forked (or if new skills are forked in), update the sections accordingly.
 
