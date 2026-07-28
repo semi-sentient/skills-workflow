@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "Non-guessable type-enum hidden in package.json — passes only if the config was actually read, not inferred",
+  "args": "",
+  "timeout_s": 420
+}

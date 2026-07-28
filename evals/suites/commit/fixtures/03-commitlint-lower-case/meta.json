@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "commitlint declares subject-case lower-case — the detected rule must beat the Sentence-case default",
+  "args": "",
+  "timeout_s": 420
+}

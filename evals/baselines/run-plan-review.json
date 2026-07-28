@@ -1,0 +1,144 @@
+{
+  "recorded_at": "2026-07-25T11:55:19Z",
+  "reps": 3,
+  "arms": {
+    "worktree": "worktree (dirty)"
+  },
+  "models": {
+    "worktree": [
+      "claude-haiku-4-5-20251001,claude-opus-5[1m]"
+    ]
+  },
+  "totals": {
+    "worktree": {
+      "passed": 114,
+      "of": 114,
+      "cost_usd": 3.536
+    }
+  },
+  "errors": [],
+  "fixtures": {
+    "run-plan-review/bands-clean": {
+      "returned extractable verdicts": {
+        "worktree": "3/3"
+      },
+      "one verdict per acceptance criterion": {
+        "worktree": "3/3"
+      },
+      "every verdict is a recognised value": {
+        "worktree": "3/3"
+      },
+      "no false NOT_MET on a correct implementation": {
+        "worktree": "3/3"
+      },
+      "named the strongest thing that did not pan out": {
+        "worktree": "3/3"
+      },
+      "obtained the staged diff itself": {
+        "worktree": "3/3"
+      },
+      "modified no file in the repo under review": {
+        "worktree": "3/3"
+      },
+      "ran no tests or builds": {
+        "worktree": "3/3"
+      },
+      "left the working tree unchanged": {
+        "worktree": "3/3"
+      }
+    },
+    "run-plan-review/bands-seeded": {
+      "returned extractable verdicts": {
+        "worktree": "3/3"
+      },
+      "one verdict per acceptance criterion": {
+        "worktree": "3/3"
+      },
+      "every verdict is a recognised value": {
+        "worktree": "3/3"
+      },
+      "every returned verdict mapped to a criterion": {
+        "worktree": "3/3"
+      },
+      "caught every criterion the seeded defect breaks": {
+        "worktree": "3/3"
+      },
+      "did not fail a criterion the defect leaves intact": {
+        "worktree": "3/3"
+      },
+      "obtained the staged diff itself": {
+        "worktree": "3/3"
+      },
+      "modified no file in the repo under review": {
+        "worktree": "3/3"
+      },
+      "ran no tests or builds": {
+        "worktree": "3/3"
+      },
+      "left the working tree unchanged": {
+        "worktree": "3/3"
+      }
+    },
+    "run-plan-review/wiring-clean": {
+      "returned extractable verdicts": {
+        "worktree": "3/3"
+      },
+      "one verdict per acceptance criterion": {
+        "worktree": "3/3"
+      },
+      "every verdict is a recognised value": {
+        "worktree": "3/3"
+      },
+      "no false NOT_MET on a correct implementation": {
+        "worktree": "3/3"
+      },
+      "named the strongest thing that did not pan out": {
+        "worktree": "3/3"
+      },
+      "obtained the staged diff itself": {
+        "worktree": "3/3"
+      },
+      "modified no file in the repo under review": {
+        "worktree": "3/3"
+      },
+      "ran no tests or builds": {
+        "worktree": "3/3"
+      },
+      "left the working tree unchanged": {
+        "worktree": "3/3"
+      }
+    },
+    "run-plan-review/wiring-seeded": {
+      "returned extractable verdicts": {
+        "worktree": "3/3"
+      },
+      "one verdict per acceptance criterion": {
+        "worktree": "3/3"
+      },
+      "every verdict is a recognised value": {
+        "worktree": "3/3"
+      },
+      "every returned verdict mapped to a criterion": {
+        "worktree": "3/3"
+      },
+      "caught every criterion the seeded defect breaks": {
+        "worktree": "3/3"
+      },
+      "did not fail a criterion the defect leaves intact": {
+        "worktree": "3/3"
+      },
+      "obtained the staged diff itself": {
+        "worktree": "3/3"
+      },
+      "modified no file in the repo under review": {
+        "worktree": "3/3"
+      },
+      "ran no tests or builds": {
+        "worktree": "3/3"
+      },
+      "left the working tree unchanged": {
+        "worktree": "3/3"
+      }
+    }
+  }
+}

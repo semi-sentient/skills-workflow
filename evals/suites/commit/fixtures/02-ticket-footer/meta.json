@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "Ticket argument — must become a subject scope and a trailing Ticket: footer after a blank line",
+  "args": "SALES-456",
+  "timeout_s": 420
+}

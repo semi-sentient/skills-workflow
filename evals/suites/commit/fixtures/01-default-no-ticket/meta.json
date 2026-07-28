@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "No commitlint, no ticket — must default to Conventional Commits with a Sentence-case subject",
+  "args": "",
+  "timeout_s": 420
+}

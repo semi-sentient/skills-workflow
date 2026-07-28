@@ -1,0 +1,5 @@
+{
+  "skill": "run-plan",
+  "description": "Strip built and unit-tested but never rendered by the board — the reviewer must catch the missing wiring (recall)",
+  "timeout_s": 900
+}

@@ -1,0 +1,246 @@
+{
+  "recorded_at": "2026-07-25T11:56:54Z",
+  "reps": 1,
+  "arms": {
+    "worktree": "worktree (dirty)"
+  },
+  "models": {
+    "worktree": [
+      "claude-opus-5[1m]"
+    ]
+  },
+  "totals": {
+    "worktree": {
+      "passed": 70,
+      "of": 70,
+      "cost_usd": 1.417
+    }
+  },
+  "errors": [],
+  "fixtures": {
+    "commit/01-default-no-ticket": {
+      "a commit was created": {
+        "worktree": "1/1"
+      },
+      "staged changes were committed": {
+        "worktree": "1/1"
+      },
+      "subject is Conventional Commits": {
+        "worktree": "1/1"
+      },
+      "subject description is Sentence-case": {
+        "worktree": "1/1"
+      },
+      "body has a context paragraph": {
+        "worktree": "1/1"
+      },
+      "body has >=2 bullets": {
+        "worktree": "1/1"
+      },
+      "bullets are not raw file paths": {
+        "worktree": "1/1"
+      },
+      "no ticket scope in subject": {
+        "worktree": "1/1"
+      },
+      "no Ticket: footer": {
+        "worktree": "1/1"
+      },
+      "inspected the staged diff": {
+        "worktree": "1/1"
+      },
+      "looked for repo commit-message rules": {
+        "worktree": "1/1"
+      }
+    },
+    "commit/02-ticket-footer": {
+      "a commit was created": {
+        "worktree": "1/1"
+      },
+      "staged changes were committed": {
+        "worktree": "1/1"
+      },
+      "subject carries the ticket as a scope": {
+        "worktree": "1/1"
+      },
+      "body has a context paragraph": {
+        "worktree": "1/1"
+      },
+      "body has >=2 bullets": {
+        "worktree": "1/1"
+      },
+      "bullets are not raw file paths": {
+        "worktree": "1/1"
+      },
+      "Ticket: footer is the final line": {
+        "worktree": "1/1"
+      },
+      "blank line precedes the Ticket: footer": {
+        "worktree": "1/1"
+      },
+      "ticket appears exactly once as a footer": {
+        "worktree": "1/1"
+      },
+      "inspected the staged diff": {
+        "worktree": "1/1"
+      }
+    },
+    "commit/03-commitlint-lower-case": {
+      "a commit was created": {
+        "worktree": "1/1"
+      },
+      "staged changes were committed": {
+        "worktree": "1/1"
+      },
+      "subject is Conventional Commits": {
+        "worktree": "1/1"
+      },
+      "subject description is lower-case (repo rule, not the default)": {
+        "worktree": "1/1"
+      },
+      "no trailing full stop (subject-full-stop)": {
+        "worktree": "1/1"
+      },
+      "body has a context paragraph": {
+        "worktree": "1/1"
+      },
+      "body has >=2 bullets": {
+        "worktree": "1/1"
+      },
+      "bullets are not raw file paths": {
+        "worktree": "1/1"
+      },
+      "looked for repo commit-message rules": {
+        "worktree": "1/1"
+      },
+      "inspected the staged diff": {
+        "worktree": "1/1"
+      }
+    },
+    "commit/04-commitlint-type-enum": {
+      "a commit was created": {
+        "worktree": "1/1"
+      },
+      "staged changes were committed": {
+        "worktree": "1/1"
+      },
+      "type is within the declared type-enum": {
+        "worktree": "1/1"
+      },
+      "header within header-max-length 60": {
+        "worktree": "1/1"
+      },
+      "scope is present (scope-empty: never)": {
+        "worktree": "1/1"
+      },
+      "subject description is Sentence-case": {
+        "worktree": "1/1"
+      },
+      "looked for repo commit-message rules": {
+        "worktree": "1/1"
+      },
+      "inspected the staged diff": {
+        "worktree": "1/1"
+      }
+    },
+    "commit/05-empty-staged": {
+      "no commit was created": {
+        "worktree": "1/1"
+      },
+      "did not run git commit": {
+        "worktree": "1/1"
+      },
+      "did not stage anything on the user's behalf": {
+        "worktree": "1/1"
+      },
+      "unstaged work left untouched": {
+        "worktree": "1/1"
+      },
+      "inspected the staged diff": {
+        "worktree": "1/1"
+      },
+      "told the user to stage first": {
+        "worktree": "1/1"
+      }
+    },
+    "commit/06-unstaged-excluded": {
+      "a commit was created": {
+        "worktree": "1/1"
+      },
+      "staged changes were committed": {
+        "worktree": "1/1"
+      },
+      "subject is Conventional Commits": {
+        "worktree": "1/1"
+      },
+      "subject description is Sentence-case": {
+        "worktree": "1/1"
+      },
+      "body has a context paragraph": {
+        "worktree": "1/1"
+      },
+      "body has >=2 bullets": {
+        "worktree": "1/1"
+      },
+      "bullets are not raw file paths": {
+        "worktree": "1/1"
+      },
+      "message does not mention unstaged work (refund)": {
+        "worktree": "1/1"
+      },
+      "message does not mention unstaged work (chargeback)": {
+        "worktree": "1/1"
+      },
+      "message does not mention unstaged work (gateway)": {
+        "worktree": "1/1"
+      },
+      "message does not mention unstaged work (payment)": {
+        "worktree": "1/1"
+      },
+      "the unstaged file was not staged or committed": {
+        "worktree": "1/1"
+      },
+      "the unstaged file still exists untracked": {
+        "worktree": "1/1"
+      }
+    },
+    "commit/07-exotic-type-enum": {
+      "a commit was created": {
+        "worktree": "1/1"
+      },
+      "staged changes were committed": {
+        "worktree": "1/1"
+      },
+      "type comes from the project's own type-enum": {
+        "worktree": "1/1"
+      },
+      "did not fall back to a standard Conventional type": {
+        "worktree": "1/1"
+      },
+      "subject description is UPPER-CASE per the repo rule": {
+        "worktree": "1/1"
+      },
+      "no scope (scope-empty: always)": {
+        "worktree": "1/1"
+      },
+      "header within header-max-length 72": {
+        "worktree": "1/1"
+      },
+      "body has a context paragraph": {
+        "worktree": "1/1"
+      },
+      "body has >=2 bullets": {
+        "worktree": "1/1"
+      },
+      "bullets are not raw file paths": {
+        "worktree": "1/1"
+      },
+      "read the package.json that carries the rules": {
+        "worktree": "1/1"
+      },
+      "inspected the staged diff": {
+        "worktree": "1/1"
+      }
+    }
+  }
+}

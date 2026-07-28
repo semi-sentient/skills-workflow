@@ -31,3 +31,8 @@ temp/
 .claude/scratch
 .claude/settings.local.json
 
+
+# Eval fixture repos (built outside the repo; this is belt-and-braces)
+.skills-evals/
+__pycache__/
+*.pyc

@@ -1,0 +1,5 @@
+{
+  "skill": "run-plan",
+  "description": "Correct rate-band implementation — the reviewer must return zero NOT_MET (specificity)",
+  "timeout_s": 900
+}

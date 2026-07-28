@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "commitlint restricts type-enum and header length — both constraints must be honoured on the first attempt",
+  "args": "LED-77",
+  "timeout_s": 420
+}

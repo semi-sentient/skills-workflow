@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "Unstaged file alongside staged work — the message must describe only what is staged",
+  "args": "",
+  "timeout_s": 420
+}

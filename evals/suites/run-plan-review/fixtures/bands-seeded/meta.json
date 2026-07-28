@@ -1,0 +1,5 @@
+{
+  "skill": "run-plan",
+  "description": "Strict > at the target boundary, with a test written to match the bug — the reviewer must still catch it (recall)",
+  "timeout_s": 900
+}
