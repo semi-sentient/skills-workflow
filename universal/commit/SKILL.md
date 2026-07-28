@@ -16,7 +16,7 @@ description: Generate a commit message from staged changes and commit. Accepts a
    3. If step 2 detected a different `subject-case` (e.g. `lower-case`, `start-case`), use that instead.
    4. After the subject line, add a short paragraph explaining the broader context or motivation when it isn't obvious from the subject alone.
    5. Add bullet points describing each meaningful unit of work (components, features, routes, behavioral changes) — not raw file paths.
-   6. **If a ticket was provided**, add a `Ticket:` footer at the end of the message body.
+   6. **If a ticket was provided**, add a `Ticket:` footer as the final line, separated from the body by a blank line (commitlint's `footer-leading-blank` rule warns otherwise).
 
    Example:
 

@@ -18,7 +18,7 @@ Each mode below lists a `subagent_type` — that value is Claude Code's referenc
 
 **When to use:** Before implementation when the plan references unfamiliar code, or mid-execution when a phase needs more context than prior summaries provide.
 
-**Expected output:** Findings WRITTEN to a scratch file — `<scratch_dir>/research-<topic>.md` (the orchestrator resolves `<scratch_dir>` and passes the concrete path in the brief) — with file paths, key interfaces/types, existing patterns, current line numbers, gotchas. The agent RETURNS only the file path plus a ≤8-line digest of the headline facts. This keeps the bulky reference material out of the orchestrator's context — phase briefs point later Code agents at the file to read directly.
+**Expected output:** A complete, structured findings block RETURNED inline — file paths, key interfaces/types, existing patterns, current line numbers, gotchas — topped by a ≤8-line digest of the headline facts. Completeness wins over brevity: include everything later phases will need. Keep it reference-dense (locations, excerpts, facts) rather than pasting whole files. `Explore` has no Write tool, so the ORCHESTRATOR persists the findings block verbatim to `<scratch_dir>/research-<topic>.md` the moment it returns and does not re-read it afterward — phase briefs point later Code agents at the file to read directly, as with every other file handoff. (Accepted cost: research findings transit the orchestrator's context once on return.)
 
 ### Code
 
