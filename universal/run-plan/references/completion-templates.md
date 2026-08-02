@@ -1,8 +1,26 @@
 # Completion Templates
 
-Load this reference only at Step 5, when composing the end-of-run summary comment and PR body. Contains the exact markdown templates.
+Load this reference only at Step 5, when rendering the final completion table and composing the end-of-run summary comment and PR body. Contains the exact markdown templates.
 
 (The active-time / token figures below come from the run ledger. On a host exposing no usage metadata, drop those figures — or label a wall-clock elapsed as approximate — per SKILL.md → Run Ledger → Host portability; the templates otherwise stand.)
+
+---
+
+## Final completion table (Step 5 summary)
+
+The between-phase running table (SKILL.md → Progress Reporting) keeps one row per phase. At completion, switch shape: one row per **sub-agent**, grouped under its phase, with a *subtotal* line per phase — the ledger already holds exactly these rows, so render them; do not aggregate away the data the storage layer correctly keeps. This table is also where **`tool_uses` is reported** (kept out of the between-phase table to protect its width): per-agent `tool_uses` is the closest available proxy for how full each agent's context window got (SKILL.md → Run Ledger), and its spread — say a 257-call Code agent against 18–51-call reviewers — is the run's context-pressure story.
+
+| Phase | Agent | Tokens | Tool uses | Active time |
+| ----- | ----- | -----: | --------: | ----------: |
+| 2 | Code | 353.9K | 202 | 1:12:03 |
+| 2 | Code (retry 1) | 113.2K | 96 | 0:22:41 |
+| 2 | Code (retry 2) | 108.0K | 71 | 0:21:14 |
+| 2 | Review | 124.6K | 44 | 0:16:52 |
+| 2 | Review (re-review 1) | 119.3K | 38 | 0:14:20 |
+| 2 | Review (re-review 2) | 120.2K | 41 | 0:14:02 |
+| 2 | *subtotal* — ✓ (↻ retried) | 939.2K | — | 2:41:12 |
+
+**Agent** is the mode plus a qualifier where one disambiguates (`Code (retry 1)`, `Research: <topic>`, `Debug`). Subtotal lines carry the phase's status flags from the running table; their Active time follows the parallel-group rule (max, with the Σ as a labeled aside). Include `setup`, `pre-PR` (Review), and `followup` groups where they occurred, and end with a **Totals** row summing the subtotal lines. The same rendered table is re-pasted verbatim into the PR body's collapsed "Run cost" section (template below).
 
 ---
 
@@ -23,7 +41,7 @@ Pick the template matching the run's outcome.
 
 **Phases:** N of N complete
 **Acceptance criteria:** M of M met
-**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger — idle-immune; add wall-clock elapsed only as a clearly-labeled "elapsed, incl. pauses" aside, never as the headline)
+**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger, parallel groups counted at their max — idle-immune; add wall-clock elapsed only as a clearly-labeled "elapsed, incl. pauses" aside, never as the headline)
 **Total cost:** <sum of `subagent_tokens`> tokens across <N> sub-agents
 
 ### Outcomes
@@ -44,7 +62,7 @@ Pick the template matching the run's outcome.
 
 **Phases:** X of N complete
 **Acceptance criteria:** Y of M met
-**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger — idle-immune)
+**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger, parallel groups counted at their max — idle-immune)
 **Total cost:** <sum of `subagent_tokens`> tokens across <N> sub-agents
 
 ### Completed (with active time + cost)
@@ -150,6 +168,13 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 
 <!-- include this section ONLY when Step 5c.5 produced surviving findings -->
 - <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE>
+
+<details>
+<summary>Run cost (per sub-agent)</summary>
+
+<!-- paste the final completion table (format above) verbatim from the Step 5 summary — same rows, subtotals, and Totals; it is already rendered from the ledger, so this is a re-paste, not a re-computation. OMIT this whole details block when the host exposed no usage metadata (the table would carry no figures). -->
+
+</details>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 

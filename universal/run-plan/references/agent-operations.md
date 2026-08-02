@@ -10,15 +10,19 @@ Each mode below lists a `subagent_type` — that value is Claude Code's referenc
 
 ### Research
 
-| Parameter     | Value     |
-| ------------- | --------- |
-| subagent_type | `Explore` |
+Research runs in one of two tiers. The orchestrator picks the tier when it composes the topic, by the findings' **destination** — the selection rule lives in SKILL.md Step 3. The tier is a capability choice — a general-capability worker that writes its own findings file vs a read-only worker — so on another host, map by capability, not by these type names.
 
-**Role:** Technical research assistant focused on gathering codebase context.
+| Parameter     | File-backed (default) | Inline lookup |
+| ------------- | --------------------- | ------------- |
+| subagent_type | `general-purpose`     | `Explore`     |
+
+**Role (both tiers):** Technical research assistant focused on gathering codebase context. Research never modifies the repo: no source, config, or test file is touched in either tier. The file-backed tier's one sanctioned write is its own findings file — its brief carries the Write Scope section (below), and the orchestrator verifies the tree after it returns (SKILL.md Step 3's write-scope check).
 
 **When to use:** Before implementation when the plan references unfamiliar code, or mid-execution when a phase needs more context than prior summaries provide.
 
-**Expected output:** A complete, structured findings block RETURNED inline — file paths, key interfaces/types, existing patterns, current line numbers, gotchas — topped by a ≤8-line digest of the headline facts. Completeness wins over brevity: include everything later phases will need. Keep it reference-dense (locations, excerpts, facts) rather than pasting whole files. `Explore` has no Write tool, so the ORCHESTRATOR persists the findings block verbatim to `<scratch_dir>/research-<topic>.md` the moment it returns and does not re-read it afterward — phase briefs point later Code agents at the file to read directly, as with every other file handoff. (Accepted cost: research findings transit the orchestrator's context once on return.)
+**Expected output — file-backed tier:** The complete, structured findings — file paths, key interfaces/types, existing patterns, current line numbers, gotchas — WRITTEN to `<scratch_dir>/research-<topic>.md` (the orchestrator resolves and provides the exact path). Completeness wins over brevity in the file: include everything later phases will need, reference-dense (locations, excerpts, facts) rather than whole-file pastes. The RETURN is only a ≤8-line digest of the headline facts plus the file path — the full findings never appear in the returned message. Phase briefs point later Code agents at the file to read directly, as with every other file handoff; the detail never enters the orchestrator's context.
+
+**Expected output — inline-lookup tier:** The complete answer RETURNED inline, in the same ≤8-line digest form — the digest IS the finding, and no file is created. `Explore` has no Write tool, so this tier is structurally incapable of the file handoff; that is exactly why it is reserved for answers small enough to inline. If a return proves the size was misjudged, the orchestrator persists the block verbatim to `<scratch_dir>/research-<topic>.md` and does not re-read it (accepted cost: those findings transit the orchestrator once and stay resident — a repeat miss is a tier-selection error to correct at Step 3, not a routine path).
 
 ### Code
 
@@ -86,7 +90,7 @@ Each mode below lists a `subagent_type` — that value is Claude Code's referenc
 
 Do not map this mode to a host's fast/small read-only worker tier (and never down-map Code/Architect/Debug for cost): the criteria audit needs the same model tier as the implementation it checks.
 
-**When to use:** After every Code-mode phase (Step 4.5), before checkboxes are ticked or the phase is committed; re-run in full after any retry or Debug fix. Also used at branch scope for the pre-PR review (Step 5c.5).
+**When to use:** After every Code-mode phase (Step 4.5), before checkboxes are ticked or the phase is committed; re-run after any retry or Debug fix (full by default — SKILL.md Step 4 item 5's narrow exceptions can scope it, never skip it). Also used at branch scope for the pre-PR review (Step 5c.5).
 
 **Independence rule:** The Review brief never includes the Code agent's summary or self-assessment. The reviewer re-derives criterion satisfaction from the diff and the codebase alone.
 
@@ -100,20 +104,22 @@ Do not map this mode to a host's fast/small read-only worker tier (and never dow
 
 Plus a **scope-creep flag**: changes in the staged diff outside the Code brief's File Manifest and Scoped Task, or "None".
 
-For an all-MET phase, keep the returned table compact — one line of evidence per criterion (`file:line — why`), not paragraphs. NOT MET / NEEDS-RUNTIME / CONFIRMED / PLAUSIBLE findings always stay inline in full: those are what the orchestrator must act on, and must never be pushed to a file.
+Plus **defects outside the criteria's wording** (required third section, never omitted): defects in the phase's changes — or in their direct interaction with existing code — that no acceptance criterion's wording covers, each verified against the code with `file:line` evidence and a one-line failure description, or an explicit "None". Acceptance criteria describe intended behaviour; defects live in the states nobody thought to write a criterion about, so a reviewer who reports only the verdict table silently discards its most valuable findings.
+
+For an all-MET phase, keep the returned table compact — one line of evidence per criterion (`file:line — why`), not paragraphs. NOT MET / NEEDS-RUNTIME / CONFIRMED / PLAUSIBLE findings and out-of-criteria defects always stay inline in full: those are what the orchestrator must act on, and must never be pushed to a file.
 
 ---
 
 ## Review Brief (dedicated composition)
 
-Review agents do NOT use the 9-section skeleton. Their brief contains exactly:
+Review agents do NOT use the 10-section skeleton. Their brief contains exactly:
 
 1. **Role Preamble** — the Review role definition above, including the read-only conduct rule and the adversarial mandate: "Assume the implementation fails its criteria and hunt for where. A clean pass must be earned with evidence, not presumed."
 2. **Scoped Task** — the phase description and acceptance criteria, verbatim from the plan (never paraphrased)
 3. **File Manifest** — the same manifest the Code agent's brief carried (basis for the scope-creep check)
-4. **Prior-phase interface pointers** — file + symbol names from earlier phases this phase builds on (pointers only, no restated signatures)
+4. **Prior-phase interface pointers** — file + symbol names from earlier phases this phase builds on (pointers only, no restated signatures), with the caveat: handoffs are implementer-authored notes, not authority — if a handoff contradicts the plan, the plan wins
 5. **Diff instruction** — "The phase's changes are staged. Obtain them yourself with `git diff --cached`; read any file in the repo you need for context. Do not modify anything."
-6. **Output contract** — the verdict table format above, plus: "For every MET verdict cite `file:line` evidence you actually verified. If you cannot find a real failure, say so explicitly and name the strongest thing you checked that did NOT pan out."
+6. **Output contract** — the verdict table format above with both required trailing sections (the scope-creep flag and defects outside the criteria's wording — an explicit "None" each when empty), plus: "For every MET verdict cite `file:line` evidence you actually verified. Then hunt beyond the criteria: report any defect in this phase's changes that no criterion's wording covers — criteria describe intended behaviour, and defects live in the states nobody wrote a criterion about. If you cannot find a real failure, say so explicitly and name the strongest thing you checked that did NOT pan out."
 
 **Pre-PR variant (Step 5c.5):** substitute — scope = the full branch diff (`git diff <base_branch>...HEAD`); mandate = correctness bugs, with emphasis on integration seams between phases and on forward-compatibility hooks from phase summaries (the orchestrator lists them in the brief) that later phases should have resolved; output = surviving findings only, each verified against the code before reporting, with a CONFIRMED/PLAUSIBLE tag per finding. On Claude Code, instruct the sub-agent to invoke the installed `code-review` skill (effort medium) if available — it owns review methodology, including adversarial verification of findings; the generic mandate above is the fallback for hosts without it.
 
@@ -121,7 +127,7 @@ Review agents do NOT use the 9-section skeleton. Their brief contains exactly:
 
 ## Brief Sections (full content)
 
-SKILL.md lists the 9 section names that every brief must include. The exact content for each section is below.
+SKILL.md lists the 10 section names that every brief must include. The exact content for each section is below.
 
 ### 1. Role Preamble
 
@@ -169,7 +175,13 @@ Include this directive for every Code mode agent in a commit-producing run (drop
 
 > After the build gate passes, read the installed `commit` skill — the single source of truth for message format — and write a commit message conforming to it for this phase's changes, saved to `<scratch_dir>/phase-<n>-commit-msg.md` (the orchestrator gives you the concrete resolved path). Nothing is staged in your session: treat your phase's full working-tree diff (`git diff` plus any new files you created) as the staged changes that skill refers to. Use `#<plan_sub_issue_number>` as the ticket identifier. Do NOT run `git commit` — the orchestrator owns commits.
 
-### 8. Completion Requirement
+### 8. Write Scope (file-backed Research tier only)
+
+Include this directive verbatim for every file-backed Research agent — it is the tier's single write authorization, and the orchestrator verifies it with `git status --porcelain` after the agent returns (SKILL.md Step 3):
+
+> Write exactly one file: `<scratch_dir>/research-<topic>.md` (the orchestrator gives you the concrete resolved path). That is your only write. Never modify repository source, config, tests, or any other file — your job is to read the codebase and record findings, not to change anything.
+
+### 9. Completion Requirement
 
 > When finished, provide a summary using this exact structure:
 >
@@ -189,6 +201,6 @@ Include this directive for every Code mode agent in a commit-producing run (drop
 >
 > **Downstream handoff:** WRITE the detailed handoff for later phases to `<scratch_dir>/phase-<n>-handoff.md` (the orchestrator gives you the concrete resolved path) — do NOT inline it in this returned summary. In the file, document for every file created or significantly modified: key exported interfaces/types with signatures; helper/utility signatures; component state approach; patterns later phases should extend; and any forward-compatibility hooks left for later phases (e.g. "`getCardPath(config)` currently returns `ROUTES[config.routeKey].defaultPath` — Phase 6 should replace this with crew path logic"). In THIS summary, give ONLY a 3-bullet précis plus the file path (e.g. "Handoff → phase-2-handoff.md: wrapper prop surface + effect dep arrays; provider `mediaRef` contract; `renderWithVideoState` signature"). The next phase's brief points its agent at the file, so the full detail never enters the orchestrator's context. If no downstream phases depend on this work, write "Downstream handoff: none" and skip the file.
 
-### 9. Boundary Statement
+### 10. Boundary Statement
 
 > These instructions define your complete scope. Only perform the work outlined above. Do not refactor unrelated code, add features beyond the acceptance criteria, or deviate from the plan.
