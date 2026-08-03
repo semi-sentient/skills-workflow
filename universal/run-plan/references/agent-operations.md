@@ -16,11 +16,11 @@ Research runs in one of two tiers. The orchestrator picks the tier when it compo
 | ------------- | --------------------- | ------------- |
 | subagent_type | `general-purpose`     | `Explore`     |
 
-**Role (both tiers):** Technical research assistant focused on gathering codebase context. Research never modifies the repo: no source, config, or test file is touched in either tier. The file-backed tier's one sanctioned write is its own findings file — its brief carries the Write Scope section (below), and the orchestrator verifies the tree after it returns (SKILL.md Step 3's write-scope check).
+**Role (both tiers):** Technical research assistant focused on gathering codebase context. Research never modifies the repo: no source, config, or test file is touched in either tier. The file-backed tier's one sanctioned write is its own findings file — its brief carries the Write Scope & Search Breadth section (below), and the orchestrator verifies the tree after it returns (SKILL.md Step 3's write-scope check).
 
 **When to use:** Before implementation when the plan references unfamiliar code, or mid-execution when a phase needs more context than prior summaries provide.
 
-**Expected output — file-backed tier:** The complete, structured findings — file paths, key interfaces/types, existing patterns, current line numbers, gotchas — WRITTEN to `<scratch_dir>/research-<topic>.md` (the orchestrator resolves and provides the exact path). Completeness wins over brevity in the file: include everything later phases will need, reference-dense (locations, excerpts, facts) rather than whole-file pastes. The RETURN is only a ≤8-line digest of the headline facts plus the file path — the full findings never appear in the returned message. Phase briefs point later Code agents at the file to read directly, as with every other file handoff; the detail never enters the orchestrator's context.
+**Expected output — file-backed tier:** The complete, structured findings — file paths, key interfaces/types, existing patterns, current line numbers, gotchas — WRITTEN to `<scratch_dir>/research-<topic>.md` (the orchestrator resolves and provides the exact path). Completeness wins over brevity in the file: include everything later phases will need, reference-dense (locations, excerpts, facts) rather than whole-file pastes. The RETURN is only a ≤8-line digest plus the file path — the full findings never appear in the returned message. The digest LEADS with any latent defect or interaction hazard the research uncovered (the facts that would change how a phase is implemented or ordered); structural summary takes whatever lines remain. A digest that names the architecture but drops a discovered hazard has buried its lede. Phase briefs point later Code agents at the file to read directly, as with every other file handoff; the detail never enters the orchestrator's context.
 
 **Expected output — inline-lookup tier:** The complete answer RETURNED inline, in the same ≤8-line digest form — the digest IS the finding, and no file is created. `Explore` has no Write tool, so this tier is structurally incapable of the file handoff; that is exactly why it is reserved for answers small enough to inline. If a return proves the size was misjudged, the orchestrator persists the block verbatim to `<scratch_dir>/research-<topic>.md` and does not re-read it (accepted cost: those findings transit the orchestrator once and stay resident — a repeat miss is a tier-selection error to correct at Step 3, not a routine path).
 
@@ -175,11 +175,13 @@ Include this directive for every Code mode agent in a commit-producing run (drop
 
 > After the build gate passes, read the installed `commit` skill — the single source of truth for message format — and write a commit message conforming to it for this phase's changes, saved to `<scratch_dir>/phase-<n>-commit-msg.md` (the orchestrator gives you the concrete resolved path). Nothing is staged in your session: treat your phase's full working-tree diff (`git diff` plus any new files you created) as the staged changes that skill refers to. Use `#<plan_sub_issue_number>` as the ticket identifier. Do NOT run `git commit` — the orchestrator owns commits.
 
-### 8. Write Scope (file-backed Research tier only)
+### 8. Write Scope & Search Breadth (file-backed Research tier only)
 
-Include this directive verbatim for every file-backed Research agent — it is the tier's single write authorization, and the orchestrator verifies it with `git status --porcelain` after the agent returns (SKILL.md Step 3):
+Include this directive verbatim for every file-backed Research agent — it carries the tier's single write authorization (verified by the orchestrator with `git status --porcelain` after the agent returns; SKILL.md Step 3) and its search-breadth contract:
 
 > Write exactly one file: `<scratch_dir>/research-<topic>.md` (the orchestrator gives you the concrete resolved path). That is your only write. Never modify repository source, config, tests, or any other file — your job is to read the codebase and record findings, not to change anything.
+>
+> **Search breadth: very thorough** — search exhaustively across multiple locations and naming conventions; do not stop at the first set of plausible matches.
 
 ### 9. Completion Requirement
 

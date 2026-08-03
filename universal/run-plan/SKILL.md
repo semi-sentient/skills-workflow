@@ -199,7 +199,7 @@ Before implementation begins, spawn Research agents to gather codebase context. 
 
 **Pick each topic's tier by its findings' destination** (the two tiers are defined under the Research mode in agent-operations.md), decided when the topic is composed — never by guessing output size:
 
-- **File-backed (`general-purpose`) — the default.** Any phase brief will point at this topic's `research-<topic>.md`, or the topic serves more than one phase. Resolve the concrete file path now (suffix it if the name is already taken), pass it in the brief along with the Write Scope section, and the agent writes the file itself, returning only a ≤8-line digest plus the path. The full findings never enter your context.
+- **File-backed (`general-purpose`) — the default.** Any phase brief will point at this topic's `research-<topic>.md`, or the topic serves more than one phase. Resolve the concrete file path now (suffix it if the name is already taken), pass it in the brief along with the Write Scope & Search Breadth section, and the agent writes the file itself, returning only a ≤8-line digest plus the path. The full findings never enter your context.
 - **Inline lookup (`Explore`) — the exception.** The complete answer is expected to fit the ≤8-line digest and exactly one consumer needs it: inline the returned digest into that single brief as a phase-specific delta (or into your own next decision) — no file is created. If the return shows the size was misjudged, persist it verbatim to `<scratch_dir>/research-<topic>.md` and do not re-read it; a repeat miss means the topic was a survey, not a lookup — file-backed next time.
 
 **Spawn research agents in parallel** when topics are independent. For example, if Phase 1 touches the routing layer and Phase 3 touches the API client, spawn two Research agents simultaneously — one for each area. Research never modifies the repo in either tier, so parallel execution is safe and reduces wall-clock time.
@@ -358,13 +358,13 @@ Every agent brief MUST include these 10 sections, in order:
 5. **TDD Directive** (Code mode only) — red-green-refactor workflow reminder
 6. **Build Verification Gate** (Code mode only) — run the build before reporting complete
 7. **Commit Message Directive** (Code mode only; omit under `--no-commits`) — author this phase's commit message to the scratch message file; never commit
-8. **Write Scope** (file-backed Research tier only) — write exactly one file, the resolved `research-<topic>.md` path; never touch repo source
+8. **Write Scope & Search Breadth** (file-backed Research tier only) — write exactly one file, the resolved `research-<topic>.md` path, never touch repo source; search very thoroughly
 9. **Completion Requirement** — the structured STATUS / Files changed / Tests / Build / Issues / Incomplete / Implementation details template
 10. **Boundary Statement** — "only do what's in scope"
 
 For the exact text of each section (prose, directives, completion template), see [references/agent-operations.md](references/agent-operations.md). This skeleton is the forcing function — the reference file is the full content.
 
-**Before spawning any agent, verify the brief contains all 10 sections** (or all that apply to the mode — File Manifest, TDD Directive, Build Verification Gate, and Commit Message Directive are Code-mode-only; Write Scope applies only to file-backed Research). **Exception:** Review agents use the dedicated Review Brief composition in agent-operations.md, not this skeleton.
+**Before spawning any agent, verify the brief contains all 10 sections** (or all that apply to the mode — File Manifest, TDD Directive, Build Verification Gate, and Commit Message Directive are Code-mode-only; Write Scope & Search Breadth applies only to file-backed Research). **Exception:** Review agents use the dedicated Review Brief composition in agent-operations.md, not this skeleton.
 
 **Keep briefs thin — reference, don't re-embed.** A brief must not re-transcribe content the agent will read for itself. Cite the plan section by name, the research file(s) by path (`research-<topic>.md`), and the prior phase's `phase-<n>-handoff.md` by path — do not paste their contents. Inline only what is specific to THIS phase: the pointers, the phase's acceptance criteria (verbatim — they are short), and the phase-specific deltas/gotchas/corrections (e.g. line-number drift, a resolved plan ambiguity). Re-embedding is the orchestrator's biggest self-inflicted context cost: the brief is YOUR output, re-sent as input on every later turn, and it duplicates the plan the agent already reads.
 

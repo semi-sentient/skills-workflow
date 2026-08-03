@@ -12,4 +12,4 @@
 
 - File-backed research emits `<usage>`, so research rows in the run ledger carry real token/duration figures instead of `n/a`.
 - Research token spend rises (`general-purpose` vs `Explore`) — the intended trade: transient subagent cost for permanent orchestrator occupancy.
-- Watch item: whether `general-purpose` research is less exhaustive at locating code than the purpose-built `Explore`. If so, the graduated split matters more, not less.
+- Watch item — **resolved 2026-08-02**: a blinded three-topic, two-judge experiment in a consumer repo found no `Explore` search-quality advantage to preserve. An earlier single-probe gap favoring `Explore` was explained by its breadth directive, not the agent type: `general-purpose` with an explicit "search breadth: very thorough" directive beat `Explore` in 3 of 3 topics on independently verified unique facts (+~5% research tokens). That directive is now part of the file-backed brief's Write Scope & Search Breadth section. The same experiment showed digests reliably dropped discovered hazards (1/6 decisive facts reached the digest), so the digest contract now requires hazards to lead.
