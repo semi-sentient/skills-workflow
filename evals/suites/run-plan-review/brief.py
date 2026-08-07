@@ -57,10 +57,25 @@ def _ablating() -> bool:
 
 
 def _quoted(text: str, must_contain: str, label: str) -> str:
-    """The double-quoted span containing a landmark phrase."""
-    for m in re.finditer(r"[\"“]([^\"”]{20,})[\"”]", text):
-        if must_contain.lower() in m.group(1).lower():
-            return m.group(1).strip()
+    """The double-quoted span containing a landmark phrase.
+
+    Expands outward from the landmark to the nearest quote character on each
+    side rather than pairing quotes left-to-right — a short quoted token
+    earlier in the section (e.g. an explicit "None") would otherwise consume
+    the target span's opening quote.
+    """
+    quotes = "\"“”"
+    lower = text.lower()
+    needle = must_contain.lower()
+    start = 0
+    while (i := lower.find(needle, start)) != -1:
+        open_i = max(text.rfind(q, 0, i) for q in quotes)
+        closes = [c for q in quotes if (c := text.find(q, i + len(needle))) != -1]
+        if open_i != -1 and closes:
+            span = text[open_i + 1 : min(closes)].strip()
+            if len(span) >= 20:
+                return span
+        start = i + len(needle)
     if _ablating():
         return ""
     raise RuntimeError(f"could not extract {label} (no quoted span containing {must_contain!r})")
