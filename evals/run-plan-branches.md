@@ -37,7 +37,10 @@ plus the declared-path validation in a production repo.
 | Step 1b.1 — no parent epic, `<gh_issue_number>` unset | burn-in full run | exercised |
 | Step 1c — local ahead of GH, pre-confirmation push | — | **cold** |
 | Step 1e.2 — interrupted-phase detection | — | **cold** |
-| Step 4.5 — scoped re-review exception | — | **cold** |
+| Step 1e.2 — untracked plan file, detection skipped | — | **cold** (branch added 2026-08-07) |
+| Step 4.5 — scoped re-review exception | production run (sitevue.server PR #249) | exercised ×3 on 2026-08-07 — found the delta-transmission defect this repo then fixed |
+| Step 4.5 — baseline extraction + scoped diff brief | git-level repro only | **cold** live — mechanics verified deterministically 2026-08-07; awaiting a production run |
+| Step 4.7 — fast-path fence strip | — | **cold** (guard added 2026-08-07; the unguarded failure it prevents occurred in production) |
 | Step 4.7 — pre-commit hook failure → Debug | — | **cold** |
 | Step 5d — declared: poll + `gh pr edit` | production run | exercised |
 | Step 5d — declared: poll timeout, report-and-wait | — | **cold** |
