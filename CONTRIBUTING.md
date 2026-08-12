@@ -67,7 +67,7 @@ Two rules of thumb worth internalising. An **all-green comparison is not a win**
 ./scripts/burn-in.sh verify <fixture-name>  # checks the outcomes after you run it
 ```
 
-The fixture is single-use (a complete run deletes its own plan file) and a full run spends real sub-agent tokens, so regenerate rather than reset. `BURN-IN.md` inside the fixture holds the observation checklist; the durable coverage record is [`evals/run-plan-branches.md`](evals/run-plan-branches.md) — update it after any run that reaches a new branch.
+The fixture is single-use (a complete run leaves checked criteria, a pushed branch and an open PR, so a re-run resolves as a resume) and a full run spends real sub-agent tokens, so regenerate rather than reset. `BURN-IN.md` inside the fixture holds the observation checklist; the durable coverage record is [`evals/run-plan-branches.md`](evals/run-plan-branches.md) — update it after any run that reaches a new branch.
 
 ## Guidelines
 

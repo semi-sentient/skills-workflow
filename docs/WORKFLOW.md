@@ -115,6 +115,7 @@ When given a `#N` or URL, `run-plan` first looks for a local file with a matchin
 
 **What to expect:**
 
+- If the working tree is dirty, a numbered prompt asking which uncommitted paths are this work's input — a dirty tree does not block the run. This fires routinely on this walkthrough: step 1's `grill-with-docs` writes `CONTEXT.md` and ADRs without committing them, and they reach `run-plan` as its input. Reply with their numbers and they land as their own commit ahead of Phase 1 rather than folded into it; anything you don't name (a steering doc you're testing, say) stays untouched all run; reply `stop` to end the run and handle a path yourself. No file ever leaves the working tree to resolve a dirty tree — nothing is reverted, deleted, or stashed
 - An execution summary showing all phases, which agent mode each will use, the work branch it will create (`plan/<slug>`), and whether GH sync is active
 - A `plan/<slug>` work branch created from the repo default (override with `--base <branch>`)
 - Research agents gathering codebase context before implementation begins
@@ -131,7 +132,7 @@ When given a `#N` or URL, `run-plan` first looks for a local file with a matchin
 - Re-run on the same argument to resume. `run-plan` reads the checked acceptance criteria from the plan (or the synced GitHub body) and skips phases that already appear complete. If the `plan/<slug>` branch exists with unpushed commits, it's reused — not recreated.
 - Cross-machine resume works for GitHub-backed plans. Because per-phase sync keeps the sub-issue body in lockstep with the local file, you can start a run on one machine, stop, and pick up on another by passing the same `#N` to `/run-plan` — the skill fetches the latest body and resumes.
 - The orchestrator stays lean (it doesn't read source code or run tests itself), so your context window is reserved for coordination, not implementation details.
-- To tailor the git/GH ceremony — skip the PR, keep changes unstaged, commit directly to the current branch, etc. — see [Flag Recipes](#flag-recipes).
+- To tailor the git/GH ceremony — skip the PR, commit directly to the current branch, etc. — see [Flag Recipes](#flag-recipes).
 
 ## Why two conversations?
 
@@ -165,7 +166,6 @@ The default flow assumes GitHub is configured and produces per-phase commits on 
 | `/prd-to-plan` | `--no-github`     | Skip the sub-issue prompt — keep the plan as a local file only                       |
 | `/run-plan`    | `--no-github`     | Force local-only mode (no progress sync, no PR) even when GH metadata is present     |
 | `/run-plan`    | `--no-branch`     | Skip creating a work branch; use the current branch for all commits                  |
-| `/run-plan`    | `--no-commits`    | Skip per-phase commits; let changes accumulate in the working tree for manual review |
 | `/run-plan`    | `--no-pr`         | Skip opening the PR at end of run                                                    |
 | `/run-plan`    | `--allow-main`    | Permit committing to the default branch when `--no-branch` is set                    |
 | `/run-plan`    | `--base <branch>` | Override the base branch for the work branch and PR (defaults to repo default)       |
@@ -206,14 +206,6 @@ PRD and plan stay as local files. `/run-plan` detects local mode automatically f
 ```
 
 `--no-branch` keeps the current branch; `--allow-main` overrides the built-in refusal to commit to the default branch without explicit opt-in. Per-phase commits land directly on main. The push and PR steps are skipped automatically.
-
-**Manual staging and committing — execute without per-phase commits:**
-
-```
-/run-plan .agents/plans/<slug>-plan.md --no-commits
-```
-
-All phase changes accumulate as unstaged modifications in the working tree; you review and commit yourself at the end. The push and PR steps are skipped automatically since there's nothing to push. **Caveat:** resumability is lost — the plan's checkboxes get marked complete even though no commit boundaries exist, so an interrupted run is messy to recover from. Best for short plans you intend to complete in one sitting.
 
 **Resume an interrupted run:**
 

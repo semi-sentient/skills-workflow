@@ -121,7 +121,7 @@ Review agents do NOT use the 10-section skeleton. Their brief contains exactly:
 5. **Diff instruction** — "The phase's changes are staged. Obtain them yourself with `git diff --cached`; read any file in the repo you need for context. Do not modify anything." (For a scoped re-review, substitute the Scoped Diff instruction from the Scoped Re-review Exceptions section below — `git diff --cached` cannot isolate a post-verdict delta.)
 6. **Output contract** — the verdict table format above with both required trailing sections (the scope-creep flag and defects outside the criteria's wording — an explicit "None" each when empty), plus: "For every MET verdict cite `file:line` evidence you actually verified. Then hunt beyond the criteria: report any defect in this phase's changes that no criterion's wording covers — criteria describe intended behaviour, and defects live in the states nobody wrote a criterion about — and over-documentation counts: a comment that restates the code or memorializes a superseded attempt is as much a defect as a missing one. If you cannot find a real failure, say so explicitly and name the strongest thing you checked that did NOT pan out."
 
-**Pre-PR variant (Step 5c.5):** substitute — scope = the full branch diff (`git diff <base_branch>...HEAD`); mandate = correctness bugs, with emphasis on integration seams between phases and on forward-compatibility hooks from phase summaries (the orchestrator lists them in the brief) that later phases should have resolved; output = surviving findings only, each verified against the code before reporting, with a CONFIRMED/PLAUSIBLE tag per finding. On Claude Code, instruct the sub-agent to invoke the installed `code-review` skill (effort medium) if available — it owns review methodology, including adversarial verification of findings; the generic mandate above is the fallback for hosts without it.
+**Pre-PR variant (Step 5c.5):** substitute — scope = the branch diff, `git diff <base_branch>...HEAD`, **or `git diff <inputs_commit_sha>...HEAD` when SKILL.md Step 1e.4's declared-inputs commit is the first commit on the branch** (that commit is the user's own prose, unactionable by this gate; a mid-branch inputs commit keeps the `<base_branch>` ref and is named in the brief as out of scope instead — SKILL.md Step 5c.5 states which ref to use); mandate = correctness bugs, with emphasis on integration seams between phases and on forward-compatibility hooks from phase summaries (the orchestrator lists them in the brief) that later phases should have resolved; output = surviving findings only, each verified against the code before reporting, with a CONFIRMED/PLAUSIBLE tag per finding. On Claude Code, instruct the sub-agent to invoke the installed `code-review` skill (effort medium) if available — it owns review methodology, including adversarial verification of findings; the generic mandate above is the fallback for hosts without it.
 
 ---
 
@@ -192,7 +192,7 @@ Include this directive for every Code mode agent:
 
 > After all implementation and tests are complete, run the project's build validation command (consult AGENTS.md/CLAUDE.md for the exact command). ALL checks must pass. If the build fails, fix the issues before reporting completion. Include the build result (pass/fail) in your summary.
 
-### 7. Commit Message Directive (Code mode only; omit under `--no-commits`)
+### 7. Commit Message Directive (Code mode only)
 
 Include this directive for every Code mode agent in a commit-producing run (drop the ticket sentence in local-only mode):
 

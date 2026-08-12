@@ -104,7 +104,7 @@ Do NOT include phases or steps for:
 - **PR submission** — `run-plan` opens the PR at end of run, linking the plan sub-issue and parent PRD
 - **Merge / deployment ceremony** — these belong to the team's release process, not the plan
 
-Plans describe the **work** (what to build, how to verify it). The **git/GH ceremony** (branch, commits, PR) is handled uniformly by `run-plan`. Users may opt out of individual pieces via `--no-branch`, `--no-commits`, or `--no-pr`; plans don't need to adapt to those overrides — they describe the work either way. If the PRD calls for post-merge verification or production observation, capture that as a phase describing _what to observe and decide_, not as commit/PR steps.
+Plans describe the **work** (what to build, how to verify it). The **git/GH ceremony** (branch, commits, PR) is handled uniformly by `run-plan`. Users may opt out of individual pieces via `--no-branch` or `--no-pr`; plans don't need to adapt to those overrides — they describe the work either way. If the PRD calls for post-merge verification or production observation, capture that as a phase describing _what to observe and decide_, not as commit/PR steps.
 
 #### Cross-phase evolution
 

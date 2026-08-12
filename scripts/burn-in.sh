@@ -5,7 +5,7 @@
 # are never reached by a normal run. This script builds a disposable GitHub repo
 # rigged so that one invocation walks the cold paths: standalone `gh-issue:` plan
 # resolution, the silent-repo `gh pr create` submission, the no-parent `Refs`
-# omission, and Step 5e cleanup.
+# omission, and Step 5e's tracked-file guard.
 #
 # It sets up and verifies. It never invokes run-plan — you drive that yourself
 # and watch the reasoning, which is the point of a burn-in.
@@ -18,8 +18,8 @@
 #   ./scripts/burn-in.sh setup <name> [--yes]   Build the fixture and print the invocation
 #   ./scripts/burn-in.sh snapshot <name>        Record pre-run state for later comparison
 #   ./scripts/burn-in.sh verify <name>          Check post-run outcomes (structural, not phrasing)
-#   ./scripts/burn-in.sh probe <guard|stalefooter|tie> <name>
-#                                               Stage an abort-early scenario
+#   ./scripts/burn-in.sh probe <guard|stalefooter|tie|dirty> <name>
+#                                               Stage a cold-path scenario
 #   ./scripts/burn-in.sh restore <name>         Undo a probe, return to a clean tree
 #   ./scripts/burn-in.sh teardown <name>        Print the cleanup commands (never runs them)
 #
@@ -28,9 +28,9 @@
 #   # ... run /run-plan #N --base main inside the fixture ...
 #   ./scripts/burn-in.sh verify run-plan-burnin-2026-07
 #
-# The fixture is SINGLE-USE: a successful complete run deletes the plan file
-# (Step 5e), so a second run takes an entirely different resolution path.
-# Regenerate with a fresh name rather than resetting.
+# The fixture is SINGLE-USE: a completed run leaves the plan's criteria checked,
+# the work branch pushed and a PR open, so a second run resolves as a resume
+# rather than a fresh plan. Regenerate with a fresh name rather than resetting.
 
 set -euo pipefail
 
@@ -62,7 +62,7 @@ fixture_path() {
 
 meta_path() {
   # Metadata lives OUTSIDE the fixture repo so reading or writing it can never
-  # dirty the working tree — run-plan refuses to start on a dirty tree.
+  # dirty the working tree — dirt makes run-plan stop for a per-path triage.
   echo "$BURN_IN_DIR/$1.meta"
 }
 
@@ -253,6 +253,9 @@ Next steps:
        $0 probe stalefooter $name
        $0 probe tie $name
        $0 restore $name
+     Or stage the dirty-tree probe and run the full burn-in through it
+     (it exercises the Step 1e.2a triage instead of aborting):
+       $0 probe dirty $name
   3. $0 snapshot $name
   4. Run the burn-in from inside the fixture:
        /run-plan #$issue_num --base main
@@ -281,10 +284,10 @@ link_skills_into_fixture() {
     linked+=("$skill")
   done
 
-  # Keep these out of the index: run-plan aborts on a dirty tree, so untracked
-  # symlinks would trip that check on every invocation. BURN-IN.md is ignored
+  # Keep these out of the index: dirt makes run-plan stop for a per-path triage,
+  # so untracked symlinks would prompt on every invocation. BURN-IN.md is ignored
   # rather than committed because you edit its branch register after each run —
-  # tracked, every edit would re-dirty the tree and block the next one.
+  # tracked, every edit would re-dirty the tree and prompt again.
   printf '.claude/\nBURN-IN.md\n' > .gitignore
 
   echo "  skills symlinked from $REPO_ROOT/universal: ${linked[*]}"
@@ -311,8 +314,9 @@ the point. Do not edit skill files while a run is in flight.
       body — proves the \`gh-issue:\` grep matched the local file
 - [ ] No complaint about a missing parent — Step 1b.1 finds none and leaves
       \`<gh_issue_number>\` unset, which is expected, not an error
-- [ ] Research agents spawn, and their ledger row reads \`n/a\` (the read-only
-      \`Explore\` type reports no usage block)
+- [ ] Research agents spawn file-backed (\`general-purpose\`), write their own
+      \`research-*.md\`, and their ledger rows carry real token/duration figures
+      (only an inline-lookup \`Explore\` row reads \`n/a\`)
 - [ ] The ledger exists before the first research agent returns
 - [ ] Each phase is reviewed by a fresh Review agent before its commit
 - [ ] The final summary states the outcome (\`complete\`) explicitly
@@ -324,7 +328,7 @@ the point. Do not edit skill files while a run is in flight.
 ./scripts/burn-in.sh verify $name
 \`\`\`
 
-Checks structural outcomes only — PR authorship, body contents, file deletion,
+Checks structural outcomes only — PR authorship, body contents, plan-file retention,
 pushed branch. Deliberately does not assert on wording, which changes for
 reasons that have nothing to do with correctness.
 
@@ -344,7 +348,7 @@ EOF
 
 cmd_probe() {
   local kind="${1:-}" name="${2:-}"
-  [[ -n "$kind" && -n "$name" ]] || die "Usage: $0 probe <guard|stalefooter|tie> <name>"
+  [[ -n "$kind" && -n "$name" ]] || die "Usage: $0 probe <guard|stalefooter|tie|dirty> <name>"
   load_meta "$name"
   cd "$FIXTURE_DIR"
 
@@ -412,6 +416,60 @@ Probe staged: stale footer on a non-plan.
 
 EOF
       ;;
+    dirty)
+      # The chain grill-with-docs -> write-a-prd -> prd-to-plan leaves domain docs,
+      # ADRs and the plan file uncommitted; run-plan must triage them rather than
+      # abort. Includes a path with a space, which porcelain C-quotes — an
+      # unquoted ':(exclude)' pathspec on it exits 0 and stages the file anyway.
+      mkdir -p docs/adr
+      cat > docs/CONTEXT.md <<'EOF'
+# Domain language
+
+- **Widget**: the unit this pipeline formats. Carries a name and a quantity.
+- **Malformed widget**: a widget whose name is absent or not a string.
+EOF
+      cat > docs/adr/0001-widget-validation-belongs-in-format.md <<'EOF'
+# Widget validation belongs in formatWidget
+
+Validation lives in `formatWidget` rather than a separate validator, so callers
+cannot format an unvalidated widget.
+
+## Consequences
+
+- `formatWidget` throws `TypeError` on a malformed widget.
+EOF
+      cat > "docs/design draft.md" <<'EOF'
+Scratch notes. Deliberately contains a space in the filename.
+EOF
+      printf '\n# Local experiment — not for commit.\n' >> AGENTS.md
+      cat <<EOF
+
+Probe staged: dirty working tree (the grill-with-docs -> run-plan shape).
+
+  Uncommitted now:
+$(git -c core.quotePath=false status --porcelain -uall | sed 's/^/    /')
+
+  Run:    /run-plan #$ISSUE_NUM --base main
+  Expect: it does NOT abort. It lists all four paths numbered and asks which are
+          this work's input. Answer with the CONTEXT/ADR numbers only, leaving
+          'docs/design draft.md' and AGENTS.md unnamed.
+  Then verify, in order:
+    1. those two land in ONE commit of their own, after the branch is created and
+       BEFORE Phase 1 — 'git log --stat main..$BRANCH' shows it as the OLDEST
+       commit (bottom of the list; git log prints newest first)
+    2. no phase commit contains AGENTS.md or 'docs/design draft.md'
+       ('git log -p main..$BRANCH -- AGENTS.md "docs/design draft.md"'
+       must show ONLY nothing — the space-quoting bug shows up here)
+    3. both unnamed files are still dirty and unchanged at the end, and the
+       scratch tree-state.md records them as keep-dirty
+    4. Step 2 reported the inputs commit and its sha before asking to proceed
+  Fail:   aborting on the dirty tree; folding the docs into a phase commit;
+          committing, reverting, deleting or stashing either unnamed file.
+
+  Then: $0 restore $name
+EOF
+      ;;
+
     tie)
       # Two actual PLANS claiming the same issue. No principled resolution
       # exists, so this is the one case that must stop and ask.
@@ -442,7 +500,7 @@ Probe staged: genuine tie.
 EOF
       ;;
     *)
-      die "Unknown probe '$kind'. Use 'guard', 'stalefooter', or 'tie'."
+      die "Unknown probe '$kind'. Use 'guard', 'stalefooter', 'tie', or 'dirty'."
       ;;
   esac
 }
@@ -479,13 +537,20 @@ cmd_restore() {
     fi
   fi
 
+  # The dirty probe's artifacts: untracked files it created, plus its append to
+  # the tracked AGENTS.md. Checkout is safe here because the probe only appended.
+  rm -f docs/CONTEXT.md docs/adr/0001-widget-validation-belongs-in-format.md
+  rm -f "docs/design draft.md"
+  rmdir docs/adr docs 2>/dev/null || true
+  git checkout -q -- AGENTS.md 2>/dev/null || true
+
   # Scratch is git-ignored, so it never dirties the tree — but a stale ledger or
   # commit-message file from an aborted probe can satisfy a later fast-path check.
   rm -rf .agents/scratch/run-plan
 
   echo "Plans directory, branch, and scratch restored. Tree state:"
   git status --short || true
-  echo "(An empty listing means run-plan will accept it — it refuses a dirty tree.)"
+  echo "(An empty listing means run-plan starts clean — dirt triggers a triage prompt.)"
 }
 
 # ---------------------------------------------------------------- snapshot
@@ -536,10 +601,13 @@ cmd_verify() {
   echo "Verifying burn-in outcomes for $name (issue #$ISSUE_NUM)"
   echo ""
 
-  # Step 5e — the plan file is removed on a complete GH-backed run.
+  # Step 5e — the plan file is KEPT on this fixture: it is committed during
+  # scaffolding, and Step 5e never deletes a file tracked on the branch (doing so
+  # would leave the tree contradicting HEAD and the PR). The deletion branch needs
+  # a fixture whose plans dir is git-ignored; see evals/run-plan-branches.md.
   [[ -f "$PLAN_PATH" ]] \
-    && check "Step 5e deleted the local plan file" "no" "$PLAN_PATH still present" \
-    || check "Step 5e deleted the local plan file" "yes"
+    && check "Step 5e kept the tracked plan file" "yes" \
+    || check "Step 5e kept the tracked plan file" "no" "$PLAN_PATH was deleted despite being tracked"
 
   # Step 5c — the work branch reached the remote.
   if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
@@ -644,7 +712,7 @@ case "$CMD" in
   verify)   cmd_verify "${2:-}" ;;
   teardown) cmd_teardown "${2:-}" ;;
   ""|-h|--help|help)
-    sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     ;;
   *)
     die "Unknown command '$CMD'. Run '$0 --help'."

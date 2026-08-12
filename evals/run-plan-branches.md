@@ -38,6 +38,37 @@ plus the declared-path validation in a production repo.
 | Step 1c — local ahead of GH, pre-confirmation push | — | **cold** |
 | Step 1e.2 — interrupted-phase detection | — | **cold** |
 | Step 1e.2 — untracked plan file, detection skipped | — | **cold** (branch added 2026-08-07) |
+| Step 1e.1 — `--no-branch` on base refused before any tree work | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2 — clean tree, triage never reached | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2a — paths named as input, Step 1e.4 commits them alone | production run (11-phase plan, dirty start) | exercised 2026-08-12 |
+| Step 1e.2a — unnamed paths recorded keep-dirty, untouched all run | production run (11-phase plan, dirty start) | exercised 2026-08-12 |
+| Step 1e.2a — C-quoted path (space in name) unquoted before pathspec | `probe dirty` | **cold** (branch added 2026-08-11) |
+| Step 1e.2a — staged keep-dirty path unstaged via `restore --staged` | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2a — `stop` / two unresolved replies → run ends, tree unchanged | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2a — invocation-implied mapping pre-filled, user confirms | — | **cold** (branch added 2026-08-11) |
+| Step 1e.3 — checkout blocked by surviving declared dirt | — | **cold** (branch added 2026-08-11) |
+| Step 1e.3 — `recreate` checks out base before `branch -D` | — | **cold** (branch added 2026-08-11) |
+| Step 1e.3 — commits-ahead guard names an inputs commit | — | **cold** (branch added 2026-08-11) |
+| Step 1e.4 — `git add` fails on a path → stop, no partial commit | — | **cold** (branch added 2026-08-11) |
+| Step 1e.4 — nothing staged but paths still dirty → stop | — | **cold** (branch added 2026-08-11) |
+| Step 1e.4 — commit hook rejects, unstages before stopping | — | **cold** (branch added 2026-08-11) |
+| Step 2 — inputs commit + sha reported, `--no-branch` included | `probe dirty` | **cold** (branch added 2026-08-11) |
+| Step 5c.5 — root inputs commit → review scoped past `<inputs_commit_sha>` | — | **cold** (branch added 2026-08-11) |
+| Step 5c.5 — mid-branch inputs commit → base ref kept, commit named out of scope in brief | — | **cold** (branch added 2026-08-11) |
+| Step 5e — tracked or keep-dirty plan/PRD file kept | burn-in verify (tracked case) | **cold** live |
+| Step 5e — published PRD with unsynced local edits kept (content mismatch) | — | **cold** (branch added 2026-08-11) |
+| Step 1e.1 — detached HEAD under `--no-branch` refused | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2 — tree-state reload: prior run's keep-dirty honored without re-asking | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2 — interrupted-phase prompt lists paths; keep-dirty + plan file exempt from discard | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2 — kept partial work bypasses triage, re-enters phase staging | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2a — plan file omitted from the triage list | — | **cold** (branch added 2026-08-11) |
+| Step 1e.2a — rename entry: both paths named in every command | — | **cold** (branch added 2026-08-11) |
+| Step 4 — staging site consults `tree-state.md` when pathspec absent (post-compaction) | — | **cold** (branch added 2026-08-11) |
+| Error Handling — retry revert skips a keep-dirty path on the Files-changed list | — | **cold** (branch added 2026-08-11) |
+| Error Handling — retry revert consults `tree-state.md` when pathspec absent | — | **cold** (branch added 2026-08-11) |
+| Step 1e.4 — pre-staged leftovers unstaged before the inputs commit (rename: both paths) | — | **cold** (branch added 2026-08-11) |
+| Step 2 — reloaded `inputs-commit:` sha unreachable → stale line dropped | — | **cold** (branch added 2026-08-11) |
+| Step 3 — write-scope snapshot form on any dirty-at-start state (not just keep-dirty) | — | **cold** (trigger extended 2026-08-11) |
 | Step 4.5 — scoped re-review exception | production run (sitevue.server PR #249) | exercised ×3 on 2026-08-07 — found the delta-transmission defect this repo then fixed |
 | Step 4.5 — baseline extraction + scoped diff brief | git-level repro only | **cold** live — mechanics verified deterministically 2026-08-07; awaiting a production run |
 | Step 4.7 — fast-path fence strip | — | **cold** (guard added 2026-08-07; the unguarded failure it prevents occurred in production) |
@@ -48,7 +79,7 @@ plus the declared-path validation in a production repo.
 | Step 5d — `Refs #` omitted, no parent epic | burn-in full run | exercised |
 | Step 5d — provenance footer omitted on silent path | burn-in full run | exercised |
 | Step 5a — degraded sync reconciliation | — | **cold** |
-| Step 5e — plan file cleanup on complete | burn-in full run | exercised |
+| Step 5e — plan file cleanup on complete (untracked plans dir) | — | **cold** — the burn-in fixture tracks its plan file, so it now exercises the keep branch instead; needs a git-ignored-plans fixture |
 | Outcome `partial` / `aborted` | — | **cold** |
 | `commit` — `Ticket:` footer with leading blank line | burn-in full run + production | exercised |
 

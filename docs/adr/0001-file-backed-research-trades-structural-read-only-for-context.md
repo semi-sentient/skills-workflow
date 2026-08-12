@@ -5,7 +5,7 @@
 ## Considered Options
 
 - **Keep Research pinned to `Explore`** — preserves the structural guarantee, keeps the double-transit cost. Rejected: a polluted orchestrator context is re-charged on every later turn, while the guarantee it buys is one the skill already does without elsewhere (Review mode is read-only by conduct on `general-purpose`).
-- **Prompt promise with no verification** — rejected: the backstop costs one trivial git command per research return, and Step 1e.2's clean-tree invariant makes it airtight for upfront research; without it, a stray write surfaces later as Review-agent "scope creep" misattributed to the Code agent.
+- **Prompt promise with no verification** — rejected: the backstop costs one trivial git command per research return, and Step 1e.2's working-tree resolution (a clean tree after the inputs commit, or known keep-dirty paths handled via snapshot-and-compare) keeps it airtight for upfront research; without it, a stray write surfaces later as Review-agent "scope creep" misattributed to the Code agent.
 - **Size-threshold tier selection** ("more than a screenful") — rejected: output size is unknowable at spawn time. The tier is picked by the findings' **destination** (file-destined → file-backed; digest-with-one-consumer → inline lookup), which is decidable when the topic is composed.
 
 ## Consequences

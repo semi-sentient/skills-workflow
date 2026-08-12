@@ -21,7 +21,6 @@ Detection: starts with `#` or matches `github.com/.../issues/<n>` → treat as a
 
 - `--no-github` — force local-only mode even when GH metadata is present (e.g. a local file carrying a `<!-- gh-sub-issue: N -->` footer)
 - `--no-branch` — skip automatic work-branch creation
-- `--no-commits` — skip per-phase commits
 - `--no-pr` — skip PR submission at end of run (GH mode only)
 - `--allow-main` — permit running with `--no-branch` while on the default branch (otherwise refused as a footgun)
 - `--base <branch>` — override the base branch for both the work branch and the PR; defaults to the repo's default branch (`main` / `master`)
@@ -76,7 +75,7 @@ Also capture `<gh_url_for_plan_sub_issue>` as `https://github.com/<org>/<repo>/i
 - Fetch GH body: `gh issue view <plan_sub_issue_number> --json body --jq .body`
 - Compare with local file:
   - **Identical** → proceed using the local file
-  - **Local has more checked criteria than GH** → push local to GH (`gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>`), **report it** (`Reconciled #<n> — pushed <k> criteria an earlier run completed but never synced.`), then proceed. This is the one remote write that happens before Step 2's confirmation gate, so it must never be silent: it records work that already happened (making the issue more accurate whether or not the user proceeds), but the user still has to learn it occurred
+  - **Local has more checked criteria than GH** → push local to GH (`gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>`), **report it** (`Reconciled #<n> — pushed <k> criteria an earlier run completed but never synced.`), then proceed. This is one of two remote writes that can precede Step 2's confirmation gate (the other is Step 1e.2's phantom-tick correction), so it must never be silent: it records work that already happened (making the issue more accurate whether or not the user proceeds), but the user still has to learn it occurred
   - **GH has more checked criteria than local** → overwrite local with GH body, then proceed
   - **Bodies differ in non-checkbox content** → surface the diff and ask the user which to keep before proceeding. Do NOT auto-resolve.
 
@@ -111,16 +110,19 @@ If the plan file doesn't exist or has no identifiable phases, inform the user an
 - `<scratch_dir>` — the run's temp-file directory, resolved once in Step 1e.2: the sibling `scratch/run-plan/<plan_slug>/` of the resolved plans directory, so it follows the consumer's layout (`.agents/scratch/…` in this repo, `.claude/scratch/…` for a Claude-Code-only install) and honors a project's temp-artifacts convention. Falls back to `${TMPDIR:-/tmp}/run-plan/<plan_slug>/` when no in-repo plans dir applies. Holds the ledger, per-phase commit-message + handoff files, and research files. NEVER hardcode `.agents/scratch` — always use this resolved value.
 - `<ledger_path>` — `<scratch_dir>/ledger.md`; the append-only usage ledger (see Run Ledger). Single source of truth for every sub-agent's per-mode tokens and time, and the data the Progress Reporting table + completion summary render from. Survives context compaction.
 - `<run_start>` — a single wall-clock stamp (`date +%s`) captured once at the start of Step 4, used ONLY for the optional, clearly-labeled "elapsed (includes pauses)" line. NEVER the headline duration — active time comes from summed sub-agent `duration_ms` in the ledger.
-- `<keep_dirty_pathspec>` — optional; set in Step 1e.2 when the user declares files that must stay modified in the working tree but never be committed. Holds the `':(exclude)<path>'` pathspec entries every staging site applies — see Step 1e.2's Keep-dirty paths rule. Absent when none are declared.
+- `<keep_dirty_pathspec>` — optional; set in Step 1e.2 for paths declared as staying modified in the working tree but never committed. Holds the `':(exclude)<path>'` pathspec entries every staging site applies — see Step 1e.2's Keep-dirty paths rule. Absent when none are declared. The in-context value is a cache: the durable record is `<scratch_dir>/tree-state.md`, written by working-tree.md and reloaded by Step 1e.2 on every run.
+- `<precommit_pathspec>` — optional; set by working-tree.md's triage for the paths the user names as this work's **inputs**, committed alone ahead of Phase 1. Holds those literal paths, unquoted, for Step 1e.4 to stage. Absent when the user names none or the tree was clean.
+- `<inputs_commit_sha>` — optional; `git rev-parse HEAD` captured immediately after Step 1e.4's commit and recorded in `<scratch_dir>/tree-state.md`. Step 5c.5 scopes the branch review past it; by then it is many commits back and not re-derivable from git alone, so a resume reloads it from the record in Step 1e.2. Absent when no inputs commit was made.
 
 ### Step 1e — Set up the work branch
 
-**Step 1e.1 — Resolve `<base_branch>`** (needed by both paths below):
+**Step 1e.1 — Resolve `<base_branch>` and clear the deterministic refusals** (needed by both paths below):
 
 - If `--base <branch>` was passed, use it
 - Else resolve the repo default via `git symbolic-ref refs/remotes/origin/HEAD` (strip the `refs/remotes/origin/` prefix)
+- **Then, under `--no-branch` only:** read the current branch (`git branch --show-current`). Empty output is a detached HEAD — refuse: `--no-branch on a detached HEAD would commit to no branch; the next checkout strands the commits reflog-only.` If it equals `<base_branch>` while `--allow-main` was NOT passed, refuse now — `Refusing to commit directly to <base_branch>. Pass --allow-main to override, or omit --no-branch to create a work branch.` These checks need nothing but the two flags and the branch name, so they belong ahead of Step 1e.2: a run that cannot start must not first prompt the user through a triage, commit their files, or push a corrected issue body.
 
-**Step 1e.2 — Resolve `<scratch_dir>`, ensure it's git-ignored, then refuse if working tree is dirty** (applies in BOTH `--no-branch` and create-branch paths — uncommitted changes will otherwise leak into per-phase commits):
+**Step 1e.2 — Resolve `<scratch_dir>`, ensure it's git-ignored, then resolve a dirty working tree** (applies in BOTH `--no-branch` and create-branch paths — unresolved uncommitted changes will otherwise leak into per-phase commits):
 
 First resolve `<scratch_dir>` (see Working state): the sibling `scratch/run-plan/<plan_slug>/` of the resolved plans directory — `.agents/scratch/run-plan/<plan_slug>/` in this repo, `.claude/scratch/run-plan/<plan_slug>/` for a `.claude/`-layout consumer. If no in-repo plans directory applies, use `${TMPDIR:-/tmp}/run-plan/<plan_slug>/` (outside the repo — no ignore needed, git never sees it). Create it: `mkdir -p <scratch_dir>`.
 
@@ -132,45 +134,34 @@ git check-ignore -q "<scratch_dir>/probe" || echo '<scratch_root>/' >> "$(git re
 
 (`.git/info/exclude` is git's local-only ignore list — appending is idempotent for this run's purposes, invisible to the repo's history, and skipped entirely in repos that already ignore the path. Skip this step entirely for the `${TMPDIR}` fallback, which lives outside the repo.)
 
-**Keep-dirty paths.** If the user has declared files that must stay modified in the working tree but never be committed (a common shape: running a plan while iterating on the harness or skill files themselves, or carrying local-only config edits), record them now as `<keep_dirty_pathspec>` — `':(exclude)<path>'` pathspec entries. Three consequences for the rest of the run: (1) their `git status` entries are expected dirt — disregard them in every dirty-tree evaluation in this step, and never revert or delete them in the discard path below; (2) every `git add -A` in this skill becomes `git add -A -- . <keep_dirty_pathspec>` (the staging sites in Step 4 items 5 and 7), so these paths can never reach a phase commit or a reviewer's staged diff; (3) Step 3's write-scope check uses its snapshot-and-compare form, since the tree is legitimately dirty from run start.
+**Reload the prior record.** If `<scratch_dir>/tree-state.md` exists, an earlier run of this plan already triaged the tree. Reload every `keep-dirty:` entry that `git -c core.quotePath=false status --porcelain -uall` still shows as dirty into `<keep_dirty_pathspec>` — comparing paths only after unquoting the porcelain side (it C-quotes paths containing spaces, quotes, or backslashes; a naive string match silently drops exactly those entries). Drop entries — `keep-dirty:` and `input:` alike — that are genuinely no longer dirty and rewrite the file to match (the user has since handled them); when a match is merely uncertain, keep the entry. Reload any `inputs-commit:` sha into `<inputs_commit_sha>`. Those entries are the user's own recorded answers: honoring them is what stops a resume from re-asking, or worse, treating the user's files as unexplained dirt.
 
-Then run `git status --porcelain` (with keep-dirty paths declared, disregard their entries — they are expected). If any output, first test for an **interrupted phase** before refusing (commit-producing runs only — under `--no-commits` the entire dirty-tree check, including this test, is skipped, and checked criteria legitimately have no committed record). The test requires a **tracked** plan file: if `git ls-files --error-unmatch <plan_file_path>` fails (a consumer that git-ignores its plans directory never commits checkbox edits by construction), skip the test — its comparison would read every checked criterion as uncommitted and un-check all of them, a destructive false positive — note that interrupted-phase detection is unavailable (Step 1c's GH-body reconciliation is the cross-run record), and go straight to the refusal below. Otherwise compare the working-tree plan file against the tip of the branch phase commits land on (`plan/<plan_slug>` if it exists; the current branch under `--no-branch`) via `git diff <that-branch> -- <plan_file_path>` — if the file is absent there, treat every checked criterion as uncommitted. Criteria checked in the working tree but not in that committed version mark a phase whose checkboxes were recorded (Step 4.6) but whose commit (Step 4.7) never landed. If such criteria exist AND the tree is dirty beyond the plan file itself:
+**Keep-dirty paths.** Files that must stay modified in the working tree but never be committed (a common shape: running a plan while iterating on the harness or steering docs themselves, or carrying local-only config edits). Step 1e.2a's triage is what records them as `<keep_dirty_pathspec>` — `':(exclude)<path>'` pathspec entries. Four consequences for the rest of the run: (1) their `git status` entries are expected dirt — disregard them in every dirty-tree evaluation in this step, and never revert or delete them in the discard path below; (2) every `git add -A` in this skill becomes `git add -A -- . <keep_dirty_pathspec>` (the staging sites in Step 4 items 5 and 7), so these paths can never reach a phase commit or a reviewer's staged diff — and before ANY `git add -A` where `<keep_dirty_pathspec>` is unset, confirm `<scratch_dir>/tree-state.md` is absent or lists no `keep-dirty:` entries; if entries exist, re-read working-tree.md and rebuild `<keep_dirty_pathspec>` from them per its quoting and rename rules before staging anything (a compacted context loses the in-memory value; the file is the authority); (3) Step 3's write-scope check uses its snapshot-and-compare form, since the tree is legitimately dirty from run start; (4) any agent brief whose File Manifest includes a keep-dirty path must say the file carries the user's uncommitted edits — edit surgically, never rewrite wholesale.
+
+Then run `git -c core.quotePath=false status --porcelain -uall` (`-uall` lists files, never collapsed directories — every prompt below must show the user files; with keep-dirty paths declared, disregard their entries — they are expected). If any output, first test for an **interrupted phase** before triaging. The test requires a **tracked** plan file: if `git ls-files --error-unmatch <plan_file_path>` fails (a consumer that git-ignores its plans directory never commits checkbox edits by construction), skip the test — its comparison would read every checked criterion as uncommitted and un-check all of them, a destructive false positive — note that interrupted-phase detection is unavailable (Step 1c's GH-body reconciliation is the cross-run record), and go straight to Step 1e.2a below. Otherwise compare the working-tree plan file against the tip of the branch phase commits land on (`plan/<plan_slug>` if it exists; the current branch under `--no-branch`) via `git diff <that-branch> -- <plan_file_path>` — if the file is absent there, treat every checked criterion as uncommitted. Criteria checked in the working tree but not in that committed version mark a phase whose checkboxes were recorded (Step 4.6) but whose commit (Step 4.7) never landed. If such criteria exist AND the tree is dirty beyond the plan file itself:
 
 1. Un-check those criteria in the local file. In GH mode with sync active, push the corrected body (`gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>`), retrying 3× with backoff; on persistent failure abort loudly rather than degrade — this push is what prevents Step 1c from resurrecting the phantom ticks on a later resume.
-2. Surface: `Phase <n> was interrupted after its checkboxes were recorded but before its commit landed. Criteria un-checked. The working tree holds its partial work — discard and re-attempt the phase from scratch (default), keep the partial work for the re-attempt, or abort?` On discard, unstage and revert all dirty tracked paths and delete untracked files — except `<plan_file_path>` itself, which keeps its just-corrected content (the clean-tree requirement at run start means all other dirt belongs to the interrupted phase).
+2. Surface, listing every path the choice applies to (the dirty set minus `<plan_file_path>` and reloaded keep-dirty paths): `Phase <n> was interrupted after its checkboxes were recorded but before its commit landed. Criteria un-checked. The working tree holds its partial work in: <paths> — discard and re-attempt the phase from scratch, keep the partial work for the re-attempt, or abort?` Act only on an explicit `discard`, `keep`, or `abort`; anything else → re-prompt once, then abort with the tree unchanged — silence or vagueness never selects the destructive option. On discard, unstage and revert those listed tracked paths and delete the listed untracked files — never `<plan_file_path>` (it keeps its just-corrected content) and never a `<keep_dirty_pathspec>` path (the user's own work). The reload explains only the dirt a prior run resolved; anything newer is indistinguishable from phase work — which is exactly why every path is listed and an explicit `discard` is required before anything is touched. On keep, the listed paths are the phase's own tree state: leave them in place to re-enter the re-attempted phase's staging and commit — they are NOT triage material for Step 1e.2a (keep-dirty would exclude the phase's files from its own commit; input would commit unreviewed code as user prose).
 
-Only when no uncommitted checkbox delta explains the dirt, abort with:
-
-```
-Working tree has uncommitted changes. Handle them before running the plan:
-  git stash push -m "before run-plan"    # unrelated work: set it aside
-  git add -A && git commit -m "wip"      # unrelated work: park it on the branch
-  # Pre-existing work the plan builds on: commit it as its own properly-messaged
-  # commit first — keeps it out of phase commits and the Phase 1 reviewer's diff.
-```
-
-Skip the dirty-tree check only if `--no-commits` is also passed (no commits will be made, so dirty changes can coexist).
+**Step 1e.2a — Triage the remaining dirt.** Reached only when dirt remains that nothing above explains: not a reloaded keep-dirty entry, not the interrupted phase's partial work (kept or discarded — item 2 owns that dirt either way), not the plan file's just-corrected content. If no such dirt exists, skip to Step 1e.3. Otherwise a dirty tree does not stop the run and never costs the user work: **read [references/working-tree.md](references/working-tree.md) now and follow it.** It asks which paths are this work's input, records the rest as keep-dirty, and owns Step 1e.4's commit procedure — which is deferred until after Step 1e.3 has settled the branch, so do not run it on arrival. Never improvise a resolution from SKILL.md alone.
 
 **Step 1e.3 — Branch handling:**
 
-**If `--no-branch` was passed:**
-
-- Run `git branch --show-current` to read the current branch
-- If current branch equals `<base_branch>` AND `--allow-main` was NOT passed → refuse:
-  ```
-  Refusing to commit directly to <base_branch>. Pass --allow-main to override, or omit --no-branch to create a work branch.
-  ```
-- Otherwise, leave the current branch as the working branch (do NOT set `<branch_name>` — its absence in working state signals "no dedicated branch was created")
+**If `--no-branch` was passed:** Step 1e.1 already cleared the base-branch refusal, so leave the current branch as the working branch (do NOT set `<branch_name>` — its absence in working state signals "no dedicated branch was created").
 
 **Otherwise (create the work branch):**
 
 1. Compute `<branch_name>` as `plan/<plan_slug>` (e.g. `plan/mui-v9-migration`)
 2. **Branch already exists handling:**
    - **Exists locally with commits ahead of base AND plan has some checked criteria** → resuming a prior interrupted run; `git checkout <branch_name>`, continue
-   - **Exists locally with no commits ahead of base** → `git checkout <branch_name>`, continue (no harm). But if the plan shows checked criteria and `--no-commits` was NOT passed, surface first: `Plan records completed phases but <branch_name> has no commits ahead of <base_branch> — those phases' code is not on this machine (likely unpushed commits elsewhere). Re-attempt them here / abort so the original branch can be pushed first?` (A phase that legitimately produced `(no commit — no changes)` can trigger this — which is why it surfaces to the user instead of auto-resolving.)
-   - **Exists locally with commits ahead BUT plan has no checked criteria** → suspicious; surface to user: `Branch <branch_name> exists with commits but plan shows no progress. Use existing / recreate / pick different name?`
+   - **Exists locally with no commits ahead of base** → `git checkout <branch_name>`, continue (no harm). But if the plan shows checked criteria, surface first: `Plan records completed phases but <branch_name> has no commits ahead of <base_branch> — those phases' code is not on this machine (likely unpushed commits elsewhere). Re-attempt them here / abort so the original branch can be pushed first?` (A phase that legitimately produced `(no commit — no changes)` can trigger this — which is why it surfaces to the user instead of auto-resolving.)
+   - **Exists locally with commits ahead BUT plan has no checked criteria** → surface to user, naming the commits (`git log <base_branch>..<branch_name> --oneline`): `Branch <branch_name> exists with commits but plan shows no progress. Use existing / recreate / pick different name?` An earlier run that committed declared inputs (Step 1e.4) then stopped at Step 2's gate produces this state legitimately. **`recreate` is destructive — an inputs commit holds files the user wrote and never committed elsewhere, so say plainly that recreating removes them from the working tree and leaves them reachable only via reflog, and require confirmation after the user has seen the commit list.** Then `git checkout <base_branch>` first (`git branch -D` refuses while the branch is checked out, and this run may already be on it), then `git branch -D <branch_name>` and `git checkout -b <branch_name> <base_branch>`, and delete any `inputs-commit:` line from `<scratch_dir>/tree-state.md` — that commit no longer exists, and a reloaded stale sha would misreport in Step 2. If that first checkout fails on any dirty path, stop the same way as the rule below — surface the error verbatim, nothing forced, nothing yet deleted.
    - **Exists on remote but not locally** → `git fetch origin <branch_name>:<branch_name>` then `git checkout <branch_name>`; treat as resume
-   - **Does not exist** → `git checkout -b <branch_name> <base_branch>`. A fresh branch has zero commits ahead by construction, so the same checked-criteria-but-no-commits guard applies: if the plan shows checked criteria (and `--no-commits` was not passed), surface the same prompt before proceeding
+   - **Does not exist** → `git checkout -b <branch_name> <base_branch>`. A fresh branch has zero commits ahead by construction, so the same checked-criteria-but-no-commits guard applies: if the plan shows checked criteria, surface the same prompt before proceeding
+
+Every `git checkout` above can fail on dirty paths — declared ones, kept partial work, or the plan file's just-corrected content. Surface the error verbatim and stop: no commit has been made and no file content has changed (any triage unstaging was index-only). Never force (`-f`), never stash past it, never re-point the branch to make it succeed. (working-tree.md's Checkout section says the same — this rule must hold even when that file was never loaded.)
+
+**Step 1e.4 — Commit the declared inputs.** Skip when `<precommit_pathspec>` is unset — always the case if working-tree.md was never read. It must run here, before Phase 1, so its commit stays out of every phase commit and reviewer diff. Procedure: [references/working-tree.md](references/working-tree.md) → Step 1e.4.
 
 ### Step 2 — Present the Execution Plan
 
@@ -179,10 +170,11 @@ Skip the dirty-tree check only if `--no-commits` is also passed (no commits will
 Then output:
 
 1. **Branch info** (if branch was created in Step 1e): `Working on branch '<branch_name>' based on '<base_branch>'.`
-2. **Resumability note**: if some acceptance criteria are already checked, list which phases appear complete and confirm with the user whether to skip them.
-3. **Phase summary** — total number of phases identified; for each phase: title, brief description, and which agent mode it will use
-4. **GH integration note** (if GH mode): `GH-backed run — progress will sync to issue #<plan_sub_issue_number> after each phase. PR will be opened on completion (omit with --no-pr).`
-5. Ask the user to confirm before proceeding.
+2. **Working-tree resolution** — **unconditional; never nest under item 1**, because Step 1e.4 runs whether or not a branch was created and under `--no-branch --allow-main` commits to `<base_branch>` itself. Report whichever apply, naming the branch committed to: `Committed <n> declared input file(s) to '<branch>' as <inputs_commit_sha>.` / `Leaving <n> keep-dirty path(s) uncommitted for the whole run.` / `Declared inputs were already committed by a prior run (<inputs_commit_sha>).` (Step 1e.4's cleared-pathspec case, or a reloaded `inputs-commit:` sha; with no sha on record — the user committed them between runs — say `in an earlier commit` instead). Silent only when the tree was clean and nothing was reloaded. It precedes item 6's gate, so if the user declines there: when THIS run made the inputs commit (it is HEAD), say it is already on the branch and `git reset --mixed HEAD~1` returns those files to the working tree unstaged; when the sha was reloaded from a prior run, first confirm it is still on the branch (`git merge-base --is-ancestor <sha> HEAD`) — a declined gate's reset makes it reflog-only, so on failure delete the stale `inputs-commit:` line and report no inputs commit — then just name it; never offer the reset, other commits sit on top of it.
+3. **Resumability note**: if some acceptance criteria are already checked, list which phases appear complete and confirm with the user whether to skip them.
+4. **Phase summary** — total number of phases identified; for each phase: title, brief description, and which agent mode it will use
+5. **GH integration note** (if GH mode): `GH-backed run — progress will sync to issue #<plan_sub_issue_number> after each phase. PR will be opened on completion (omit with --no-pr).`
+6. Ask the user to confirm before proceeding.
 
 ### Step 3 — Research
 
@@ -204,7 +196,7 @@ Before implementation begins, spawn Research agents to gather codebase context. 
 
 **Spawn research agents in parallel** when topics are independent. For example, if Phase 1 touches the routing layer and Phase 3 touches the API client, spawn two Research agents simultaneously — one for each area. Research never modifies the repo in either tier, so parallel execution is safe and reduces wall-clock time.
 
-**Verify the write scope after every file-backed return.** Step 1e.2 guaranteed a clean tree and the scratch dir is git-ignored, so `git status --porcelain` must return empty. Any output means the agent wrote outside its scope: revert those paths and surface the violation to the user before proceeding. (For mid-run research — Error Handling item 4 — the tree legitimately holds phase work: snapshot `git status --porcelain` before the spawn and compare after instead. Use the same snapshot-and-compare form whenever `<keep_dirty_pathspec>` is declared — those paths keep the tree legitimately dirty from run start.)
+**Verify the write scope after every file-backed return.** Step 1e.2 resolved the working tree and the scratch dir is git-ignored, so on a run that began Step 3 with a clean tree, `git status --porcelain` must return empty. Any output means the agent wrote outside its scope: revert those paths and surface the violation to the user before proceeding. (For mid-run research — Error Handling item 4 — the tree legitimately holds phase work: snapshot `git status --porcelain` before the spawn and compare after instead. Use the same snapshot-and-compare form whenever the tree was NOT clean when Step 3 began — `<keep_dirty_pathspec>` declared, kept partial work, or plan-file dirt riding normal staging — those states keep the tree legitimately dirty from run start, and only the snapshot delta is a violation.)
 
 **Skip this step only** if the plan is trivially simple (e.g., a single-phase config change with no codebase dependencies).
 
@@ -218,7 +210,7 @@ For each phase, sequentially:
 2. **Compose the brief** — see Brief Composition Rules
 3. **Spawn the agent** — see Agent Modes for which to use
 4. **Receive the summary and record its usage row** (see Run Ledger — append a ledger row for EVERY sub-agent return, this step and every other). Analyze the result for success, failures, or concerns. If the summary reports a **blocking** failure, route through Error Handling **now** — before the review gate — and enter item 5 only once the blocking failure is resolved (a verified Debug fix counts; it need not produce a new Code summary). Fixes must land before the phase is reviewed and committed, never after.
-5. **Stage and review the phase** (Code-mode phases only; skip if `--no-review`; skip under `--no-commits` — without per-phase commits the staged diff cannot isolate this phase — and note the skipped gate in the progress tracker):
+5. **Stage and review the phase** (Code-mode phases only; skip if `--no-review` and note the skipped gate in the progress tracker):
    - Stage the phase's changes now: `git add -A` (with keep-dirty paths declared: `git add -A -- . <keep_dirty_pathspec>` — Step 1e.2). Staging before the review makes new untracked files visible to the reviewer's `git diff --cached` and freezes exactly what the verdict applies to.
    - Spawn a **Review** agent (see Agent Modes) using the dedicated Review brief in agent-operations.md. Do NOT include the Code agent's summary or self-assessment in the brief — the reviewer's independence from the implementer's self-report is the point of the gate.
    - Receive the verdict table and route:
@@ -235,7 +227,7 @@ For each phase, sequentially:
 
    **(GH mode, `gh_sync_mode == degraded`)** Skip the sync; note the degraded state in the next progress tracker output.
 
-7. **Commit the phase's changes** (skip entirely if `--no-commits`):
+7. **Commit the phase's changes:**
    - `git add -A` (with keep-dirty paths declared: `git add -A -- . <keep_dirty_pathspec>` — Step 1e.2; picks up the plan-file checkbox edit; when the review gate ran, the code is already staged from item 5 — otherwise this stages it now)
    - Check `git diff --cached --quiet`; if exit code 0 (no staged changes) → skip the commit and note `(no commit — no changes)` in the progress tracker for this phase
    - **Fast path** — if the Code agent wrote its commit-message file (`<scratch_dir>/phase-<n>-commit-msg.md`, per the Commit Message Directive) AND no agent modified the phase's code after that Code agent finished (no Debug fix, no retry): first check the file's first line — a code fence (```) is never legitimate message content and would become the commit subject verbatim, so strip leading/trailing fence lines in place. Then commit and clean in one step: `git commit -F <message-file> && rm <message-file>`. If the commit-msg hook rejects the message, discard the file and use the fallback below. The fast path keeps the phase diff out of the orchestrator's context — the agent that wrote the diff authored the message.
@@ -255,6 +247,7 @@ After all phases:
 - Output a final summary of what was accomplished across all phases. Render the final completion table from the ledger (one row per sub-agent grouped under its phase, with phase subtotal lines and a Totals row — format in completion-templates.md, load it now), then a **Total active time** (the subtotal lines summed — idle-immune, parallel groups counted at their max) and total tokens. Optionally add one **Elapsed** line (`now − <run_start>`, `h:mm:ss`) explicitly labeled as including any pauses/idle — never present that wall-clock figure as the run's "duration"
 - List any caveats, manual steps, or follow-ups
 - Note any acceptance criteria that remain unchecked
+- **If `<keep_dirty_pathspec>` is set:** name those paths — they are still uncommitted, were excluded from every phase commit, and are absent from the PR
 - **Local-only runs (and only these):** state plainly that the work branch was never pushed and give the command — `git push -u origin <branch_name>`. Everything below this point is GH-mode only, so a run that just ends here would otherwise read as "nothing left to do"
 
 **(GH mode, outcome is `complete` or `partial` only — skip everything below on `aborted`):**
@@ -276,7 +269,7 @@ Load [references/completion-templates.md](references/completion-templates.md) no
 
 #### Step 5c — Push the work branch
 
-Skip if `--no-branch` or `--no-commits` was passed (no branch to push, or no commits to push).
+Skip if `--no-branch` was passed (no dedicated branch to push).
 
 This step sits inside the GH-mode block **deliberately** — do not "fix" it by hoisting it out. A push is not a neutral local git operation: in a `<pr_open_mode> == declared` repo it is precisely what causes a PR to be opened, so a run the user scoped to local-only must not touch the remote at all.
 
@@ -289,11 +282,11 @@ If the push fails (branch protection, network, auth, force-push needed):
 
 #### Step 5c.5 — Pre-PR branch review
 
-Skip if `--no-branch-review`, or if Step 5d will be skipped anyway (`--no-pr`, `--no-branch`, `--no-commits`, push failed in Step 5c, Step 5a's final sync failed). This gate exists to populate a PR body — never spend a branch-scope Review agent when no PR will be opened.
+Skip if `--no-branch-review`, or if Step 5d will be skipped anyway (`--no-pr`, `--no-branch`, push failed in Step 5c, Step 5a's final sync failed). This gate exists to populate a PR body — never spend a branch-scope Review agent when no PR will be opened.
 
 Spawn ONE fresh Review agent at branch scope (see the Review Brief's pre-PR variant in agent-operations.md), briefed to:
 
-- Adversarially review the full branch diff (`git diff <base_branch>...HEAD`) for correctness bugs — especially the integration seams between phases, which no per-phase gate can see
+- Adversarially review the branch diff for correctness bugs — especially the integration seams between phases, which no per-phase gate can see. **Scope it past the inputs commit — never past phase work:** when `<inputs_commit_sha>` is set AND it is the first commit ahead of base (`git rev-list --first-parent <base_branch>..HEAD | tail -1` prints it), the brief's diff instruction uses `git diff <inputs_commit_sha>...HEAD`, not `git diff <base_branch>...HEAD` (state the substituted ref explicitly in the brief — agent-operations.md's pre-PR variant carries the `<base_branch>` default). A mid-branch inputs commit (a resume committed inputs on top of earlier phases) keeps the `<base_branch>` ref — scoping past it would silently drop every earlier phase from the review — and is instead named in the brief as out of scope. Either way the inputs files are the user's own prose and this gate's routing offers autonomous fixes, so a finding against them is unactionable by construction
 - Check that forward-compatibility hooks named in phase summaries (list them in the brief) were actually resolved by later phases
 - Verify each candidate finding against the code before reporting; return only surviving findings as a structured list
 
@@ -304,7 +297,7 @@ This gate is **detection-only** — never spawn fix agents from its findings aut
 
 #### Step 5d — Submit the PR
 
-Skip if any of: `--no-pr`, `--no-branch`, `--no-commits`, push failed in Step 5c. **When this step is skipped and `<pr_open_mode> == declared`, say so in the final summary** — the Step-5c push already triggered the repo's workflow, so a PR exists carrying the workflow's auto-generated body, and run-plan deliberately left it untouched. (`--no-pr` cannot prevent that PR from existing; it only means run-plan does not attach its body.)
+Skip if any of: `--no-pr`, `--no-branch`, push failed in Step 5c. **When this step is skipped and `<pr_open_mode> == declared`, say so in the final summary** — the Step-5c push already triggered the repo's workflow, so a PR exists carrying the workflow's auto-generated body, and run-plan deliberately left it untouched. (`--no-pr` cannot prevent that PR from existing; it only means run-plan does not attach its body.)
 
 Load [references/completion-templates.md](references/completion-templates.md) if not already loaded — it contains the PR body template, draft-vs-ready rule, the PR submission flow (gated on `<pr_open_mode>` from Step 1d: `declared` → poll for the workflow's PR and attach the body via `gh pr edit`, never `gh pr create`; `silent` → `gh pr create` directly), and the PR failure-handling guidance. Use it to compose and submit the PR.
 
@@ -320,14 +313,19 @@ Run only if ALL of the following hold:
 
 When all conditions hold:
 
-1. **Delete the plan file:** `rm <plan_file_path>`
-2. **Delete the upstream PRD file** if it exists locally and was published to GH:
-   - Derive the PRD path by swapping the suffix on the plan filename: `<slug>-plan.md` → `<slug>-prd.md` in the same directory
-   - If that file exists AND its content contains a `<!-- gh-issue: N -->` footer (proving it was published — local-only PRDs are kept as the audit trail), `rm` it
-   - If either condition fails, leave it alone
-3. **Note the deletions in the final summary** (e.g. `Local plan and PRD files removed — GH issues #<gh_issue_number>/#<plan_sub_issue_number> and PR are the canonical record.` — drop the `#<gh_issue_number>/` segment when no parent PRD-epic exists — or `Local plan file removed; PRD file kept (not published to GH).`)
+Two exemptions override the deletions below; keep the file and say which exemption applied:
 
-Rationale: the GH issues hold the final checkbox state and the PR captures the work itself, so the local files are redundant. Re-runs that need the plan file can re-fetch from GH — Step 1b's "GH ref passed → not found → fetch" path handles that automatically.
+- **Tracked** (`git ls-files --error-unmatch <path>` succeeds) — the file is part of the branch's committed history, whether committed by this run or tracked long before it. Removing it does not make it redundant: it leaves the tree contradicting HEAD, and a PR that adds a file the tree has deleted.
+- **Declared keep-dirty** — `<keep_dirty_pathspec>` means never staged, committed, or reverted by this run; deleting the file outright would be a stronger violation than any of those.
+
+1. **Delete the plan file:** `rm <plan_file_path>` (unless exempt per above)
+2. **Delete the upstream PRD file** if it is exempt from neither rule above, exists locally, and was published to GH:
+   - Derive the PRD path by swapping the suffix on the plan filename: `<slug>-plan.md` → `<slug>-prd.md` in the same directory
+   - If that file exists AND its content contains a `<!-- gh-issue: N -->` footer (proving it was published — local-only PRDs are kept as the audit trail) AND its content matches that issue's current GH body (`gh issue view <N> --json body --jq .body` — the PRD never syncs during a run, so any difference is local edits that exist nowhere else), `rm` it
+   - If any condition fails, leave it alone; on a content mismatch, say why: `PRD file kept — it carries local edits never pushed to GH issue #<N>.`
+3. **Note what was deleted and what was kept in the final summary** (e.g. `Local plan and PRD files removed — GH issues #<gh_issue_number>/#<plan_sub_issue_number> and PR are the canonical record.` — drop the `#<gh_issue_number>/` segment when no parent PRD-epic exists — or `Local plan file removed; PRD file kept (not published to GH).` / `…kept (tracked on this branch).`)
+
+Rationale: the GH issues hold the final checkbox state and the PR captures the work itself, so an untracked local copy is redundant. Re-runs that need the plan file can re-fetch from GH — Step 1b's "GH ref passed → not found → fetch" path handles that automatically.
 
 ---
 
@@ -357,7 +355,7 @@ Every agent brief MUST include these 10 sections, in order:
 4. **Scoped Task** — phase description and acceptance criteria, verbatim from the plan
 5. **TDD Directive** (Code mode only) — red-green-refactor workflow reminder
 6. **Build Verification Gate** (Code mode only) — run the build before reporting complete
-7. **Commit Message Directive** (Code mode only; omit under `--no-commits`) — author this phase's commit message to the scratch message file; never commit
+7. **Commit Message Directive** (Code mode only) — author this phase's commit message to the scratch message file; never commit
 8. **Write Scope & Search Breadth** (file-backed Research tier only) — write exactly one file, the resolved `research-<topic>.md` path, never touch repo source; search very thoroughly
 9. **Completion Requirement** — the structured STATUS / Files changed / Tests / Build / Issues / Incomplete / Implementation details template
 10. **Boundary Statement** — "only do what's in scope"
@@ -375,11 +373,12 @@ For the exact text of each section (prose, directives, completion template), see
 **You are the orchestrator. Stay lean.**
 
 - **DO NOT** read source code files — delegate that to agents
-- **DO NOT** read phase diffs — the Review agent reads them (Step 4.5); you receive only its verdict table (the one sanctioned exception: Step 4.7's fallback commit path runs the `commit` skill inline, which reads the staged diff)
+- **DO NOT** read phase diffs — the Review agent reads them (Step 4.5); you receive only its verdict table (the two sanctioned exceptions both run the `commit` skill inline, which reads the staged diff: Step 4.7's fallback commit path, and Step 1e.4's declared-inputs commit)
 - **DO NOT** run tests, builds, or linters — delegate that to agents
 - **DO NOT** implement code changes — delegate that to agents
 - **DO** read the plan file (once, at the start)
 - **DO** load [references/agent-operations.md](references/agent-operations.md) once at Step 2 and keep it in working memory for the whole run (agent modes + brief content for every phase)
+- **DO** load [references/working-tree.md](references/working-tree.md) at Step 1e.2a — but ONLY when unexplained dirt remains there (Step 1e.2a's own condition). A clean or fully-explained tree never needs it
 - **DO** load [references/completion-templates.md](references/completion-templates.md) at Step 5 when rendering the final completion table and composing the summary comment and PR body
 - **DO** use the Edit tool to update plan checkboxes after phases complete (and `gh issue edit` to sync to the issue body when GH-backed)
 - **DO** create the work branch (Step 1e), commit phase changes (Step 4.7), push the branch and open the PR (Step 5c–5d) — these git/GH operations are the orchestrator's responsibility, not the agents'
@@ -479,7 +478,7 @@ When a Code agent's summary reports failures, or a Review agent returns NOT MET 
 
 1. **Failed-attempt observations** — 2-3 sentences on the approach the failed attempt took and the decisive error output from its summary (plus the Review agent's NOT MET findings verbatim, when the review gate triggered the retry), labeled as observations from a failed attempt that the retry agent should verify independently rather than trust.
 2. **An explicit working-tree statement.** Before spawning the retry, decide the tree state — never leave it undefined (an undefined tree lets a retry duplicate edits, and lets Step 4.7's `git add -A` commit half-applied leftovers):
-   - **Default: revert the failed attempt.** Revert exactly the files in its Files-changed list — including any files a Debug agent modified while fixing this attempt (from its fix-applied report) — and delete any new files it created, plus its commit-message file and any scoped-review baselines (`rm -f <scratch_dir>/phase-<n>-commit-msg.md <scratch_dir>/baseline-*`) so a stale message can never ride a later fast path nor a stale baseline mislead a later scoped review. Never blanket `git checkout -- .` (under `--no-commits` the tree also holds prior phases' uncommitted work). Unstage first if the failed attempt was staged in Step 4.5. State in the brief: `tree is at phase start`.
+   - **Default: revert the failed attempt.** Revert exactly the files in its Files-changed list — including any files a Debug agent modified while fixing this attempt (from its fix-applied report) — **minus any `<keep_dirty_pathspec>` path, which is never reverted or deleted (Step 1e.2); a keep-dirty path on a Files-changed list holds the user's own uncommitted edits, so leave it and note it in the retry brief — and when `<keep_dirty_pathspec>` is absent from working memory, consult `<scratch_dir>/tree-state.md` before reverting or deleting anything, exactly as staging sites must (Step 1e.2 consequence 2)** — and delete any new files it created, plus its commit-message file and any scoped-review baselines (`rm -f <scratch_dir>/phase-<n>-commit-msg.md <scratch_dir>/baseline-*`) so a stale message can never ride a later fast path nor a stale baseline mislead a later scoped review. Never blanket `git checkout -- .` (the tree legitimately holds the plan file's checkbox edits and any keep-dirty paths). Unstage first if the failed attempt was staged in Step 4.5. State in the brief: `tree is at phase start`.
    - **Keep partial work** only when the failed summary shows it cleanly passing some acceptance criteria. State in the brief: `tree contains partial changes to <files> — build on them`.
 
 ---
