@@ -1,6 +1,6 @@
 ---
 name: run-plan
-description: "Execute a multi-phase implementation plan by delegating phases to specialized sub-agents with fresh context windows. Use when user invokes run-plan with a plan file path or GitHub issue reference. Required argument: path to local plan file, GitHub issue number (e.g. `#456`), or full issue URL."
+description: "Execute a multi-phase implementation plan by delegating each phase to sub-agents with fresh context windows. Use when the user invokes run-plan with a plan file path, GitHub issue number (e.g. `#456`), or full issue URL."
 ---
 
 You are a strategic workflow orchestrator. You coordinate complex implementation plans by delegating phases to specialized sub-agents that each run in a fresh context window. Your job is to keep the overall plan on track while staying context-lean yourself.
@@ -107,10 +107,10 @@ If the plan file doesn't exist or has no identifiable phases, inform the user an
 - `<branch_name>` — the work branch all phase commits land on; absent if `--no-branch`
 - `<base_branch>` — base branch for the work branch and PR; defaults to repo default
 - `<pr_open_mode>` — `declared` (the repo's agent instructions say a workflow opens the PR on push, so `gh pr create` is forbidden) or `silent` (no such rule — run-plan opens the PR itself); resolved in Step 1d, consumed by Step 5d
-- `<scratch_dir>` — the run's temp-file directory, resolved once in Step 1e.2: the sibling `scratch/run-plan/<plan_slug>/` of the resolved plans directory, so it follows the consumer's layout (`.agents/scratch/…` in this repo, `.claude/scratch/…` for a Claude-Code-only install) and honors a project's temp-artifacts convention. Falls back to `${TMPDIR:-/tmp}/run-plan/<plan_slug>/` when no in-repo plans dir applies. Holds the ledger, per-phase commit-message + handoff files, and research files. NEVER hardcode `.agents/scratch` — always use this resolved value.
-- `<ledger_path>` — `<scratch_dir>/ledger.md`; the append-only usage ledger (see Run Ledger). Single source of truth for every sub-agent's per-mode tokens and time, and the data the Progress Reporting table + completion summary render from. Survives context compaction.
-- `<run_start>` — a single wall-clock stamp (`date +%s`) captured once at the start of Step 4, used ONLY for the optional, clearly-labeled "elapsed (includes pauses)" line. NEVER the headline duration — active time comes from summed sub-agent `duration_ms` in the ledger.
-- `<keep_dirty_pathspec>` — optional; set in Step 1e.2 for paths declared as staying modified in the working tree but never committed. Holds the `':(exclude)<path>'` pathspec entries every staging site applies — see Step 1e.2's Keep-dirty paths rule. Absent when none are declared. The in-context value is a cache: the durable record is `<scratch_dir>/tree-state.md`, written by working-tree.md and reloaded by Step 1e.2 on every run.
+- `<scratch_dir>` — the run's temp-file directory, resolved once in Step 1e.2 (the authority for its layout and fallback); NEVER hardcode `.agents/scratch` — always use the resolved value.
+- `<ledger_path>` — `<scratch_dir>/ledger.md`, the append-only usage ledger — see Run Ledger for its contents and rules.
+- `<run_start>` — a single wall-clock stamp for the optional labeled "elapsed" line only; capture timing and limits in Step 4's opening.
+- `<keep_dirty_pathspec>` — optional; the `':(exclude)<path>'` pathspec entries every staging site applies for paths that stay modified in the working tree but never committed — see Step 1e.2's Keep-dirty paths rule. Absent when none are declared. The in-context value is a cache: the durable record is `<scratch_dir>/tree-state.md`.
 - `<precommit_pathspec>` — optional; set by working-tree.md's triage for the paths the user names as this work's **inputs**, committed alone ahead of Phase 1. Holds those literal paths, unquoted, for Step 1e.4 to stage. Absent when the user names none or the tree was clean.
 - `<inputs_commit_sha>` — optional; `git rev-parse HEAD` captured immediately after Step 1e.4's commit and recorded in `<scratch_dir>/tree-state.md`. Step 5c.5 scopes the branch review past it; by then it is many commits back and not re-derivable from git alone, so a resume reloads it from the record in Step 1e.2. Absent when no inputs commit was made.
 
@@ -165,7 +165,7 @@ Every `git checkout` above can fail on dirty paths — declared ones, kept parti
 
 ### Step 2 — Present the Execution Plan
 
-**Pre-step: load agent operations reference.** Read [references/agent-operations.md](references/agent-operations.md) now — before composing the phase summary below. It contains the full agent-mode definitions and per-section brief content used throughout Step 3 onward. Keep it in working memory for the rest of the run.
+**Pre-step: load agent operations reference.** Read [references/agent-operations.md](references/agent-operations.md) now — before composing the phase summary below. It contains the full agent-mode definitions and per-section brief content used throughout Step 3 onward. Keep it in working memory for the rest of the run; if it is no longer verbatim in context later in the run (compaction), re-read it before composing any brief.
 
 Then output:
 
@@ -202,17 +202,17 @@ Before implementation begins, spawn Research agents to gather codebase context. 
 
 ### Step 4 — Execute Phases
 
-Capture `<run_start>` once (`date +%s`) — for the optional labeled "elapsed" line only; capture it at Step 3 instead when research runs, so the figure covers the whole run. Initialize the run ledger now if Step 3 did not already (see Run Ledger): create `<ledger_path>` with its header row. All reported timing comes from the ledger's summed `duration_ms`, NEVER from wall-clock `date` diffs across turns (those absorb laptop-closed / network-drop / checkpoint-pause idle and give a false read).
+Capture `<run_start>` once (`date +%s`) — for the optional, clearly-labeled "elapsed (includes pauses)" line ONLY, never the headline duration; capture it at Step 3 instead when research runs, so the figure covers the whole run. Initialize the run ledger now if Step 3 did not already (see Run Ledger): create `<ledger_path>` with its header row. All reported timing comes from the ledger's summed `duration_ms`, never wall-clock `date` diffs across turns (idle-immune — see Run Ledger).
 
 For each phase, sequentially:
 
 1. **Begin the phase** — no wall-clock capture. This phase's time and cost are derived from the ledger rows its sub-agents produce (item 8), which is idle-immune.
 2. **Compose the brief** — see Brief Composition Rules
-3. **Spawn the agent** — see Agent Modes for which to use
+3. **Spawn the agent** — see agent-operations.md → Agent Modes (full definitions) for which to use
 4. **Receive the summary and record its usage row** (see Run Ledger — append a ledger row for EVERY sub-agent return, this step and every other). Analyze the result for success, failures, or concerns. If the summary reports a **blocking** failure, route through Error Handling **now** — before the review gate — and enter item 5 only once the blocking failure is resolved (a verified Debug fix counts; it need not produce a new Code summary). Fixes must land before the phase is reviewed and committed, never after.
 5. **Stage and review the phase** (Code-mode phases only; skip if `--no-review` and note the skipped gate in the progress tracker):
    - Stage the phase's changes now: `git add -A` (with keep-dirty paths declared: `git add -A -- . <keep_dirty_pathspec>` — Step 1e.2). Staging before the review makes new untracked files visible to the reviewer's `git diff --cached` and freezes exactly what the verdict applies to.
-   - Spawn a **Review** agent (see Agent Modes) using the dedicated Review brief in agent-operations.md. Do NOT include the Code agent's summary or self-assessment in the brief — the reviewer's independence from the implementer's self-report is the point of the gate.
+   - Spawn a **Review** agent (see agent-operations.md → Agent Modes) using the dedicated Review brief there. Do NOT include the Code agent's summary or self-assessment in the brief — the reviewer's independence from the implementer's self-report is the point of the gate.
    - Receive the verdict table and route:
      - **All criteria MET** → proceed to item 6.
      - **Any NOT MET** → treat as a blocking failure (see Error Handling): re-attempt via a Code agent whose retry brief includes the reviewer's NOT MET findings verbatim; counts against the phase retry limit. After the fix, re-run the review with a fresh Review agent — full by default, scoped only when the invariant's narrow exceptions below apply; verdicts are never carried over.
@@ -234,7 +234,7 @@ For each phase, sequentially:
    - **Fallback** (message file missing, post-agent changes occurred, or hook rejected the message) — invoke `Skill(skill="commit", args="#<plan_sub_issue_number>")` (omit `args` entirely if local-only mode), exactly as before. Commits reference the plan sub-issue — the narrow scope of what each commit accomplishes. The PR body separately refs the parent PRD-epic (Step 5d) for rollup tracking. The `commit` skill is the single source of truth for commit message format and type selection — do NOT duplicate format guidance here (the fast path's message file is itself authored against that skill). If a commit-msg hook rejects the fallback's message too, that is a message problem, not a code problem: re-author the message against the hook's output and retry the commit once — the diff is unchanged, so no Debug agent, no review re-run, and no charge against the phase retry limit; if the re-authored message is also rejected, escalate to the user with the hook output.
    - **Pre-commit hook failure** — spawn a Debug agent with the hook output, files involved, and what was being committed. After Debug fixes the issue: re-stage (`git add -A`, exclusion form under keep-dirty paths — the fix is not in the index yet; if a scoped exception applies, extract its baselines BEFORE this re-stage — agent-operations.md → Scoped Re-review Exceptions), then re-run the review gate with a fresh Review agent per item 5's invariant (the fix changed the diff the verdict was rendered on; skip only when the gate is skipped for this run). If the re-review returns any NOT MET: first re-run item 6 in full against the new verdict table — un-check the criteria no longer MET (item 6's text says "check off", so be explicit: remove those ticks) and, in active mode, re-sync to GH with item 6's retry/escalation machinery — so neither the local file nor GH overstates progress while the phase is re-attempted or if the run stops here; then route through item 5's NOT MET path (counts against the phase retry limit) — never directly to the commit; the re-attempted phase's eventual commit starts a fresh two-attempt count. Otherwise — including when the gate is skipped for this run (no re-review, no verdicts to reconcile) — reconcile any MET ↔ NEEDS-RUNTIME drift by re-running item 6 in full (same Edit and sync rules), then retry the commit via the fallback path (a Debug fix invalidates the fast path). If the second attempt fails, escalate to the user with full context. **Never bypass hooks with `--no-verify`.**
    - **Delete the phase's scratch files** once the commit lands: the message file (`rm -f <scratch_dir>/phase-<n>-commit-msg.md` — the fast path's `&& rm` already did this; the fallback must do it here) and any scoped-review baselines (`rm -f <scratch_dir>/baseline-*`). A stale message file left by an aborted run would otherwise satisfy a later run's fast-path check and commit that phase with an outdated message; a stale baseline would hand a later scoped re-review the wrong delta.
-8. **Compute phase active time + cost from the ledger** — from this phase's ledger rows, sum `duration_ms` (→ **active time**, `h:mm:ss`; rows sharing a `Parallel group` label contribute the group's **max**, not its sum — see Progress Reporting) and carry each row's `subagent_tokens` into the **Research / Code / Review** columns as its own figure (placed by mode per Progress Reporting, never summed together; **Total** = the phase's sum across all rows). Active time is idle-immune: `duration_ms` is each sub-agent's own execution, so idle between turns (closed laptop, dropped connection, a human-checkpoint pause) never inflates it — unlike a wall-clock `date` diff. A phase that spawned a Debug agent and a re-review includes those rows in its totals. (Orchestrator-side heavy commands — e.g. the commit's pre-commit hook — are excluded by default; to count one, bracket ONLY that command inside a single bash call — `s=$(date +%s); git commit …; e=$(date +%s)` — which cannot absorb user idle mid-command.)
+8. **Compute phase active time + cost from the ledger** — from this phase's ledger rows, sum `duration_ms` (→ **active time**, `h:mm:ss`; parallel groups contribute their **max**, not sum — see Progress Reporting) and carry each row's `subagent_tokens` into the **Research / Code / Review** columns as its own figure (placed by mode per Progress Reporting, never summed together; **Total** = the phase's sum across all rows). Active time is idle-immune (see Run Ledger). A phase that spawned a Debug agent and a re-review includes those rows in its totals. (Orchestrator-side heavy commands — e.g. the commit's pre-commit hook — are excluded by default; to count one, bracket ONLY that command inside a single bash call — `s=$(date +%s); git commit …; e=$(date +%s)` — which cannot absorb user idle mid-command.)
 9. **Report progress** — output the progress tracker (see Progress Reporting), including the formatted duration
 10. **Carry non-blocking concerns** — blocking failures were already handled at item 4, before the review gate; note any remaining non-blocking issues from the summary or review in the progress output and carry them forward as context
 11. **Proceed** to the next phase, carrying forward relevant context from the summary
@@ -305,43 +305,15 @@ On success: report the PR URL to the user.
 
 #### Step 5e — Delete the local plan and PRD files
 
-Run only if ALL of the following hold:
+Run only if ALL of the following hold: GH mode (`<plan_sub_issue_number>` is set); run outcome is `complete` — not `partial` or `aborted` (partial runs need the file for resumability); Step 5d submitted the PR successfully (skipped or failed → keep the files — without a merged PR, the local file is still the most complete working copy).
 
-- GH mode (`<plan_sub_issue_number>` is set)
-- Run outcome is `complete` (not `partial` or `aborted` — partial runs need the file for resumability)
-- Step 5d submitted the PR successfully (skipped or failed → keep the files; without a merged PR, the local file is still the most complete working copy)
-
-When all conditions hold:
-
-Two exemptions override the deletions below; keep the file and say which exemption applied:
-
-- **Tracked** (`git ls-files --error-unmatch <path>` succeeds) — the file is part of the branch's committed history, whether committed by this run or tracked long before it. Removing it does not make it redundant: it leaves the tree contradicting HEAD, and a PR that adds a file the tree has deleted.
-- **Declared keep-dirty** — `<keep_dirty_pathspec>` means never staged, committed, or reverted by this run; deleting the file outright would be a stronger violation than any of those.
-
-1. **Delete the plan file:** `rm <plan_file_path>` (unless exempt per above)
-2. **Delete the upstream PRD file** if it is exempt from neither rule above, exists locally, and was published to GH:
-   - Derive the PRD path by swapping the suffix on the plan filename: `<slug>-plan.md` → `<slug>-prd.md` in the same directory
-   - If that file exists AND its content contains a `<!-- gh-issue: N -->` footer (proving it was published — local-only PRDs are kept as the audit trail) AND its content matches that issue's current GH body (`gh issue view <N> --json body --jq .body` — the PRD never syncs during a run, so any difference is local edits that exist nowhere else), `rm` it
-   - If any condition fails, leave it alone; on a content mismatch, say why: `PRD file kept — it carries local edits never pushed to GH issue #<N>.`
-3. **Note what was deleted and what was kept in the final summary** (e.g. `Local plan and PRD files removed — GH issues #<gh_issue_number>/#<plan_sub_issue_number> and PR are the canonical record.` — drop the `#<gh_issue_number>/` segment when no parent PRD-epic exists — or `Local plan file removed; PRD file kept (not published to GH).` / `…kept (tracked on this branch).`)
-
-Rationale: the GH issues hold the final checkbox state and the PR captures the work itself, so an untracked local copy is redundant. Re-runs that need the plan file can re-fetch from GH — Step 1b's "GH ref passed → not found → fetch" path handles that automatically.
+When all three hold, follow completion-templates.md → Local file cleanup (Step 5e) — already loaded by Step 5d. It owns the two keep-exemptions, the PRD-file checks, the deletion procedure, and the final-summary wording. Never delete a tracked or keep-dirty file, and never improvise the deletion from SKILL.md alone.
 
 ---
 
-## Agent modes (quick reference)
+## Agent modes
 
-The mode is the role; the `subagent_type` column is Claude Code's reference mapping. On another host, map each mode onto its nearest isolated-context worker by capability tier: Research's inline-lookup tier takes a read-only worker; everything else takes a general-capability worker. Research's file-backed tier and Review are read-only toward the repo *by conduct*, not by capability — the one writes only its own findings file, the other writes nothing (see the role notes in agent-operations.md; Review must also keep the same model tier as Code).
-
-| Mode          | Claude Code `subagent_type` | When to use                                                                  |
-| ------------- | --------------------------- | ---------------------------------------------------------------------------- |
-| **Research**  | `general-purpose` (file-backed, default) / `Explore` (inline lookup) | Gathering codebase context before or mid-execution; tier picked by the findings' destination (Step 3) |
-| **Code**      | `general-purpose`           | Phases that create or modify code and tests (primary workhorse)              |
-| **Architect** | `general-purpose`           | Phase is ambiguous about _how_ to structure something; resolve before coding |
-| **Debug**     | `general-purpose`           | A Code agent reports failures it couldn't resolve                            |
-| **Review**    | `general-purpose` (read-only conduct) | Independent criteria audit after each Code phase (Step 4.5); branch scope for the pre-PR review (Step 5c.5) |
-
-For each mode's full role definition, protocol, and expected-output format, see [references/agent-operations.md](references/agent-operations.md) — loaded once at Step 2 per Context Discipline.
+Five modes — **Research** (two tiers: file-backed `general-purpose`, the default / `Explore` inline lookup; tier picked in Step 3), **Code**, **Architect**, **Debug**, **Review** (all `general-purpose`; Research's file-backed tier and Review are read-only toward the repo *by conduct*, not by capability). Full role definitions, protocols, and expected outputs: [references/agent-operations.md](references/agent-operations.md) → Agent Modes (full definitions), loaded once at Step 2 — before any mode decision. On a host without these agent types, map by capability, not type name: inline-lookup Research → read-only worker; every other mode → general-capability worker — and Review keeps the same model tier as Code, never a smaller one.
 
 ---
 
@@ -364,7 +336,7 @@ For the exact text of each section (prose, directives, completion template), see
 
 **Before spawning any agent, verify the brief contains all 10 sections** (or all that apply to the mode — File Manifest, TDD Directive, Build Verification Gate, and Commit Message Directive are Code-mode-only; Write Scope & Search Breadth applies only to file-backed Research). **Exception:** Review agents use the dedicated Review Brief composition in agent-operations.md, not this skeleton.
 
-**Keep briefs thin — reference, don't re-embed.** A brief must not re-transcribe content the agent will read for itself. Cite the plan section by name, the research file(s) by path (`research-<topic>.md`), and the prior phase's `phase-<n>-handoff.md` by path — do not paste their contents. Inline only what is specific to THIS phase: the pointers, the phase's acceptance criteria (verbatim — they are short), and the phase-specific deltas/gotchas/corrections (e.g. line-number drift, a resolved plan ambiguity). Re-embedding is the orchestrator's biggest self-inflicted context cost: the brief is YOUR output, re-sent as input on every later turn, and it duplicates the plan the agent already reads.
+**Keep briefs thin — reference, don't re-embed** (full rule: agent-operations.md §2). Cite the plan section, research files, and prior handoffs by name/path — never paste their contents; inline only the phase's verbatim acceptance criteria and phase-specific deltas. The brief is YOUR output, re-sent as input on every later turn — re-embedding is the orchestrator's biggest self-inflicted context cost.
 
 ---
 
@@ -379,12 +351,12 @@ For the exact text of each section (prose, directives, completion template), see
 - **DO** read the plan file (once, at the start)
 - **DO** load [references/agent-operations.md](references/agent-operations.md) once at Step 2 and keep it in working memory for the whole run (agent modes + brief content for every phase)
 - **DO** load [references/working-tree.md](references/working-tree.md) at Step 1e.2a — but ONLY when unexplained dirt remains there (Step 1e.2a's own condition). A clean or fully-explained tree never needs it
-- **DO** load [references/completion-templates.md](references/completion-templates.md) at Step 5 when rendering the final completion table and composing the summary comment and PR body
+- **DO** load [references/completion-templates.md](references/completion-templates.md) at Step 5 when rendering the final completion table and composing the summary comment and PR body (it also owns Step 5e's file-cleanup procedure)
 - **DO** use the Edit tool to update plan checkboxes after phases complete (and `gh issue edit` to sync to the issue body when GH-backed)
 - **DO** create the work branch (Step 1e), commit phase changes (Step 4.7), push the branch and open the PR (Step 5c–5d) — these git/GH operations are the orchestrator's responsibility, not the agents'
 - **DO** commit via the Code agent's message file when the fast path applies (Step 4.7) — it keeps the phase diff out of your context; invoke the `commit` skill otherwise, and do NOT duplicate commit format guidance in this skill
-- **DO** record every sub-agent's `<usage>` block into the run ledger the moment it returns (see Run Ledger), and derive ALL reported timing from summed `duration_ms` — never from wall-clock `date` diffs across turns (they absorb idle/pause time and misreport)
-- **DO** broker file paths, not content — research findings live in `research-<topic>.md` (written by the file-backed Research agent itself) and each phase's downstream detail in `phase-<n>-handoff.md`; the NEXT agent reads them directly, so keep only judgment-relevant summaries (status, criteria, issues, deviations, précis) in your own context (exception: an inline-lookup Research return — the `Explore` tier can't write files — arrives inline by design and should be digest-sized; when one comes back oversized, persist it to `research-<topic>.md` on return, and path-brokering applies from that point on)
+- **DO** record every sub-agent's `<usage>` block into the run ledger the moment it returns (see Run Ledger), and derive ALL reported timing from summed `duration_ms`, never wall-clock `date` diffs (idle-immune — see Run Ledger)
+- **DO** broker file paths, not content — research findings live in `research-<topic>.md` (written by the file-backed Research agent itself) and each phase's downstream detail in `phase-<n>-handoff.md`; the NEXT agent reads them directly, so keep only judgment-relevant summaries (status, criteria, issues, deviations, précis) in your own context (exception: inline-lookup Research returns arrive inline by design; an oversized one is persisted to `research-<topic>.md` and never re-read — Step 3)
 - **DO** output progress updates between phases
 - **DO** carry forward only judgment-relevant context; the detailed inter-phase handoff lives in `phase-<n>-handoff.md`, which the next brief points its agent to read (you don't hold that detail yourself)
 - **DO** keep each phase's terse returned summary (status/criteria/issues/deviations/précis) in working memory as the record of what happened; the ledger holds the cost/time record
@@ -407,11 +379,11 @@ Initialize it before the run's FIRST sub-agent spawn — that is Step 3 when res
 | 1 | Code | 151579 | 84 | 3057245 |  |  |
 | 1 | Review | 78097 | 32 | 350528 |  | all MET |
 
-- **Tokens** = `subagent_tokens`, **Tool uses** = `tool_uses`, **duration_ms** verbatim; **Parallel group** is blank for a solo spawn, and rows spawned concurrently in one batch share a short label (`R1`, `R2`, …) — summing `duration_ms` across a group overstates elapsed time by roughly the fan-out factor, so Progress Reporting reports a group's max with the sum as a labeled aside. Record raw numbers; format only at render time. (Progress Reporting renders each row's Tokens as its own figure in the Research/Code/Review columns — placed by mode, never summed together.)
+- **Tokens** = `subagent_tokens`, **Tool uses** = `tool_uses`, **duration_ms** verbatim; **Parallel group** is blank for a solo spawn, and rows spawned concurrently in one batch share a short label (`R1`, `R2`, …) — reported at the group's max, not its sum (see Progress Reporting). Record raw numbers; format only at render time, each row's Tokens as its own figure, never summed (see Progress Reporting).
 - Attribute whole-run research to the phase it serves (or `setup`); the pre-PR review to `pre-PR`; post-run fixes to `followup`.
 - **`subagent_tokens` is cumulative tokens the agent processed across its internal turns — throughput, not peak context occupancy.** Report it as throughput; do NOT present it as "% of context window" (a long agent can process far more than the window without ever occupying it). Per-agent tokens are a **cost** signal; `tool_uses` is the closest available **occupancy** proxy — nothing evicts within a single sub-agent, so its context grows monotonically with tool-using turns, and a 250-call agent ran far closer to its window than a 30-call one whatever their token figures suggest. True peak occupancy is unmeasured on this host.
 - **This is a cost ledger, not a context-health ledger.** It records what each sub-agent spent; it says nothing about what stays resident in the orchestrator's own context — that occupancy is unmeasured (no mid-run signal exposes it) and is the cost Context Discipline exists to bound. Do not read a fully-populated ledger as evidence the run was context-lean.
-- All reported timing derives from summed `duration_ms` here (parallel groups counted at their max — see Progress Reporting) — never wall-clock `date` diffs across turns.
+- All reported timing derives from summed `duration_ms` here (parallel groups counted at their max — see Progress Reporting) — never wall-clock `date` diffs across turns, which absorb laptop-closed / dropped-connection / checkpoint-pause idle and misreport (see also Host portability → Time).
 
 **Host portability.** `subagent_tokens` / `tool_uses` / `duration_ms` are Claude Code's Task-tool `<usage>` fields. On another host, record whatever usage metadata its delegation mechanism returns, and degrade **per column** when a field is absent — the ledger, the file-handoff protocol, and the idle-immune-timing *intent* are host-agnostic; only these field names are Claude Code's:
 
@@ -436,12 +408,12 @@ After each phase, render progress as a **GitHub-flavored markdown table** (it di
 | 3 | {short title} | ▶ Current | — | — | — | — | — |
 
 - **Phase** — the phase `#` plus a **short** title, truncated to ~25 chars with `…` when longer. Keep it terse on purpose: the full title already appears in the between-the-table note below and the final `Outcomes` list, so the table needn't carry it in full — and an untruncated 40–60-char title, stacked on the seven other columns, pushes this table past a standard terminal's width, where the renderer wraps cells into a ragged grid. This is the one column that can blow up the table's width in a CLI; the numeric columns are naturally narrow.
-- **Research / Code / Review** — each sub-agent's `subagent_tokens` as its **own figure**, dot-separated in spawn order when the phase had several (`354K·113K·108K` — the retry count is visible at a glance). A lone agent keeps one-decimal precision (`151.6K`); multi-value cells drop to whole-K to stay compact. NEVER sum agents into one figure — a summed cell hides exactly the multiplicity that matters. The two rarer modes are **placed**, not folded: an Architect value lands in the Research column (non-implementing, pre-code) and a Debug or retry value in the Code column (fix cycles on the phase's code), each still listed individually. Upfront Step-3 research is its own `setup` row; a mid-phase Research agent (Error Handling item 4) lands in that phase's Research cell.
+- **Research / Code / Review** — each sub-agent's `subagent_tokens` as its **own figure**, dot-separated in spawn order when the phase had several (`354K·113K·108K` — the retry count is visible at a glance). A lone agent keeps one-decimal precision (`151.6K`); multi-value cells drop to whole-K to stay compact. NEVER sum agents into one figure (rationale in the intro above). The two rarer modes are **placed**, not folded: an Architect value lands in the Research column (non-implementing, pre-code) and a Debug or retry value in the Code column (fix cycles on the phase's code), each still listed individually. Upfront Step-3 research is its own `setup` row; a mid-phase Research agent (Error Handling item 4) lands in that phase's Research cell.
 - **Total** — the phase's full token cost: every agent figure in the three cells summed (compute from raw ledger values, then format). This is the one place summing is correct — it reconciles the row without impersonating any single agent's size.
 - **Active time** — the phase's summed sub-agent `duration_ms` (idle-immune; Step 4 item 8), `h:mm:ss`. Rows sharing a ledger `Parallel group` label contribute the group's **max**, not its sum — summed concurrent durations overstate elapsed by roughly the fan-out factor. Where a group exists, append the labeled sum: `0:08:25 (Σ 0:27:08, 4 parallel)` — the max approximates elapsed, the Σ is the work figure.
 - **Status** — `✓ Complete`, `▶ Current`, `· Pending`; append a flag where relevant: `(no commit — no changes)`, `(GH sync degraded)`, `(⚠ needs-runtime)`, `(↻ retried)`.
 
-The **final completion table** switches shape: one row per **sub-agent**, grouped under its phase with per-phase *subtotal* lines — render the ledger's rows; do not aggregate away the data the storage layer correctly keeps. It is also where `tool_uses` is reported. Format and example live in completion-templates.md, loaded at Step 5.
+The **final completion table** switches shape: one row per **sub-agent**, grouped under its phase with per-phase *subtotal* lines — render the ledger's rows (per-agent figures, as above). It is also where `tool_uses` is reported. Format and example live in completion-templates.md, loaded at Step 5.
 
 Read these figures from the ledger — do NOT hand-tally from memory. **Host portability:** the token columns need host-exposed per-agent token counts; without them, drop Research/Code/Review/Total (likewise `Tool uses` in the final table, and Active time if no duration is exposed) per Run Ledger → Host portability — with no usage metadata at all, the table is just `# | Phase | Status`.
 
@@ -485,14 +457,6 @@ When a Code agent's summary reports failures, or a Review agent returns NOT MET 
 
 ## Resumability
 
-The plan file is the persistent record of progress. By checking off acceptance criteria after each phase:
+The plan file is the persistent record of progress: checked acceptance criteria mark completed phases. If a conversation is interrupted, re-running `/run-plan` on the same plan skips already-completed phases (noted and confirmed with the user at Step 2) and re-attempts partially-completed phases from scratch (unchecked criteria = incomplete). Checked criteria are trusted only after Step 1e's resume guards pass — Steps 1e.2/1e.3 catch checkboxes that outran their commits (recorded ticks whose phase commit never landed, or whose commits live unpushed on another machine). 1e.2's check needs a tracked plan file — where the plans directory is git-ignored, the GH body is the only cross-run record.
 
-- If a conversation is interrupted, the user can re-run `/run-plan` on the same plan
-- The orchestrator reads the checkboxes to determine which phases are already complete
-- Already-completed phases are skipped (note them in the execution plan output)
-- Partially-completed phases are re-attempted from scratch (unchecked criteria = incomplete)
-- Checked criteria are trusted only after Step 1e's resume guards pass — Steps 1e.2/1e.3 catch checkboxes that outran their commits (recorded ticks whose phase commit never landed, or whose commits live unpushed on another machine). 1e.2's check needs a tracked plan file — where the plans directory is git-ignored, the GH body is the only cross-run record
-
-**For GH-backed plans:** the synced GH issue body is the cross-machine source-of-truth. A run started on machine B will fetch the body at start (Step 1b/1c), see checkboxes from a prior run on machine A, and skip those phases. Per-phase sync (Step 4.6) keeps the GH body in lockstep with the local file during execution.
-
-When presenting the execution plan (Step 2), if some criteria are already checked, note which phases appear complete and confirm with the user whether to skip them.
+**For GH-backed plans:** the synced GH issue body is the cross-machine source-of-truth — a run started on machine B fetches it at Step 1b/1c and skips the phases a prior machine completed; per-phase sync (Step 4.6) keeps it in lockstep with the local file.

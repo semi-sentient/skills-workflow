@@ -1,6 +1,6 @@
 # Completion Templates
 
-Load this reference only at Step 5, when rendering the final completion table and composing the end-of-run summary comment and PR body. Contains the exact markdown templates.
+Load this reference only at Step 5, when rendering the final completion table and composing the end-of-run summary comment and PR body. Contains the exact markdown templates, plus the local-file-cleanup procedure Step 5e follows.
 
 (The active-time / token figures below come from the run ledger. On a host exposing no usage metadata, drop those figures — or label a wall-clock elapsed as approximate — per SKILL.md → Run Ledger → Host portability; the templates otherwise stand.)
 
@@ -212,3 +212,23 @@ Which failures can occur depends on the path taken (see the declaration gate in 
   ```
 
 The branch is already pushed before any of this runs, so all work is preserved on remote regardless of outcome.
+
+---
+
+## Local file cleanup (Step 5e)
+
+SKILL.md Step 5e gates this (GH mode; outcome `complete`; PR submitted successfully) and routes here when all three conditions hold.
+
+Two exemptions override the deletions below; keep the file and say which exemption applied:
+
+- **Tracked** (`git ls-files --error-unmatch <path>` succeeds) — the file is part of the branch's committed history, whether committed by this run or tracked long before it. Removing it does not make it redundant: it leaves the tree contradicting HEAD, and a PR that adds a file the tree has deleted.
+- **Declared keep-dirty** — `<keep_dirty_pathspec>` means never staged, committed, or reverted by this run; deleting the file outright would be a stronger violation than any of those.
+
+1. **Delete the plan file:** `rm <plan_file_path>` (unless exempt per above)
+2. **Delete the upstream PRD file** if it is exempt from neither rule above, exists locally, and was published to GH:
+   - Derive the PRD path by swapping the suffix on the plan filename: `<slug>-plan.md` → `<slug>-prd.md` in the same directory
+   - If that file exists AND its content contains a `<!-- gh-issue: N -->` footer (proving it was published — local-only PRDs are kept as the audit trail) AND its content matches that issue's current GH body (`gh issue view <N> --json body --jq .body` — the PRD never syncs during a run, so any difference is local edits that exist nowhere else), `rm` it
+   - If any condition fails, leave it alone; on a content mismatch, say why: `PRD file kept — it carries local edits never pushed to GH issue #<N>.`
+3. **Note what was deleted and what was kept in the final summary** (e.g. `Local plan and PRD files removed — GH issues #<gh_issue_number>/#<plan_sub_issue_number> and PR are the canonical record.` — drop the `#<gh_issue_number>/` segment when no parent PRD-epic exists — or `Local plan file removed; PRD file kept (not published to GH).` / `…kept (tracked on this branch).`)
+
+Rationale: the GH issues hold the final checkbox state and the PR captures the work itself, so an untracked local copy is redundant. Re-runs that need the plan file can re-fetch from GH — Step 1b's "GH ref passed → not found → fetch" path handles that automatically.
