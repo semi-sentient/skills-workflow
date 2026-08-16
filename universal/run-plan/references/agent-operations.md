@@ -194,7 +194,7 @@ Include this directive for every Code mode agent:
 
 ### 7. Commit Message Directive (Code mode only)
 
-Include this directive for every Code mode agent in a commit-producing run (drop the ticket sentence in local-only mode):
+Include this directive for every Code mode agent in a commit-producing run (in local-only mode, replace the ticket sentence with: "This run has no ticket identifier — do not infer one from the branch name or anywhere else."):
 
 > After the build gate passes, read the installed `commit` skill — the single source of truth for message format — and write a commit message conforming to it for this phase's changes, saved to `<scratch_dir>/phase-<n>-commit-msg.md` (the orchestrator gives you the concrete resolved path). Write the file as raw commit-message text — no code fence, no Markdown wrapper, no preamble: the orchestrator passes it verbatim to `git commit -F`, so a stray leading fence line becomes the commit subject. Include any commit trailers the environment or repository requires (your harness instructions state them; `git log -1` shows the set already in use on this branch). Nothing is staged in your session: treat your phase's full working-tree diff (`git diff` plus any new files you created) as the staged changes that skill refers to. Use `#<plan_sub_issue_number>` as the ticket identifier. Do NOT run `git commit` — the orchestrator owns commits.
 

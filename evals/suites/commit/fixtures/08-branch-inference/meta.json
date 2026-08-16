@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "No ticket argument, branch `123-reconcile-report` — inference must carry #123 into the scope and Ticket: footer",
+  "args": "",
+  "timeout_s": 420
+}

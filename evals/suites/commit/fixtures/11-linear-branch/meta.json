@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "No ticket argument, Linear-style branch `markus/eng-142-...` — lowercase team key inferred and uppercased to ENG-142",
+  "args": "",
+  "timeout_s": 420
+}

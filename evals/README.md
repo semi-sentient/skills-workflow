@@ -125,12 +125,18 @@ ablation would produce two identical arms and a confident "no difference".
 
 ## Suites
 
-### `commit` — 7 fixtures, 70 assertions, ~$1.40, ~40s
+### `commit` — 11 fixtures, 114 assertions, ~$2.20, ~65s
 
 Fully deterministic grading against the produced commit message: Conventional
 Commits shape, Sentence-case default, ticket scope and footer placement,
 `commitlint` rules discovered from four different locations, the refuse-on-empty
 guard, and the rule that unstaged work must never be described.
+
+`08`–`11` cover ticket inference (SKILL.md step 2): capture from a
+GitHub-style issue branch and from Linear's lowercase-key format, the
+date-prefix exclusion graded on a branch name the skill text does NOT name
+verbatim, and `--no-ticket` beating an inferable branch reference — the
+invariant run-plan's local-only mode depends on.
 
 `07-exotic-type-enum` is the discriminating one. Its allowed types are
 project-invented (`deliver`, `repair`, `tidy`) and hidden in a `package.json`

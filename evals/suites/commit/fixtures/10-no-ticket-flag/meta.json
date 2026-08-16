@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "--no-ticket on an issue-numbered branch — deliberate omission must beat inference; nothing ticket-shaped may appear",
+  "args": "--no-ticket",
+  "timeout_s": 420
+}

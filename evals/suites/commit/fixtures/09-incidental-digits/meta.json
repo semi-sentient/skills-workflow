@@ -1,0 +1,6 @@
+{
+  "skill": "commit",
+  "description": "No ticket argument, date-prefixed branch — the digits are not an issue reference; nothing ticket-shaped may appear",
+  "args": "",
+  "timeout_s": 420
+}
