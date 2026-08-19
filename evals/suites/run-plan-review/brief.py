@@ -43,7 +43,7 @@ OUTPUT_CONTRACT = """## Output contract
 
 Return ONLY a JSON object as your final message (no code fences, no prose before or after):
 
-{"verdicts":[{"criterion":"<verbatim criterion text>","verdict":"MET"|"NOT_MET"|"NEEDS_RUNTIME","evidence":"<file:line + one-line why | the concrete gap and where the fix belongs | why it cannot be verified statically>"}],"scopeCreep":"<changes in the staged diff outside the File Manifest and Scoped Task, or 'None'>","strongestNonFinding":"<when all criteria are MET: the strongest thing you checked that did NOT pan out>"}
+{"verdicts":[{"criterion":"<verbatim criterion text>","verdict":"MET"|"NOT_MET"|"NEEDS_RUNTIME","evidence":"<file:line + one-line why | the concrete gap and where the fix belongs | why it cannot be verified statically>"}],"scopeCreep":"<changes in the staged diff outside the File Manifest and Scoped Task, or 'None'>","outOfCriteriaDefects":"<defects in the changes that no criterion's wording covers, each with file:line, or 'None'>","weakCriteria":"<criteria satisfiable without the intended behaviour holding, each with one line on why, or 'None'>","strongestNonFinding":"<when all criteria are MET: the strongest thing you checked that did NOT pan out>"}
 """
 
 

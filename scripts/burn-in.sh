@@ -316,14 +316,23 @@ the point. Do not edit skill files while a run is in flight.
       \`<gh_issue_number>\` unset, which is expected, not an error
 - [ ] Research agents spawn file-backed (\`general-purpose\`), write their own
       \`research-*.md\`, and their ledger rows carry real token/duration figures
-      (only an inline-lookup \`Explore\` row reads \`n/a\`)
+      (an inline-lookup \`Explore\` row — or an infrastructure-death row —
+      reads \`n/a\`; every other row carries real figures)
 - [ ] The ledger exists before the first research agent returns
 - [ ] \`run-conventions.md\` is written once at Step 2, and every skeleton brief
       (all modes but Review) points at it instead of restating the standing
       directives
 - [ ] Each phase is reviewed by a fresh Review agent before its commit
-- [ ] Review returns are criterion+verdict lines plus findings only — the
+- [ ] Review returns are criterion+verdict lines, findings, and all three
+      trailing sections — scope-creep, out-of-criteria defects, and the
+      weak-criteria flag (an explicit "None" each when empty) — while the
       evidence table lands in \`phase-N-review.md\`, not the return
+- [ ] No turn ends between phases — the tracker renders and the next
+      phase's brief is composed in the same turn
+- [ ] If any fix cycle occurs: the status flag shows counted budgets
+      (\`(↻ retry n/2, corrective n/2)\`, never a bare \`(↻ retried)\`) and
+      any retry or corrective brief — never a Debug brief — carries the
+      Message maintenance rule (file-exists or absent-file arm)
 - [ ] The final summary states the outcome (\`complete\`) explicitly
 - [ ] \`gh pr create\` is used — no polling, no \`gh pr edit\`
 

@@ -18,7 +18,7 @@ The between-phase running table (SKILL.md → Progress Reporting) keeps one row 
 | 2 | Review | 124.6K | 44 | 0:16:52 |
 | 2 | Review (re-review 1) | 119.3K | 38 | 0:14:20 |
 | 2 | Review (re-review 2) | 120.2K | 41 | 0:14:02 |
-| 2 | *subtotal* — ✓ (↻ retried) | 939.2K | — | 2:41:12 |
+| 2 | *subtotal* — ✓ (↻ retry 2/2) | 939.2K | — | 2:41:12 |
 
 **Agent** is the mode plus a qualifier where one disambiguates (`Code (retry 1)`, `Research: <topic>`, `Debug`). Subtotal lines carry the phase's status flags from the running table; their Active time follows the parallel-group rule (max, with the Σ as a labeled aside). Include `setup`, `pre-PR` (Review), and `followup` groups where they occurred, and end with a **Totals** row summing the subtotal lines. The same rendered table is re-pasted verbatim into the PR body's collapsed "Run cost" section (template below).
 
@@ -218,7 +218,7 @@ The branch is already pushed before any of this runs, so all work is preserved o
 
 ## Local file cleanup (Step 5e)
 
-SKILL.md Step 5e gates this (GH mode; outcome `complete`; PR submitted successfully) and routes here when all three conditions hold.
+SKILL.md Step 5e gates this (GH mode; outcome `complete`; PR submitted successfully; no unresolved CONFIRMED Step 5c.5 finding) and routes here when all four conditions hold.
 
 Two exemptions override the deletions below; keep the file and say which exemption applied:
 
