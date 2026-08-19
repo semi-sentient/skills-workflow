@@ -29,7 +29,6 @@ AGENT_DIRS = (".agents/skills", ".claude/skills")
 USER_DOCS = ("README.md", "docs/WORKFLOW_SKILLS.md", "docs/WORKFLOW.md")
 
 MAX_SKILL_LINES = 500  # CONTRIBUTING.md: "Keep SKILL.md under 500 lines."
-MAX_DESCRIPTION = 250  # CONTRIBUTING.md: longer "may be truncated".
 
 MODEL_NAMES = r"\b(opus|sonnet|haiku|fable)\b"
 
@@ -235,12 +234,15 @@ def check_frontmatter(d: SkillDoc) -> None:
     desc = d.frontmatter.get("description")
     if not desc:
         d.err("frontmatter", "Missing required `description` — it is the trigger.")
-    elif len(desc) > MAX_DESCRIPTION:
-        d.warn(
-            "description-length",
-            f"description is {len(desc)} chars (>{MAX_DESCRIPTION}); the tail "
-            "may be truncated before the model ever sees it.",
-        )
+    # No length rule. A `description-length` warning used to live here, enforcing
+    # the "longer than 250 characters may be truncated" line CONTRIBUTING.md
+    # carried without a source. Measured with a paired probe (two skills, one
+    # 358-char description each, unique trigger token at char 329 vs char 32):
+    # both triggered every time on Claude Code 2.1.220 and 2.1.235. Nothing is
+    # truncated at 250, so the rule was firing on five of eight skills for no
+    # reason — and a gate that cries wolf on most of the corpus gets ignored
+    # wholesale, taking its real findings with it. If a hard cap is ever wanted,
+    # it should be the documented frontmatter limit, verified first.
     for key in AGENT_SPECIFIC_KEYS:
         if key in d.frontmatter:
             d.warn(

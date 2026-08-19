@@ -11,7 +11,7 @@ Thanks for your interest! This repo is a shared library of agent skills designed
 ```yaml
 ---
 name: my-new-skill
-description: A clear, concise description of what this skill does and when to use it. Front-load the key use case — descriptions longer than 250 characters may be truncated.
+description: A clear, concise description of what this skill does and when to use it. Front-load the key use case, and name the phrases a user would actually type.
 ---
 Your skill instructions here...
 ```
