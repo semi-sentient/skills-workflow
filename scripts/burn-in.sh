@@ -318,7 +318,12 @@ the point. Do not edit skill files while a run is in flight.
       \`research-*.md\`, and their ledger rows carry real token/duration figures
       (only an inline-lookup \`Explore\` row reads \`n/a\`)
 - [ ] The ledger exists before the first research agent returns
+- [ ] \`run-conventions.md\` is written once at Step 2, and every skeleton brief
+      (all modes but Review) points at it instead of restating the standing
+      directives
 - [ ] Each phase is reviewed by a fresh Review agent before its commit
+- [ ] Review returns are criterion+verdict lines plus findings only — the
+      evidence table lands in \`phase-N-review.md\`, not the return
 - [ ] The final summary states the outcome (\`complete\`) explicitly
 - [ ] \`gh pr create\` is used — no polling, no \`gh pr edit\`
 

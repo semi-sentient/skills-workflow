@@ -184,10 +184,11 @@ fails the run rather than quietly sending a brief with a section missing.
 
 Two deliberate compromises, both of which cost coverage:
 
-1. **The output contract is overridden to JSON.** The skill specifies a Markdown
-   verdict table, which is right for a human-facing orchestrator and wrong for
-   automated grading. The original benchmark made the same trade. What it costs:
-   a formatting regression in the real table format is invisible here.
+1. **The output contract is overridden to JSON.** The skill routes the full
+   evidence table to a scratch evidence file and returns verdict lines plus
+   findings — right for a context-lean orchestrator, wrong for automated
+   grading. The original benchmark made the same trade. What it costs: the real
+   return split and table format are invisible here.
 2. **The brief is tested in isolation, not through `run-plan`.** That is what
    makes it cost cents instead of 400K tokens. What it costs: orchestrator-side
    composition bugs escape entirely. Cover those with `scripts/burn-in.sh`.

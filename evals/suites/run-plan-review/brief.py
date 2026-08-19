@@ -12,11 +12,12 @@ a block can no longer be found, this raises instead of quietly falling back to a
 default — a silently stale brief is worse than a failed run. The one exception is
 an ablation arm, which removes a block deliberately; see `_ablating`.
 
-The output contract is deliberately overridden to JSON. The skill specifies a
-Markdown verdict table, which is right for a human-facing orchestrator and wrong
-for automated grading; the original July-2026 benchmark made the same trade.
-What it costs: the real table format goes untested here, so a formatting
-regression in the verdict output is invisible to this suite.
+The output contract is deliberately overridden to JSON. The skill routes the
+full evidence table to a scratch evidence file and returns verdict lines plus
+findings — right for a context-lean orchestrator, wrong for automated grading;
+the original July-2026 benchmark made the same trade. What it costs: the real
+return split and table format go untested here, so a formatting regression in
+the verdict output is invisible to this suite.
 """
 
 from __future__ import annotations
@@ -24,6 +25,19 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+
+# Tripwire phrases for the two rewrites below: if a rewrite no-ops because the
+# skill text drifted, the leaked directive almost certainly carries one of
+# these. A substring list is best-effort, not a proof — a drift phrased without
+# any of them leaks silently, so extend this list when the skill's evidence-file
+# vocabulary changes.
+_FILE_DIRECTIVE_MARKERS = (
+    "evidence file",
+    "evidence path",
+    "evidence record",
+    "phase-<n>-review",
+    "this brief states",
+)
 
 OUTPUT_CONTRACT = """## Output contract
 
@@ -93,11 +107,27 @@ def compose(skill_dir: Path, *, phase: str, criteria: list[str],
     if not role_m:
         raise RuntimeError("could not extract the Review **Role:** line")
     role = role_m.group(1).strip()
+    # Same trade as the evidence-rule rewrite below: the live Role line grants a
+    # sanctioned evidence-file write this eval cannot host (no orchestrator, no
+    # scratch dir) — drop the grant, and fail loudly on drift past the rewrite.
+    role = role.replace(
+        " The one sanctioned write is the reviewer's own evidence file (Expected output below).",
+        "",
+    )
+    if any(s in role for s in _FILE_DIRECTIVE_MARKERS) and not _ablating():
+        raise RuntimeError(
+            "the Review role still references the evidence file after rewriting — "
+            "update the rewrite in brief.py to match the skill text"
+        )
 
-    # The compactness rule (added in c9ff6bb) caps evidence at one line per
-    # criterion. It is genuinely absent from versions before that commit, so its
-    # absence is a version difference rather than a fault and must not raise —
-    # which is also what makes an A/B across that commit measurable here.
+    # The compactness rule (added in c9ff6bb) capped evidence at one line per
+    # criterion. Versions before that commit lack it, and versions from
+    # 2026-08-16 replace it with a return split that routes the evidence table
+    # to a scratch file — meaningless here, where the JSON contract already
+    # carries evidence inline, so the split paragraph is deliberately not
+    # extracted. Absence therefore marks a version difference on either side,
+    # never a fault, and must not raise; the trailing "Keep each `evidence`
+    # value to a single line" instruction preserves compactness in all arms.
     compact_m = re.search(r"^For an all-MET phase.*$", review, re.M)
     compactness = compact_m.group(0).strip() if compact_m else ""
 
@@ -105,6 +135,27 @@ def compose(skill_dir: Path, *, phase: str, criteria: list[str],
     mandate = _quoted(composition, "Assume the implementation fails", "the adversarial mandate")
     diff_instruction = _quoted(composition, "staged", "the diff instruction")
     evidence_rule = _quoted(composition, "file:line", "the evidence requirement")
+    # From 2026-08-16 the skill directs MET evidence to a scratch evidence file
+    # the orchestrator resolves; this eval has neither, and the JSON contract
+    # carries evidence inline. Rewrite that clause rather than sending the model
+    # an instruction it cannot follow — and fail loudly if the skill text has
+    # drifted past this rewrite, per this module's no-silent-staleness rule.
+    evidence_rule = evidence_rule.replace(
+        "record `file:line` evidence you actually verified in the evidence file — a MET without it is unverified",
+        "cite `file:line` evidence you actually verified in each verdict's evidence field",
+    )
+    if any(s in evidence_rule for s in _FILE_DIRECTIVE_MARKERS) and not _ablating():
+        raise RuntimeError(
+            "the evidence requirement still references the skill's evidence file "
+            "after rewriting — update the rewrite in brief.py to match the skill text"
+        )
+    # The skill's five-line cap on the non-finding note assumes a prose return;
+    # here that value is a one-line JSON string, so the cap is unfollowable
+    # noise. Harmless if the skill text drifts and this no-ops.
+    evidence_rule = evidence_rule.replace(
+        " — in five lines or fewer; it proves the gate ran, it is not a report section",
+        "",
+    )
 
     mandate_block = f"\n{mandate}\n" if mandate else ""
     compactness_block = f"\n{compactness}\n" if compactness else ""

@@ -166,8 +166,9 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 
 ## Review notes
 
-<!-- include this section ONLY when Step 5c.5 produced surviving findings -->
-- <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE>
+<!-- include this section ONLY when Step 5c.5 produced surviving findings, or when Step 4 item 10 carried defects to the report route — tag each entry with its source -->
+- <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE> <!-- branch review (Step 5c.5) -->
+- <carried defect — `file:line`, one-line description> <!-- carried, Step 4 item 10 -->
 
 <details>
 <summary>Run cost (per sub-agent)</summary>

@@ -71,6 +71,12 @@ plus the declared-path validation in a production repo.
 | Step 3 — write-scope snapshot form on any dirty-at-start state (not just keep-dirty) | — | **cold** (trigger extended 2026-08-11) |
 | Step 4.5 — scoped re-review exception | production run (sitevue.server PR #249) | exercised ×3 on 2026-08-07 — found the delta-transmission defect this repo then fixed |
 | Step 4.5 — baseline extraction + scoped diff brief | git-level repro only | **cold** live — mechanics verified deterministically 2026-08-07; awaiting a production run |
+| Step 4.5 — declared-comment-only production delta admitted to Exception 2's scoped path | — | **cold** (branch added 2026-08-16; the full-review cost it replaces measured in run #285) |
+| Step 4.5 — scoped reviewer refutes a comment-only declaration (non-comment line or tool-directive comment) → escalates to full | — | **cold** (branch added 2026-08-16) |
+| Step 4.5 — evidence table written to the spawn's own resolved `phase-<n>-review[-k].md` path; return = verdict lines + findings inline, existence-checked per spawn | — | **cold** (branch added 2026-08-16) |
+| Step 2 — `run-conventions.md` written once; skeleton briefs point at it | — | **cold** (branch added 2026-08-16) |
+| Retry protocol — second false rewrite of a comment → deletion ordered (criterion-required comment escalates instead) | — | **cold** (branch added 2026-08-16) |
+| Step 4 item 10 — pre-authorized cleanup folded into a later phase, named in both that phase's briefs | — | **cold** (branch added 2026-08-16; the unsanctioned form read as scope creep in run #285) |
 | Step 4.7 — fast-path fence strip | — | **cold** (guard added 2026-08-07; the unguarded failure it prevents occurred in production) |
 | Step 4.7 — pre-commit hook failure → Debug | — | **cold** |
 | Step 5d — declared: poll + `gh pr edit` | production run | exercised |
