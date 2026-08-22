@@ -160,9 +160,19 @@ In **both** modes, re-read every source file referenced in any phase's "What to 
 
 Rate each phase 0–10 for how likely an AI coding agent is to implement it correctly from the plan alone. **The score must come from whoever ran the verification, not from the plan's author** — a number the author assigns its own plan carries no signal. In independent-reviewer mode, the reviewer returns the scores; in fallback mode, treat the score as a self-checklist prompt and lean on the Step 6d user approval as the real gate.
 
-Flag any phase below 9. If issues were found anywhere, fix them before proceeding; for any flagged phase, add concrete implementation details (code snippets, API configurations, exact function signatures) until it reaches 9+.
+For any score below 9, the reviewer must also classify the gap: **specification gap** (fixable by adding detail to the plan) or **irreducible risk** (no plan detail can close it). Irreducible risk must be one of these named causes:
 
-**Step 6d — Present verification results** — Show the user a summary table with each phase's confidence score (0–10), any issues found, and the changes made to resolve them. Do NOT proceed to Step 7 until the user explicitly approves. If the user requests changes, revise, re-verify (same mode as above), and re-present. Repeat until approved.
+- The phase requires a human action a coding agent cannot perform, whether verification or setup (visual inspection, physical hardware, provisioning in a third-party dashboard).
+- The phase depends on external-system behavior unknowable before implementation (undocumented API responses, production data shape).
+- The phase's residual uncertainty lives in runtime behavior observable only by executing the change against real state (a migration against real data, behavior under concurrent load) — not in what the code should say.
+
+The irreducible-risk classification is only available for a phase with zero outstanding Step 6b findings — specification vagueness generally surfaces as a 6b finding, so a clean checklist is the operational test for "nothing fixable remains" (the counterfactual score below backstops what 6b misses). The reviewer must also report the counterfactual score the phase would earn if the named cause were resolved: the exception applies only if that counterfactual is 9+ and the actual score is 5 or higher. Below 5, the exception is unavailable — return to Step 5 and split or checkpoint the risky work into its own thin phase instead; a phase that is already such a minimal risk-isolating slice with a human checkpoint in its acceptance criteria is exempt from this floor (otherwise splitting would loop forever). In fallback mode the classification, like the score, is the author's own claim; mark such rows as self-classified in the Step 6d table so the user's approval is informed.
+
+Flag any phase below 9. Fix every Step 6b checklist issue before proceeding. For a flagged phase classified as a specification gap, add concrete implementation details (code snippets, API configurations, exact function signatures) until the score reaches 9+ or the remaining shortfall is entirely a named cause. After applying fixes to any flagged phase, re-run verification in the same mode as Step 6a; the scores and classifications presented in Step 6d must come from that re-run — in independent mode never from the author, in fallback mode from a fresh red-team pass rather than carried over from before the fixes. Never pad a phase with invented detail to inflate its score; fabricated snippets read as authoritative and are worse than a flagged phase.
+
+A phase accepted under the exception must carry the risk into the plan file: add a `**Known risk**: <named cause>` line to that phase in Step 7d, and for a human-action cause add a matching acceptance criterion (e.g. `- [ ] Human verifies <X>`) — executing agents read the plan alone, so a risk that lives only in this conversation is a risk they never see.
+
+**Step 6d — Present verification results** — Show the user a summary table with each phase's confidence score (0–10), any issues found, and the changes made to resolve them. For any phase presented below 9 under the irreducible-risk exception, the table must state the named cause (and mark it self-classified in fallback mode) so the user is accepting that risk explicitly, not overlooking it. Do NOT proceed to Step 7 until the user explicitly approves. If the user requests changes, revise, re-verify (same mode as above), and re-present. Repeat until approved.
 
 ### 7. Write the plan file
 
@@ -239,6 +249,8 @@ Durable decisions that apply across all phases:
 ## Phase 1: <Title>
 
 **User stories**: <list from PRD>
+
+**Known risk**: <named cause from Step 6c — only for a phase accepted below 9 under the irreducible-risk exception; omit this line otherwise>
 
 ### What to build
 
