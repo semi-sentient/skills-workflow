@@ -41,8 +41,8 @@ This step forces you to confront the hard questions early: edge cases, scope bou
 
 **What to expect:**
 
-- A series of questions, strictly one per turn — tightly coupled sub-decisions arrive as consecutive turns, not bundles
-- Each answer can unlock sub-decisions the agent will drill into before moving to the next top-level branch
+- Numbered rounds of questions — every question that is answerable right now arrives in one round, each with the agent's recommendation
+- Your answers unlock the next round: questions that depended on a decision you just made become askable, and the agent recomputes what to ask
 - Questions the agent can answer by exploring the codebase are answered automatically; the agent may also re-explore mid-interview when a new constraint reshapes later branches
 - When you answer directly (rather than picking from options the agent offered), expect one counter-challenge before the agent accepts and moves on
 - A structured wrap-up at the end: decisions made, assumptions accepted (each with a one-line justification), open questions still requiring resolution — any default you didn't explicitly confirm lands in assumptions or open questions, never silently in decisions
