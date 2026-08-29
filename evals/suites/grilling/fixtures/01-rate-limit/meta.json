@@ -1,0 +1,12 @@
+{
+  "skill": "grill-me",
+  "mode": "dialogue",
+  "companions": [
+    "grilling"
+  ],
+  "description": "grill-me on 'add rate limiting': flawed in-memory store (3 replicas), a deferred webhooks question, an 'every route is authed' claim the code contradicts, facts the repo holds",
+  "args": "",
+  "max_turns": 28,
+  "call_timeout_s": 900,
+  "timeout_s": 7200
+}

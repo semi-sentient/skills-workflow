@@ -1,0 +1,1 @@
+Plan: add rate limiting to the Ledger API. Every route is behind auth, so we key limits on the user. I'm thinking a simple counter map in the process, 100 requests a minute, return 429 when exceeded. Should be a small change in a middleware.

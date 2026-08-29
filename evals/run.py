@@ -37,6 +37,8 @@ from harness.runner import DEFAULT_WORKDIR, REPO  # noqa: E402
 # Rough per-run cost, used only for the --dry-run estimate and the
 # confirmation prompt. Observed range for these fixtures is $0.10-$0.60.
 COST_PER_RUN_USD = 0.35
+# A dialogue run is 10-30 resumed interviewer turns plus a simulator session.
+COST_PER_DIALOGUE_USD = 4.0
 
 
 def check_prereqs() -> list[str]:
@@ -59,9 +61,12 @@ def main() -> int:
     ap.add_argument("--fixture", action="append", default=[],
                     help="limit to named fixture(s); repeatable")
     ap.add_argument("--arm", default="worktree",
-                    help="skill version under test: 'worktree' or a git ref (default: worktree)")
-    ap.add_argument("--compare", metavar="REF",
-                    help="baseline version to diff against, e.g. HEAD or HEAD~1")
+                    help="skill version under test: 'worktree', a git ref, or 'path:<dir>' "
+                         "(a directory tree searched for <skill>/SKILL.md, e.g. an upstream clone) "
+                         "(default: worktree)")
+    ap.add_argument("--compare", metavar="REF", action="append", default=[],
+                    help="baseline version to diff against, e.g. HEAD, HEAD~1, or path:<dir>. "
+                         "Repeatable: each baseline is compared with the candidate arm.")
     ap.add_argument("--ablate", action="append", default=[], metavar="PATH:REGEX",
                     help="delete a span from the candidate arm's skill before running, to test "
                          "whether a clause earns its place (e.g. "
@@ -104,13 +109,14 @@ def main() -> int:
             return 1
         ablations.append((path, pattern))
 
-    arms = [Arm(args.arm, ablations)]
-    if args.compare:
-        arms.insert(0, Arm(args.compare))  # baseline first, always un-ablated
-    if ablations and args.compare == args.arm and len(arms) == 2:
-        arms[0] = Arm(args.compare)  # same ref, distinct labels via ablation
+    candidate = Arm(args.arm, ablations)
+    # Baselines first, always un-ablated. The same ref as the candidate is a
+    # legitimate baseline only under an ablation (distinct labels).
+    baselines = [Arm(ref) for ref in args.compare if ref != args.arm or ablations]
+    arms = baselines + [candidate]
 
     total_runs = len(fixtures) * len(arms) * args.reps
+    dialogue_runs = sum(1 for fx in fixtures if fx.mode == "dialogue") * len(arms) * args.reps
     print(f"{len(fixtures)} fixture(s) x {len(arms)} arm(s) x {args.reps} rep(s) = {total_runs} runs")
     for arm in arms:
         try:
@@ -120,8 +126,10 @@ def main() -> int:
             return 1
     for fx in fixtures:
         print(f"  - {fx.suite}/{fx.name}: {fx.description}")
-    print(f"\nEstimated cost: ~${total_runs * COST_PER_RUN_USD:.2f} "
-          f"(~${COST_PER_RUN_USD:.2f}/run, varies with fixture size)")
+    single_runs = total_runs - dialogue_runs
+    est = single_runs * COST_PER_RUN_USD + dialogue_runs * COST_PER_DIALOGUE_USD
+    print(f"\nEstimated cost: ~${est:.2f} "
+          f"(~${COST_PER_RUN_USD:.2f}/single run, ~${COST_PER_DIALOGUE_USD:.2f}/dialogue run; varies with fixture size)")
 
     if args.dry_run:
         print("\n--dry-run: nothing executed.")
@@ -148,11 +156,11 @@ def main() -> int:
           f"billed ${report.cost():.2f} across {len(outcomes)} run(s)")
 
     regressions = 0
-    if args.compare:
+    for base in baselines:
         print()
-        deltas, summary = compare(report, arms[0].label, arms[1].label)
+        deltas, summary = compare(report, base.label, candidate.label)
         print(summary)
-        regressions = sum(1 for d in deltas if d.verdict == "regressed")
+        regressions += sum(1 for d in deltas if d.verdict == "regressed")
 
     if args.baseline_out:
         out = Path(args.baseline_out)

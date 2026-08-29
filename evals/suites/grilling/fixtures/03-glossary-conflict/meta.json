@@ -1,0 +1,13 @@
+{
+  "skill": "grill-with-docs",
+  "mode": "dialogue",
+  "companions": [
+    "grilling",
+    "domain-modeling"
+  ],
+  "description": "grill-with-docs with an existing CONTEXT.md: user says 'cancel' for a post-shipment refund (glossary says Cancellation is pre-fulfilment), 'account' for Customer-or-User, one ADR-worthy decision and one that is not",
+  "args": "",
+  "max_turns": 28,
+  "call_timeout_s": 900,
+  "timeout_s": 7200
+}

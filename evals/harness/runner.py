@@ -62,6 +62,25 @@ class Fixture:
     def expects_no_commit(self) -> bool:
         return bool(self.meta.get("expects_no_commit"))
 
+    @property
+    def mode(self) -> str:
+        """`single` (one `claude -p`, the default) or `dialogue` (multi-turn
+        against a simulated user; see harness/dialogue.py)."""
+        return str(self.meta.get("mode", "single"))
+
+    @property
+    def companions(self) -> list[str]:
+        """Other skills the skill under test may delegate to. Materialised from
+        the same arm when that arm has them, skipped silently when it does not —
+        so an arm whose skill is a dispatcher ("call the grilling skill") can
+        resolve its target, and an arm whose skill is self-contained is not
+        penalised for lacking a file it never references."""
+        return list(self.meta.get("companions", []))
+
+    @property
+    def max_turns(self) -> int:
+        return int(self.meta.get("max_turns", 30))
+
     def module(self, filename: str):
         path = self.root / filename
         if not path.is_file():
@@ -101,7 +120,10 @@ def discover_fixtures(suite: str | None = None, only: list[str] | None = None) -
 
 @dataclass
 class Arm:
-    """A skill version to test. `ref` is 'worktree' or any git ref.
+    """A skill version to test. `ref` is 'worktree', any git ref, or
+    `path:<dir>` — a directory tree outside this repo (an upstream clone, say)
+    searched for `**/<skill>/SKILL.md`. That is how a fork gets benchmarked
+    against the skill it forked from without importing it.
 
     `ablations` deletes spans from the materialised skill before the run:
     a list of (path-relative-to-skill-dir, regex). This answers the question a
@@ -115,8 +137,17 @@ class Arm:
     ablations: list[tuple[str, str]] = field(default_factory=list)
 
     @property
+    def is_path(self) -> bool:
+        return self.ref.startswith("path:")
+
+    @property
+    def path(self) -> Path:
+        return Path(self.ref[len("path:"):]).expanduser().resolve()
+
+    @property
     def label(self) -> str:
-        return self.ref if not self.ablations else f"{self.ref}-ablated"
+        base = f"path:{self.path.name}" if self.is_path else self.ref
+        return base if not self.ablations else f"{base}-ablated"
 
     def resolve(self) -> str:
         base = self._resolve_ref()
@@ -125,6 +156,14 @@ class Arm:
         return base + " minus " + "; ".join(f"{p}:/{pat[:40]}/" for p, pat in self.ablations)
 
     def _resolve_ref(self) -> str:
+        if self.is_path:
+            if not self.path.is_dir():
+                raise FileNotFoundError(f"{self.path} is not a directory")
+            sha = subprocess.run(
+                ["git", "-C", str(self.path), "rev-parse", "--short", "HEAD"],
+                capture_output=True, text=True,
+            )
+            return f"{self.path}" + (f" @ {sha.stdout.strip()}" if sha.returncode == 0 else "")
         if self.ref == "worktree":
             dirty = subprocess.run(
                 ["git", "-C", str(REPO), "status", "--porcelain"],
@@ -137,13 +176,28 @@ class Arm:
         )
         return f"{self.ref} @ {sha.stdout.strip()}" if sha.returncode == 0 else self.ref
 
+    def has(self, skill: str) -> bool:
+        """Whether this arm carries `skill` at all (used for companions)."""
+        try:
+            if self.is_path:
+                self._path_source(skill)
+            elif self.ref == "worktree":
+                self._worktree_path(skill)
+            else:
+                self._ref_path(skill)
+        except FileNotFoundError:
+            return False
+        return True
+
     def materialise(self, skill: str, dest: Path) -> None:
         """Copy this version of `skill` to `dest` (a .../skills/<name>/ dir)."""
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             shutil.rmtree(dest)
 
-        if self.ref == "worktree":
+        if self.is_path:
+            shutil.copytree(self._path_source(skill), dest, symlinks=False)
+        elif self.ref == "worktree":
             src = self._worktree_path(skill)
             # symlinks=False: .agents/skills/ entries are symlinks into universal/,
             # and the fixture must hold real files so the arm cannot drift.
@@ -180,6 +234,19 @@ class Arm:
                     "identical to the baseline, which would read as 'no difference'"
                 )
             target.write_text(after, "utf-8")
+
+    def _path_source(self, skill: str) -> Path:
+        """`<skill>/SKILL.md` anywhere under the arm's directory, `.git` and
+        hidden dirs excluded. Shortest match wins so `skills/x/grill-me` beats a
+        nested copy in a docs or test tree."""
+        hits = [
+            p.parent for p in self.path.rglob(f"{skill}/SKILL.md")
+            if not any(part.startswith(".") for part in p.relative_to(self.path).parts)
+        ]
+        if not hits:
+            raise FileNotFoundError(f"No skill '{skill}' under {self.path}")
+        hits.sort(key=lambda p: len(p.parts))
+        return hits[0]
 
     def _worktree_path(self, skill: str) -> Path:
         for domain in sorted(p for p in REPO.iterdir() if p.is_dir() and not p.name.startswith(".")):
@@ -293,11 +360,12 @@ def _outstanding_closers(text: str) -> str:
 class Context:
     """What a fixture's `check.py` gets to inspect."""
 
-    def __init__(self, fixture: Fixture, repo: Path, payload: dict, trace: Trace):
+    def __init__(self, fixture: Fixture, repo: Path, payload: dict, trace: Trace, dialogue=None):
         self.fixture = fixture
         self.repo = repo
         self.json = payload
         self.trace = trace
+        self.dialogue = dialogue  # harness.dialogue.Dialogue for mode=dialogue, else None
         self.repaired_json = False
 
     @property
@@ -413,6 +481,9 @@ class Runner:
                 raise RuntimeError(f"setup.sh failed: {proc.stderr.strip()[:600]}")
 
         arm.materialise(fixture.skill, repo / ".claude" / "skills" / fixture.skill)
+        for companion in fixture.companions:
+            if arm.has(companion):
+                arm.materialise(companion, repo / ".claude" / "skills" / companion)
 
         settings = repo / ".claude" / "settings.json"
         if not settings.is_file():
@@ -422,7 +493,10 @@ class Runner:
     def prompt_for(self, fixture: Fixture, repo: Path, arm: Arm | None = None) -> str:
         mod = fixture.module("prompt.py")
         if not (mod and hasattr(mod, "prompt")):
-            return f"/{fixture.skill} {fixture.args}".strip()
+            head = f"/{fixture.skill} {fixture.args}".strip()
+            plan = fixture.root / "plan.md"
+            # A dialogue fixture's opening message is the plan being grilled.
+            return f"{head}\n\n{plan.read_text('utf-8').strip()}" if plan.is_file() else head
         # A prompt composed from the skill text is normally strict about finding
         # every block it needs. Under an ablation those blocks are missing on
         # purpose, so tell the composer that omission is the experiment.
@@ -439,14 +513,19 @@ class Runner:
             else:
                 os.environ["SKILLS_EVAL_ABLATED"] = prev
 
-    def invoke(self, prompt: str, repo: Path, timeout_s: int) -> tuple[dict, str]:
+    def invoke(
+        self, prompt: str, repo: Path, timeout_s: int, resume: str | None = None
+    ) -> tuple[dict, str]:
         cmd = [
             "claude", "-p", prompt,
             "--output-format", "json",
             "--setting-sources", "project",
             "--permission-mode", "bypassPermissions",
-            "--disallowedTools", "WebSearch", "WebFetch",
+            # Artifact publishes are an outward side effect; an eval must not produce one.
+            "--disallowedTools", "WebSearch", "WebFetch", "Artifact",
         ]
+        if resume:
+            cmd += ["--resume", resume]
         if self.model:
             cmd += ["--model", self.model]
         try:
@@ -480,8 +559,15 @@ class Runner:
             return outcome
         (repo / ".claude" / "eval-prompt.txt").write_text(prompt, "utf-8")
 
-        payload, err = self.invoke(prompt, repo, fixture.timeout_s)
-        if err:
+        dialogue = None
+        if fixture.mode == "dialogue":
+            from .dialogue import run_dialogue
+
+            dialogue, err = run_dialogue(self, fixture, repo, prompt)
+            payload = dialogue.payload if dialogue else {}
+        else:
+            payload, err = self.invoke(prompt, repo, fixture.timeout_s)
+        if err and not payload:
             outcome.error = err
             return outcome
 
@@ -500,6 +586,10 @@ class Runner:
 
         if payload.get("is_error"):
             outcome.error = f"session error: {str(payload.get('result'))[:300]}"
+        elif err:
+            # A dialogue that hit its turn cap or lost the simulator still has a
+            # gradeable transcript; the cause is recorded, not fatal.
+            outcome.error = err
 
         # Persist the final message. Without it, diagnosing a grading failure
         # means reconstructing the reply from the transcript and hoping the
@@ -516,7 +606,7 @@ class Runner:
         expect = Expect()
         mod = fixture.module("check.py")
         if mod and hasattr(mod, "check"):
-            ctx = Context(fixture, repo, payload, trace)
+            ctx = Context(fixture, repo, payload, trace, dialogue)
             try:
                 mod.check(ctx, expect)
             except Exception as exc:

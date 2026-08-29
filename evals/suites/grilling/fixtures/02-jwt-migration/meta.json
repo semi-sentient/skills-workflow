@@ -1,0 +1,12 @@
+{
+  "skill": "grill-me",
+  "mode": "dialogue",
+  "companions": [
+    "grilling"
+  ],
+  "description": "grill-me on 'move sessions to JWT': localStorage token storage (XSS) as the flawed answer, refresh rotation deferred, 'sessions are in Postgres' contradicted by the MemoryStore",
+  "args": "",
+  "max_turns": 28,
+  "call_timeout_s": 900,
+  "timeout_s": 7200
+}

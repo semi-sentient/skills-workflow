@@ -1,0 +1,288 @@
+{
+  "recorded_at": "2026-08-25T00:53:47Z",
+  "reps": 3,
+  "arms": {
+    "path:mattpocock-skills": "/private/tmp/claude-501/-Users-markushay-Development-semi-sentient-skills-workflow/7d3267d9-6009-4de2-9ca5-03c135f07738/scratchpad/mattpocock-skills @ 6654f6b",
+    "worktree": "worktree (dirty)"
+  },
+  "models": {
+    "path:mattpocock-skills": [
+      "claude-opus-5[1m],claude-opus-5"
+    ],
+    "worktree": [
+      "claude-opus-5[1m],claude-opus-5"
+    ]
+  },
+  "totals": {
+    "path:mattpocock-skills": {
+      "passed": 147,
+      "of": 177,
+      "cost_usd": 23.645
+    },
+    "worktree": {
+      "passed": 150,
+      "of": 177,
+      "cost_usd": 34.469
+    }
+  },
+  "errors": [
+    {
+      "fixture": "04-fresh-glossary",
+      "arm": "worktree",
+      "rep": 1,
+      "error": "turn cap (28) reached"
+    }
+  ],
+  "fixtures": {
+    "grilling/01-rate-limit": {
+      "asked about retry_after": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "asked about response_body": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "asked about unauth_keying": {
+        "path:mattpocock-skills": "2/3",
+        "worktree": "2/3"
+      },
+      "asked about per_route_config": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "surfaced code contradiction: public_routes": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "pressed the deferral on webhooks": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "never asked the user for a fact the repo holds": {
+        "path:mattpocock-skills": "2/3",
+        "worktree": "2/3"
+      },
+      "pushed back on the flawed store answer": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "wrap-up records the corrected store decision": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/2"
+      },
+      "wrap-up has a decisions section": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "wrap-up distinguishes assumptions or open questions": {
+        "path:mattpocock-skills": "0/3",
+        "worktree": "3/3"
+      },
+      "interview reached a close": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "response_body not silently decided": {
+        "worktree": "1/1"
+      }
+    },
+    "grilling/02-jwt-migration": {
+      "asked about access_ttl": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "asked about logout": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "asked about key_rotation": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "asked about webhook_auth": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "surfaced code contradiction: session_store": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "pressed the deferral on refresh": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "never asked the user for a fact the repo holds": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "pushed back on the flawed storage answer": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "wrap-up records the corrected storage decision": {
+        "path:mattpocock-skills": "2/3",
+        "worktree": "3/3"
+      },
+      "wrap-up has a decisions section": {
+        "path:mattpocock-skills": "2/3",
+        "worktree": "3/3"
+      },
+      "wrap-up distinguishes assumptions or open questions": {
+        "path:mattpocock-skills": "1/3",
+        "worktree": "3/3"
+      },
+      "interview reached a close": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "claims not silently decided": {
+        "worktree": "1/1"
+      }
+    },
+    "grilling/03-glossary-conflict": {
+      "challenged 'cancel' against the glossary": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "sharpened 'account' to Customer/User": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "CONTEXT.md was updated during the session": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "CONTEXT.md defines the new post-shipment term": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "CONTEXT.md keeps Cancellation as pre-fulfilment": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "CONTEXT.md stays free of implementation detail": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "wrote an ADR for the refund path": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "no ADR for the button label": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "1/3"
+      },
+      "at most two ADRs written": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "asked about window": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "asked about stock": {
+        "path:mattpocock-skills": "1/3",
+        "worktree": "1/3"
+      },
+      "pressed the deferral on partial": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "never asked the user for a fact the repo holds": {
+        "path:mattpocock-skills": "1/3",
+        "worktree": "2/3"
+      },
+      "pushed back on the flawed ledger_edit answer": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "wrap-up records the corrected ledger_edit decision": {
+        "path:mattpocock-skills": "2/3",
+        "worktree": "2/2"
+      },
+      "wrap-up has a decisions section": {
+        "path:mattpocock-skills": "2/3",
+        "worktree": "3/3"
+      },
+      "wrap-up distinguishes assumptions or open questions": {
+        "path:mattpocock-skills": "0/3",
+        "worktree": "3/3"
+      },
+      "interview reached a close": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      }
+    },
+    "grilling/04-fresh-glossary": {
+      "separated Invoice from Statement": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "CONTEXT.md was created": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "CONTEXT.md defines Invoice": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "CONTEXT.md defines Statement": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "CONTEXT.md stays free of implementation detail": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "no ADR offered for reversible decisions": {
+        "path:mattpocock-skills": "1/3",
+        "worktree": "2/3"
+      },
+      "no ADR files written": {
+        "path:mattpocock-skills": "0/3",
+        "worktree": "0/3"
+      },
+      "asked about schedule": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "asked about storage": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "asked about currency": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "pressed the deferral on email_failure": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "never asked the user for a fact the repo holds": {
+        "path:mattpocock-skills": "1/3",
+        "worktree": "1/3"
+      },
+      "pushed back on the flawed numbering answer": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "3/3"
+      },
+      "wrap-up records the corrected numbering decision": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      },
+      "wrap-up has a decisions section": {
+        "path:mattpocock-skills": "1/3",
+        "worktree": "3/3"
+      },
+      "wrap-up distinguishes assumptions or open questions": {
+        "path:mattpocock-skills": "0/3",
+        "worktree": "2/3"
+      },
+      "interview reached a close": {
+        "path:mattpocock-skills": "3/3",
+        "worktree": "2/3"
+      }
+    }
+  }
+}

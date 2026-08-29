@@ -1,0 +1,1 @@
+Plan: let customers cancel an order after it has shipped. When an account cancels, we refund them through Stripe and write the refund into the ledger. Add a "Cancel order" button on the order page.

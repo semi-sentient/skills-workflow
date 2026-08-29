@@ -1,0 +1,1 @@
+Plan: replace our server-side sessions with JWTs so the API is stateless. Right now sessions live in Postgres; we'd issue a signed access token on login, the SPA keeps it in localStorage and sends it as a Bearer header, and requireUser verifies the signature instead of looking up a session.

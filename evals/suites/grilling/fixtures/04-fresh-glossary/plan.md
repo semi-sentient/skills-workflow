@@ -1,0 +1,1 @@
+Plan: add monthly invoicing. At the end of each month we generate an invoice per customer from their ledger entries, render it as a PDF, and email it. Customers can also pull up any past invoice in the app.

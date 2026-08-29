@@ -199,6 +199,48 @@ occasionally emitted unterminated; the parser closes exactly the outstanding
 brackets and records `needed JSON repair to parse` so the lapse stays visible
 rather than being papered over.
 
+### Dialogue fixtures — grading an interview
+
+An interview skill's contract is about what it does with the *answers*, so one
+`claude -p` call cannot grade it. A fixture with `"mode": "dialogue"` in
+`meta.json` runs the skill as a resumable session and plays the user from the
+fixture's `persona.md` with a second, tool-less `claude -p` session
+(`harness/dialogue.py`). The opening message is `/<skill>` plus `plan.md`.
+
+The persona is a hidden ground truth with planted defects — a claim the code
+contradicts, a term used two ways, a "figure it out later" dodge, a decision
+with a known flaw the user holds until the flaw is *named* — and a fixed event
+vocabulary (`dodge_pressed:webhooks`, `challenged:store`). The simulator is
+scripted, not judging: it answers what it is asked and emits an event when its
+trigger fires. `check.py` grades the events, the final wrap-up, the files the
+skill wrote, and the trajectory. `ctx.dialogue` exposes the turns and events;
+`.claude/dialogue.json` in the fixture repo has the whole exchange.
+
+`evals/suites/grilling/common.py` separates two kinds of assertion on purpose.
+*Recall* (asked the planted question, surfaced the contradiction, pressed the
+dodge, never asked the user for a fact the repo holds) is what both grilling
+lineages claim. *Rigour* (pushed back on the flawed answer, wrap-up separates
+assumptions from decisions) is what our fork added; upstream failing those is
+the finding, not a suite bug. Turn counts and questions-per-turn are recorded
+as info, never graded — round-based and one-at-a-time interviewing trade those
+off deliberately, and the number is for reading, not for a verdict.
+
+Dialogue runs cost 10-30× a single run and take 10-40 minutes each. Keep
+`--jobs` at 4 and `--reps` at 1 until the fixture is known to close cleanly
+(`interview reached a close` passes), then go to 3.
+
+### Path arms — benchmarking against a skill outside this repo
+
+`--arm path:<dir>` or `--compare path:<dir>` materialises a skill from any
+directory tree searched for `<skill>/SKILL.md` — an upstream clone, say — and
+labels the arm with that repo's short SHA. A fixture's `"companions"` list
+names skills the one under test may delegate to (`grilling`,
+`domain-modeling`); they are materialised from the same arm when that arm has
+them and skipped when it does not, so a dispatcher-style skill resolves its
+target and a self-contained one is not penalised for lacking a file it never
+mentions. `--compare` is repeatable; each baseline is compared against the
+candidate.
+
 ## Baselines
 
 `evals/baselines/*.json` holds a compact, diffable record of the last recorded
