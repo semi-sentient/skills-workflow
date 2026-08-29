@@ -1,30 +1,52 @@
 ---
 name: grill-with-docs
-description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions. Pass `--light` for a faster pass with no counter-challenges.
+description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions. Also use instead of asking ad hoc when you are about to ask the user three or more design questions, or any question whose answer would change what you ask next; prefer this skill over grill-me when the repo has a CONTEXT.md or ADRs.
 ---
 
 <what-to-do>
 
-Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the decision tree, resolving both top-level decisions and the sub-decisions they unlock. For each question, provide your recommended answer.
+Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Map it as a decision tree: every decision branches into the sub-decisions it unlocks. For each question, provide your recommended answer.
 
-Ask one question at a time, waiting for me to answer before you ask the next. Asking multiple questions at once is bewildering. Even when two sub-decisions are tightly coupled — parameters of the same choice, or a follow-up only meaningful given the first answer — ask them in sequence; the next question can come immediately after my answer, but never in the same turn.
+## Rounds
 
-If a question can be answered by exploring the codebase, explore instead of asking. Keep exploring mid-interview whenever an answer surfaces a new constraint that reshapes later branches.
+Work the tree in rounds. The frontier is every decision whose prerequisites are already settled — the questions you can ask now without guessing at answers you haven't heard. Ask the whole frontier in one round, numbered, each with your recommendation, then wait for my answers. A question whose answer depends on another question still open in this round belongs to a later round.
 
-When I answer directly — not by picking from a menu you offered — push back once before accepting ("Did you consider X?", "What breaks if Y?"). One probe, then move on. Skip the challenge if I picked from your menu, or if I pass `--light`.
+Format a round like so:
+
+```
+❓ **Q1** - **<question title>**: <question body, including options where they help>
+
+➡️ <your recommended answer>
+
+---
+
+❓ **Q2** - **<question title>**: <question body>
+
+➡️ <your recommended answer>
+```
+
+Each round of answers reshapes the tree: settled decisions push the frontier outward and unblock the questions that depended on them. Recompute the frontier and ask the next round.
+
+## Facts are yours, decisions are mine
+
+Finding facts is your job, never mine. When a question needs a fact from the environment — the codebase, config, tooling — dispatch a sub-agent to find it instead of asking me. Don't block the round on it: only the questions downstream of that fact wait for the answer; ask the rest of the frontier now. Read `CONTEXT.md` if it exists so your questions use the project's domain language, and respect ADRs in the area the plan touches. Keep looking whenever an answer surfaces a new constraint that reshapes later branches. The decisions are mine: put each one to me and wait.
+
+## Challenge
+
+When I answer directly — not by picking from options you offered — push back once before accepting ("Did you consider X?", "What breaks if Y?"). The probe is a frontier item: it goes in the next round, numbered like any other question. One probe per answer, then move on. Skip the probe if I picked from your options.
 
 ## Stop condition
 
-Stop when every branch and its unlocked sub-decisions have a decision or an explicit open question. Produce a wrap-up with three sections: **Decisions made** (with brief rationale), **Assumptions accepted** (each with a one-line justification), **Open questions still requiring resolution**.
+Stop when the frontier is empty: every branch and its unlocked sub-decisions have a decision or an explicit open question. Produce a wrap-up with three sections: **Decisions made** (with brief rationale), **Assumptions accepted** (each with a one-line justification), **Open questions still requiring resolution**. Do not act on the plan until I confirm we have reached a shared understanding.
 
 **Honesty rule:** Any default I did not explicitly confirm belongs under "assumptions" or "open questions," never silently in "decisions." If assumptions exceed ~3 items, you missed questions — go back and ask.
 
 ## NEVER
 
 - NEVER accept "I'll figure that out later" — require a decision or mark it as an open question.
-- NEVER ask more than one question in a single turn.
 - NEVER stop at surface-level branches — drill into sub-decisions as they emerge from answers.
 - NEVER silently default on something I didn't confirm.
+- NEVER ask me for a fact you could look up.
 
 </what-to-do>
 

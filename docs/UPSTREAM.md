@@ -6,7 +6,7 @@ Several skills in this repo originated from [Matt Pocock's skills repo](https://
 >
 > Upstream has since renamed `write-a-prd` to `to-spec` — look for it under that name when next comparing.
 
-Refresh this document whenever upstream is re-synced. It is not a changelog — `git log` handles that. If a skill listed below is no longer meaningfully forked (or if new skills are forked in), update the sections accordingly.
+Skills are migrating to per-skill ledgers under [upstream/](upstream/) (format and sync procedure in [upstream/README.md](upstream/README.md)); `grill-me` and `grill-with-docs` have moved already. Refresh this document whenever upstream is re-synced. It is not a changelog — `git log` handles that. If a skill listed below is no longer meaningfully forked (or if new skills are forked in), update the sections accordingly.
 
 ## Common themes
 
@@ -77,6 +77,8 @@ Our most heavily diverged skill. The core tracer-bullet philosophy is preserved,
 - `SKILL.md`'s core TDD flow, red-green-refactor loop, and checklist are unchanged; only the Prove-It Pattern is additive.
 
 ## `grill-me` & `grill-with-docs`
+
+> **Moved.** These two skills now have per-skill sync ledgers with pinned upstream commits: [upstream/grill-me.md](upstream/grill-me.md) and [upstream/grill-with-docs.md](upstream/grill-with-docs.md). The text below is the 2026-04-15 snapshot, kept for the `fc60d33` history it records; the ledgers are authoritative.
 
 `grill-with-docs` is a sibling skill that wraps the same interview engine in a `<what-to-do>` block and adds a `<supporting-info>` block for inline `CONTEXT.md` / ADR maintenance during the session. The `<what-to-do>` body is identical to our `grill-me` SKILL.md, so every deviation listed below applies to both skills. The `<supporting-info>` block — domain-glossary challenges, fuzzy-language sharpening, scenario stress-testing, and the three-criterion ADR gate (hard to reverse, surprising without context, real trade-off) — is specific to `grill-with-docs` and not compared against upstream here.
 
