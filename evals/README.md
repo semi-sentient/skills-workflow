@@ -199,6 +199,82 @@ occasionally emitted unterminated; the parser closes exactly the outstanding
 brackets and records `needed JSON repair to parse` so the lapse stays visible
 rather than being papered over.
 
+### `prd-to-plan-criteria` — 2 fixtures, 51 assertions at 3 reps, ~$3.80, ~5min
+
+Tests the **Criteria verifiability** item added to `prd-to-plan`'s Step 6b
+checklist after three production plans shipped acceptance criteria that could
+not be verified: commands that already passed before the phase ran, commands no
+correct implementation could satisfy, non-portable shell, evidence "recorded in
+the progress note" (a location `run-plan`'s reviewer cannot read — it cost three
+NOT MET verdicts in one run), and human-only criteria without the `Human` prefix
+the executing skill's human gate keys on.
+
+One repo, one plan draft, two criteria sets:
+
+- **seeded** — ten criteria, five defective, one per sub-check: a vacuous
+  `grep -c … returns 0` against a file the phase never touches; an "exactly 1"
+  count the plan's own decisions force to at least 2; GNU-only `stat -c`;
+  evidence pasted "into the progress note"; an unlabelled browser check inside a
+  `Known risk: human action` phase. Graded on recall (each flagged), precision
+  (no sound criterion flagged), and sub-check classification.
+- **clean** — the same plan with each defect replaced by a sound counterpart.
+  Nothing may be flagged.
+
+The clean arm's gate is `at most 1` flag, not zero. With no real defects to
+absorb an adversarial reviewer's energy, roughly one rep in three finds one
+defensible quibble in ten sound criteria — while the *same* five sound criteria
+are never flagged in the seeded arm, where five real defects soak it up. One
+flag is the honest floor of the zero-defect regime; zero as the gate made this
+the suite's only unstable cell across every calibration run.
+
+The assertion that distinguishes this suite from a reading-comprehension test is
+**execution**: the trace must show the reviewer *ran* the criteria's commands
+(`expect_executed` matches distinctive substrings of each command in the Bash
+calls). A reviewer that eyeballs `stat -c %s` never learns that BSD `stat` rejects
+it; one that runs it does. That is the whole reason the checklist item says
+"run every read-only shell command", and it is graded on the act.
+
+Nothing in the plan is implemented when the reviewer runs — `src/bands.js` does
+not exist. The brief says so explicitly, so "fails today because the file is
+missing" is understood as the *sound* shape of a criterion, and only "passes
+today" or "cannot pass after" is a defect. Without that sentence the suite
+would grade the reviewer's patience with missing files, not its judgement.
+
+`plan.py` is the single source of the plan text: `setup.sh` renders it to disk
+and `check.py` grades against the same lists, so the criteria the reviewer reads
+and the criteria the grader expects cannot drift apart.
+
+The brief is composed from the skill under test — the Step 6b block and Step
+6a's reviewer instruction are extracted from `SKILL.md` per arm — so the natural
+ablation is the item itself:
+
+```bash
+./evals/run.py prd-to-plan-criteria --compare worktree --arm worktree \
+  --ablate 'SKILL.md:- \*\*Criteria verifiability\*\*.*?not just one\.\n'
+```
+
+Result (2026-08-30, 3 reps): **4 regressions.** Seeded recall 3/3 → 0/3 (every
+ablated rep missed the vacuous already-passes seed — the others are caught by
+generic reviewer instinct, that one only by the item), sub-check classification
+3/3 → 0/3 (findings misattributed to "source accuracy"), seeded-arm precision
+3/3 → 1/3, and the clean arm's quibble rate worsened. The clause earns its place.
+
+A calibration lesson worth keeping: the first ablation A/B measured **no
+difference**, because the suite's own output contract enumerated the sub-check
+names and defined `today` as "what the command returned when you ran it" — the
+JSON schema leaked the ablated item's whole mandate back into the brief. The
+contract is now mandate-neutral (`failed` is stated "in the checklist's own
+words") and classification is graded from the reviewer's free text. When a
+fixture's output contract restates what the skill text is supposed to cause,
+the eval measures the contract.
+
+A second lesson: the reviewer beat the fixture, four rounds running. The first
+"clean" criteria sets contained a vacuous byte-size bound, a browser check the
+plan's own decisions made unsatisfiable, a `# pass N` literal Node's reporter
+never prints, and an uncountable per-station claim with no station set defined —
+every one a defensible flag. The Criteria verifiability item catches exactly the
+class of defect its own eval author kept writing.
+
 ### Dialogue fixtures — grading an interview
 
 An interview skill's contract is about what it does with the *answers*, so one
