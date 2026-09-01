@@ -1,0 +1,5 @@
+{
+  "skill": "prd-to-plan",
+  "description": "Five defective criteria, one per Criteria-verifiability sub-check, exposed only by executing them (recall + classification)",
+  "timeout_s": 600
+}

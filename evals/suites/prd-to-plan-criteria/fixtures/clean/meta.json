@@ -1,0 +1,5 @@
+{
+  "skill": "prd-to-plan",
+  "description": "The same plan with sound criteria — nothing may be flagged (specificity)",
+  "timeout_s": 600
+}

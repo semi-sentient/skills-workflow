@@ -75,10 +75,11 @@ Pick the template matching the run's outcome.
 
 - **Phase X+1:** BLOCKED — <reason>
 - **Phase X+2:** Not attempted (<reason>)
+- **Phase Y:** Human gate deferred — <n> criteria await the human's report (agent work committed)
 
 ### Resume
 
-Re-run `/run-plan #<plan_sub_issue_number>` to retry from Phase X+1.
+Re-run `/run-plan #<plan_sub_issue_number>` to retry from Phase X+1 (a deferred human gate re-presents its checklist instead of re-attempting the phase).
 ```
 
 Do not include file lists or code snippets in the comment — the synced body has the full plan with checkboxes; the comment is the milestone marker.
@@ -90,8 +91,8 @@ Do not include file lists or code snippets in the comment — the synced body ha
 Determine draft vs. ready:
 
 - `--draft` flag passed → draft
-- Outcome is `partial` → draft (with a "Partial execution" warning at the top of the body)
-- Pre-PR branch review (Step 5c.5) returned a CONFIRMED correctness finding → draft (surface the findings to the user alongside the PR URL)
+- Outcome is `partial` → draft (with a "Partial execution" warning at the top of the body) — EXCEPT when every unticked criterion is human-form (Step 4's Human-gate criteria rule): then ready, with the warning kept, because a plan may require this PR merged before its human gate can run
+- Pre-PR branch review (Step 5c.5) returned a CONFIRMED correctness finding the user has NOT already accepted → draft (surface the findings to the user alongside the PR URL). A finding the user accepted as promote-as-is at Step 5c.5 does not draft; it is recorded in Review notes.
 - Otherwise → ready
 
 The branch is already pushed at this point (Step 5c). How the PR gets *created* depends on the repo, and **`<pr_open_mode>`** — resolved in Step 1d from the repo's own agent instructions (CLAUDE.md / AGENTS.md) — is the signal. If it is somehow unset, re-read those files now rather than guessing:
@@ -166,9 +167,10 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 
 ## Review notes
 
-<!-- include this section ONLY when Step 5c.5 produced surviving findings, or when Step 4 item 10 carried defects to the report route — tag each entry with its source -->
+<!-- include this section ONLY when Step 5c.5 produced surviving findings, when Step 4 item 10 carried defects to the report route, or when a plan contradiction was accepted as written (Step 3's batch or Later drift — the orchestrator wrote each `(accepted as written — …)` marker itself and lists them from that record) — tag each entry with its source -->
 - <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE> <!-- branch review (Step 5c.5) -->
 - <carried defect — `file:line`, one-line description> <!-- carried, Step 4 item 10 -->
+- <plan contradiction — criterion or plan text quoted, what HEAD shows, "accepted as written"> <!-- accepted as written, Step 3 -->
 
 <details>
 <summary>Run cost (per sub-agent)</summary>
@@ -184,7 +186,7 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 🤖 Opened automatically because `<branch_name>` was pushed. A human still reviews and approves.
 ```
 
-**Test plan population rule:** replace the placeholder with concrete hands-on retest steps drawn from two sources: (a) if any phase touched rendered UI (components, routes, styles — judge from phase summaries and the plan's file manifests), the UI-touching phases' acceptance criteria and reported user-visible behavior; (b) any criteria the per-phase reviews marked NEEDS-RUNTIME — these carry over regardless of whether the run touched UI (Step 4.5 promises every NEEDS-RUNTIME criterion a Test-plan entry). These steps are the manual-retest gate — make each one independently checkable by a human running the app. Only when neither source applies does the single `- [ ] <reviewer fills in based on feature area>` placeholder line remain.
+**Test plan population rule:** replace the placeholder with concrete hands-on retest steps drawn from three sources: (a) if any phase touched rendered UI (components, routes, styles — judge from phase summaries and the plan's file manifests), the UI-touching phases' acceptance criteria and reported user-visible behavior; (b) any criteria the per-phase reviews marked NEEDS-RUNTIME — these carry over regardless of whether the run touched UI (Step 4.5 promises every NEEDS-RUNTIME criterion a Test-plan entry); (c) every human-form criterion a human gate left deferred (SKILL.md Step 4's Human-gate criteria rule), verbatim, marked `(deferred human gate)`. These steps are the manual-retest gate — make each one independently checkable by a human running the app. Only when none of the three sources applies does the single `- [ ] <reviewer fills in based on feature area>` placeholder line remain.
 
 The PR title is the feature name with no Conventional-Commits prefix. Per-phase commits are typed individually by the `commit` skill based on each commit's diff — aggregating them under a single PR-level prefix would mislabel a mixed-type branch. The commit list in the PR shows the full type breakdown for reviewers.
 

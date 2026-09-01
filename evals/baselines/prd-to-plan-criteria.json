@@ -1,0 +1,77 @@
+{
+  "recorded_at": "2026-08-30T20:31:44Z",
+  "reps": 3,
+  "arms": {
+    "worktree": "worktree (dirty)"
+  },
+  "models": {
+    "worktree": [
+      "claude-haiku-4-5-20251001,claude-opus-5[1m]"
+    ]
+  },
+  "totals": {
+    "worktree": {
+      "passed": 51,
+      "of": 51,
+      "cost_usd": 3.749
+    }
+  },
+  "errors": [],
+  "fixtures": {
+    "prd-to-plan-criteria/clean": {
+      "returned extractable criteria rows": {
+        "worktree": "3/3"
+      },
+      "one row per acceptance criterion": {
+        "worktree": "3/3"
+      },
+      "every status is a recognised value": {
+        "worktree": "3/3"
+      },
+      "flagged at most one sound criterion": {
+        "worktree": "3/3"
+      },
+      "executed the criteria's stated commands": {
+        "worktree": "3/3"
+      },
+      "modified no file in the repo under review": {
+        "worktree": "3/3"
+      },
+      "left the working tree unchanged": {
+        "worktree": "3/3"
+      }
+    },
+    "prd-to-plan-criteria/seeded": {
+      "returned extractable criteria rows": {
+        "worktree": "3/3"
+      },
+      "one row per acceptance criterion": {
+        "worktree": "3/3"
+      },
+      "every status is a recognised value": {
+        "worktree": "3/3"
+      },
+      "every returned row mapped to a criterion": {
+        "worktree": "3/3"
+      },
+      "flagged every seeded defective criterion": {
+        "worktree": "3/3"
+      },
+      "did not flag a sound criterion": {
+        "worktree": "3/3"
+      },
+      "classified each caught defect under the right sub-check": {
+        "worktree": "3/3"
+      },
+      "executed the criteria's stated commands": {
+        "worktree": "3/3"
+      },
+      "modified no file in the repo under review": {
+        "worktree": "3/3"
+      },
+      "left the working tree unchanged": {
+        "worktree": "3/3"
+      }
+    }
+  }
+}
