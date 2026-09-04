@@ -218,6 +218,14 @@ back by `C<k>` label (proof it read the numbering rather than reconstructing the
 criteria from the diff). `common.align` maps labelled rows by label and falls back
 to token overlap for the inline pair.
 
+Calibration (2026-09-03, 9 reps per transport before the fix): the spec transport
+missed the enumerating criterion (`Tests cover each of: …`) 2/9 times while the
+inline transport caught it 9/9 — the reviewer marked it MET from the test names
+alone. One sentence in `brief-review.md`'s Scoped Task ("a criterion that
+enumerates cases is judged case by case … one case asserting the opposite fails
+the criterion") took it to 6/6 with the clean arm still at 6/6 and no false
+NOT_MET. The transport is not free; the template is where it is paid for.
+
 Two deliberate compromises, both of which cost coverage:
 
 1. **The output contract is overridden to JSON.** The skill routes the full
