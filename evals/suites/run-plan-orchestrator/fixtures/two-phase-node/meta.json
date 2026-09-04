@@ -1,0 +1,10 @@
+{
+  "skill": "run-plan",
+  "mode": "dialogue",
+  "companions": ["commit", "tdd"],
+  "description": "run-plan end to end on a two-phase Node plan (local-only): the orchestrator never reads the plan or a diff, briefs are file pointers under 3K chars, rp.sh does the housekeeping, every phase is reviewed before it is committed, and peak resident context is recorded",
+  "args": ".agents/plans/shift-board-plan.md --no-github",
+  "max_turns": 8,
+  "call_timeout_s": 3600,
+  "timeout_s": 7200
+}

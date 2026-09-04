@@ -312,7 +312,7 @@ the point. Do not edit skill files while a run is in flight.
 
 - [ ] Step 2 announces syncing to issue #$issue **without** having fetched the
       body — proves the \`gh-issue:\` grep matched the local file
-- [ ] No complaint about a missing parent — Step 1b.1 finds none and leaves
+- [ ] No complaint about a missing parent — Step 1b.2 finds none and leaves
       \`<gh_issue_number>\` unset, which is expected, not an error
 - [ ] Research agents spawn file-backed (\`general-purpose\`), write their own
       \`research-*.md\`, and their ledger rows carry real token/duration figures

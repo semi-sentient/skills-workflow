@@ -136,10 +136,31 @@ class Trace:
     def reads(self, main_only: bool = False) -> list[str]:
         return [c.path for c in self.tool_calls("Read", main_only=main_only) if c.path]
 
+    AGENT_TOOLS = ("Task", "Agent")  # the sub-agent tool was renamed Task → Agent in 2026
+
+    def agent_calls(self, main_only: bool = True) -> list[ToolCall]:
+        """Sub-agent spawns, whichever name this Claude Code build gives the tool."""
+        return [c for c in self.tool_calls(main_only=main_only) if c.name in self.AGENT_TOOLS]
+
     def subagents(self) -> list[str]:
-        return [
-            str(c.input.get("subagent_type", "")) for c in self.tool_calls("Task", main_only=True)
-        ]
+        return [str(c.input.get("subagent_type", "")) for c in self.agent_calls()]
+
+    def briefs(self) -> list[str]:
+        """The prompt handed to each sub-agent, in spawn order (main agent only)."""
+        return [str(c.input.get("prompt", "")) for c in self.agent_calls()]
+
+    def context_per_turn(self) -> list[int]:
+        """Resident context at each main-agent assistant turn: cache_read +
+        cache_creation + input tokens. `max()` of this is the run's peak."""
+        out = []
+        for rec in self.records:
+            if rec.get("type") != "assistant" or rec.get("isSidechain"):
+                continue
+            u = (rec.get("message") or {}).get("usage") or {}
+            n = int(u.get("cache_read_input_tokens") or 0) + int(u.get("cache_creation_input_tokens") or 0) + int(u.get("input_tokens") or 0)
+            if n:
+                out.append(n)
+        return out
 
     @property
     def main_turns(self) -> list[str]:

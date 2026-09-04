@@ -10,6 +10,7 @@ two tiers replace part of that with evidence.
 | Tier | What it is | Cost | Time | Proves |
 | ---- | ---------- | ---- | ---- | ------ |
 | 0 | `lint.py` — static gates over the skill text | free | <1s | You did not break a rule this repo already learned |
+| 0 | `deterministic/*.sh` — tests for shell a skill ships | free | <5s | The helper script does what the skill text says it does |
 | 1 | `run.py` — behavioural fixtures, run headless, graded deterministically | ~$0.20/run | ~20s/run | A named invariant holds, or flipped between two versions |
 
 Neither tier scores "quality". They test **invariants** — the properties a skill
@@ -31,6 +32,30 @@ argue with.
 Errors are structural facts (dead reference link, registration drift, a pinned
 model tier). Warnings are heuristics that want a human: an elastic permission
 clause, a rule restated in two places, a flag the user docs never mention.
+
+`skill-length` caps `SKILL.md` three ways — 500 lines, 45 KB, 6,500 words — because
+the line cap alone was passed by writing paragraphs: `run-plan`'s `SKILL.md` reached
+102 KB / 16,000 words at 480 lines, and every byte of it is injected on invocation
+and re-paid after each compaction (issue #6). Procedure that only some runs exercise
+belongs in a `references/` file that names its own loading trigger.
+
+### Deterministic shell tests
+
+```bash
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 78 assertions, no model
+```
+
+`run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
+into its scratch directory and calls for everything the skill text used to describe
+as shell: plan extraction into `plan-index.md` and `phase-<n>-spec.md` files with
+`C<k>` criterion labels, ticking criteria by label, ledger rows, staging with the
+keep-dirty exclusions, the post-verdict delta and its baselines, evidence-path
+resolution, GH sync/drift/pull, per-phase cleanup, and filling brief templates. The
+test builds a throwaway repo with a synthetic plan covering the shapes real plans
+have taken (`Phase 6A`, a `Part N` heading, wrapped criteria, a backticked
+`Human verifies`, a GH footer), keep-dirty paths with spaces and a rename, and a
+stubbed `gh`. It runs in under five seconds and needs no tokens, so it is the gate
+for any edit to the script.
 
 Each rule traces to a specific past regression. The `elastic-permission` and
 `restated-rule` rules exist because of `fc60d33`: a permission gated on a
@@ -143,7 +168,7 @@ project-invented (`deliver`, `repair`, `tidy`) and hidden in a `package.json`
 key, so no amount of good instinct produces them — the assertion measures whether
 the config was actually read rather than whether the message reads well.
 
-### `run-plan-review` — 4 fixtures, 114 assertions at 3 reps, ~$3.50, ~2min
+### `run-plan-review` — 6 fixtures, ~170 assertions at 3 reps, ~$5.50, ~3min
 
 A reconstruction of the July 2026 benchmark, which tested `run-plan`'s Review
 gate across paired `clean`/`seeded` worktrees and got 12/12 recall with 12/12
@@ -174,13 +199,24 @@ band's upper boundary in a second criterion, so one defect broke two criteria an
 
 #### The brief is composed from the skill, not stored
 
-`brief.py` extracts the Review role, the adversarial mandate, the diff
-instruction, the evidence requirement, and the compactness rule from
-`references/agent-operations.md` **in whichever version the arm materialised**,
-then fills in the fixture's phase. Edit the Review brief and the prompt this eval
-sends changes with it. A frozen copy would measure a snapshot and tell you
-nothing about the skill. Extraction is strict — a restructure that hides a block
-fails the run rather than quietly sending a brief with a section missing.
+`brief.py` fills the skill's own Review brief template —
+`references/briefs/brief-review.md`, **in whichever version the arm
+materialised** — the way the orchestrator's `rp.sh brief` fills it, with the
+fixture's phase. Edit the Review role, the mandate, or the diff instruction in
+the template and the prompt this eval sends changes with it. A frozen copy would
+measure a snapshot and tell you nothing about the skill. Extraction is strict — a
+restructure that hides a section fails the run rather than quietly sending a brief
+with a section missing.
+
+Two transports, chosen per fixture. The original four fixtures paste the criteria
+into the brief (`inline`), so their numbers stay comparable with the July baseline.
+The `*-spec` pair (`bands-clean-spec`, `bands-seeded-spec`) writes the criteria to
+a `phase-2-spec.md` file labelled `(C1)…(C6)` exactly as `rp.sh extract` labels
+them and points the brief at it — the transport production uses since issue #6 —
+and adds two assertions: the reviewer *read the spec file*, and every verdict came
+back by `C<k>` label (proof it read the numbering rather than reconstructing the
+criteria from the diff). `common.align` maps labelled rows by label and falls back
+to token overlap for the inline pair.
 
 Two deliberate compromises, both of which cost coverage:
 
@@ -274,6 +310,39 @@ plan's own decisions made unsatisfiable, a `# pass N` literal Node's reporter
 never prints, and an uncountable per-station claim with no station set defined —
 every one a defensible flag. The Criteria verifiability item catches exactly the
 class of defect its own eval author kept writing.
+
+### `run-plan-orchestrator` — 1 dialogue fixture, 35 assertions, ~$14, ~45min
+
+The one suite that runs `run-plan` itself. A two-phase Node plan (the rate-band
+module, then a board renderer that must reuse it) in a fresh local-only repo; the
+scripted user confirms the Step 2 gate and otherwise lets the run proceed. The
+assertions are the invariants issue #6 changed the skill to hold, graded on the
+**main agent's** trajectory only (the sub-agents legitimately read everything):
+
+- the orchestrator never `Read` the plan file or dumped it in shell, never read a
+  source or test file, never read a diff — it read `plan-index.md`;
+- housekeeping went through `rp.sh` (`init`, `stage`, `tick`, `ledger`, `brief`,
+  `review-path`), with no hand-written `git add -A` and no `Edit` of the plan;
+- every sub-agent prompt is a pointer at a brief file, under 3,000 chars, mean
+  under 1,500, and none pastes a criterion;
+- at least two Code and two Review agents ran, a review preceded every commit, and
+  no Review prompt carried a `STATUS:` summary;
+- both phases committed on `plan/shift-board`, all ten criteria ticked, tests green,
+  tree clean;
+- **peak resident context** (`cache_read + cache_creation + input` at the largest
+  main-agent turn, via `Trace.context_per_turn()`) is recorded and gated under a
+  200K sanity ceiling.
+
+It is the Step 2 gate before a live run, not a benchmark: one rep tells you the
+loop still closes and what it cost. First run (2026-09-03, the #6 branch): 35/35,
+peak resident context 95,954 tokens over 20 main-agent turns and 41 Bash calls,
+10 briefs at a mean of 393 chars, two corrective passes, zero compactions, $13.81. `--compare HEAD` is meaningless across the #6
+boundary (the old skill has no `rp.sh`, so the housekeeping assertions fail by
+construction there); compare within the new lineage only. For a real run, point
+`evals/harness/context_tally.py` at the session transcript — it reports the same
+peak figure plus the per-source byte breakdown that motivated the change
+(baselines: typescript #71 716K peak / 48 briefs at 8.8K chars; redshift #154 532K
+before its first compaction / 25 briefs at 7.3K).
 
 ### Dialogue fixtures — grading an interview
 

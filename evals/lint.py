@@ -29,6 +29,12 @@ AGENT_DIRS = (".agents/skills", ".claude/skills")
 USER_DOCS = ("README.md", "docs/WORKFLOW_SKILLS.md", "docs/WORKFLOW.md")
 
 MAX_SKILL_LINES = 500  # CONTRIBUTING.md: "Keep SKILL.md under 500 lines."
+# The line cap alone let run-plan's SKILL.md reach 102 KB / 16,000 words at 480 lines
+# (the lines were paragraphs). SKILL.md is injected verbatim on every invocation and
+# re-paid after every compaction, so its size is resident context for the whole run.
+# A new mechanism must displace text or live in a trigger-loaded reference.
+MAX_SKILL_BYTES = 45_000
+MAX_SKILL_WORDS = 6_500
 
 MODEL_NAMES = r"\b(opus|sonnet|haiku|fable)\b"
 
@@ -253,15 +259,22 @@ def check_frontmatter(d: SkillDoc) -> None:
 
 
 def check_length(d: SkillDoc) -> None:
-    n = len(d.lines)
-    if n > MAX_SKILL_LINES:
-        d.err(
-            "skill-length",
-            f"SKILL.md is {n} lines (>{MAX_SKILL_LINES}). Move reference material "
-            "into references/ and link to it.",
-        )
-    elif n > MAX_SKILL_LINES * 0.9:
-        d.warn("skill-length", f"SKILL.md is {n} lines — approaching the {MAX_SKILL_LINES} cap.")
+    """Three caps on SKILL.md: lines, bytes, words. All three are resident-context
+    budgets — a line cap alone is passed by writing paragraphs."""
+    measures = (
+        ("lines", len(d.lines), MAX_SKILL_LINES),
+        ("bytes", len(d.text.encode("utf-8")), MAX_SKILL_BYTES),
+        ("words", len(d.text.split()), MAX_SKILL_WORDS),
+    )
+    for unit, n, cap in measures:
+        if n > cap:
+            d.err(
+                "skill-length",
+                f"SKILL.md is {n:,} {unit} (>{cap:,}). Move procedure that only some "
+                "runs exercise into a trigger-loaded references/ file and point at it.",
+            )
+        elif n > cap * 0.9:
+            d.warn("skill-length", f"SKILL.md is {n:,} {unit} — approaching the {cap:,} cap.")
 
 
 def check_model_pins(d: SkillDoc) -> None:
