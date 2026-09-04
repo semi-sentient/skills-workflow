@@ -1,14 +1,67 @@
-# Completion Templates
+# Completion Templates and the Step 5 procedure
 
-Load this reference only at Step 5, when rendering the final completion table and composing the end-of-run summary comment and PR body. Contains the exact markdown templates, plus the local-file-cleanup procedure Step 5e follows.
+Load this reference at Step 5, once `<outcome>` is classified. It owns the Step 5 procedure (below), the final completion table, the summary comment, the push and pre-PR review routing, the PR body and submission flow, and the local-file cleanup Step 5e follows.
 
-(The active-time / token figures below come from the run ledger. On a host exposing no usage metadata, drop those figures — or label a wall-clock elapsed as approximate — per SKILL.md → Run Ledger → Host portability; the templates otherwise stand.)
+(The active-time / token figures come from the run ledger. On a host exposing no usage metadata, drop those figures — or label a wall-clock elapsed as approximate — per references/ledger.md; the templates otherwise stand.)
 
+---
+
+## Step 5 procedure
+
+**Final summary** (every run): what was accomplished across all phases; the final completion table (below) rendered from the ledger; a **Total active time** line (the subtotal lines summed — idle-immune, parallel groups counted at their max) and total tokens; optionally one **Elapsed** line (`now − RUN_START` from `run.env`, `h:mm:ss`) explicitly labelled as including any pauses/idle — never presented as the run's "duration"; caveats, manual steps, follow-ups; acceptance criteria that remain unchecked (`rp.sh criteria <n>` lists a phase's labelled criteria with their ticks); every `(accepted as written — …)` and `(amended after commit — …)` marker the run wrote; and, when keep-dirty paths were declared, those paths — still uncommitted, excluded from every phase commit, absent from the PR. **Local-only runs (and only these):** state plainly that the work branch was never pushed and give the command — `git push -u origin <branch_name>`. Everything below is GH-mode only, so a run that just ends here would otherwise read as "nothing left to do".
+
+**(GH mode, outcome `complete` or `partial` only — skip everything below on `aborted`.)**
+
+### Step 5a — Sync reconciliation
+
+If `<gh_sync_mode> == degraded`, run `rp.sh sync` once more. If it still fails, skip Step 5b and Step 5d (do not strand a "completed" comment on a stale body and do not open a PR linked to a stale plan) and surface the partial state:
+
+```
+Run completed locally. GitHub sync still failing: <error>
+To sync manually after fixing the issue:
+  gh issue edit <plan_sub_issue_number> --body-file <plan_file_path>
+  gh issue comment <plan_sub_issue_number> --body "<final summary text>"
+```
+
+### Step 5b — Post the summary comment
+
+Pick the template below matching the run's outcome and post it.
+
+### Step 5c — Push the work branch
+
+Skip if `--no-branch` was passed (no dedicated branch to push). This step sits inside the GH-mode block **deliberately** — do not "fix" it by hoisting it out. A push is not a neutral local git operation: in a `<pr_open_mode> == declared` repo it is precisely what causes a PR to be opened, so a run the user scoped to local-only must not touch the remote at all.
+
+**Order under `<pr_open_mode> == declared`:** run Step 5c.5 BEFORE this push. The push is what opens the PR, so a review that follows it can no longer decide whether the PR opens as draft; 5c.5's "push failed" skip condition simply does not arise in that order. Under `silent` the order as written stands.
+
+Run `git push -u origin <branch_name>`. If the push fails (branch protection, network, auth, force-push needed): surface the error verbatim; **do NOT auto-force-push**; skip Step 5d and instruct the user to resolve the push manually before opening a PR.
+
+### Step 5c.5 — Pre-PR branch review
+
+Skip if `--no-branch-review`, or if Step 5d will be skipped anyway (`--no-pr`, `--no-branch`, push failed in Step 5c, Step 5a's final sync failed). This gate exists to populate a PR body — never spend a branch-scope Review agent when no PR will be opened.
+
+Spawn ONE fresh Review agent at branch scope (agent-operations.md → Pre-PR Review variant), briefed to:
+
+- Adversarially review the branch diff for correctness bugs — especially the integration seams between phases, which no per-phase gate can see. **Scope it past the inputs commit — never past phase work:** when `<inputs_commit_sha>` is set AND it is the first commit ahead of base (`git rev-list --first-parent <base_branch>..HEAD | tail -1` prints it), the brief's diff instruction uses `git diff <inputs_commit_sha>...HEAD`, not `git diff <base_branch>...HEAD` (state the substituted ref explicitly in the brief). A mid-branch inputs commit (a resume committed inputs on top of earlier phases) keeps the `<base_branch>` ref — scoping past it would silently drop every earlier phase from the review — and is instead named in the brief as out of scope. Either way the inputs files are the user's own prose and this gate's routing offers autonomous fixes, so a finding against them is unactionable by construction
+- Check that forward-compatibility hooks named in phase summaries (list them in the brief) were actually resolved by later phases
+- Verify each candidate finding against the code before reporting; return only surviving findings as a structured list
+
+Record its ledger row under `pre-PR`. This gate is **detection-only** — never spawn fix agents from its findings autonomously; fixes happen only when the user picks that option in the routing below. The rule is load-bearing, not caution: a branch-scope finding often sits in the gap between what the plan says and what the user actually meant — a plan can even contradict itself — and only the user can say which behaviour was intended. An autonomous fix at this stage can ship the wrong mechanism fully implemented, tested, reviewed, and green; routing the finding to the user is what surfaces intent. Routing:
+
+- All surviving findings go into the PR body's `Review notes` section
+- If any finding is a CONFIRMED correctness bug: open the PR as **draft** instead of ready and surface the findings to the user with options — direct fixes (normal Debug/commit flow, re-push, promote) or promote as-is (under `declared`, where this review preceded the push, surface the findings BEFORE pushing — the user chooses fix-first, in which case re-run this step on the fixed branch before pushing — but only when the fixes changed executable behaviour or config; after a fix round confined to documentation files (Exception 2's path-based class), push without a further branch review — or promote-as-is, in which case push, do NOT apply the draft rule for that finding — the user has accepted it — and record it in the PR's Review notes)
+
+### Step 5d — Submit the PR
+
+Skip if any of: `--no-pr`, `--no-branch`, push failed in Step 5c. **When this step is skipped and `<pr_open_mode> == declared`, say so in the final summary** — the Step 5c push already triggered the repo's workflow, so a PR exists carrying the workflow's auto-generated body, and run-plan deliberately left it untouched. (`--no-pr` cannot prevent that PR from existing; it only means run-plan does not attach its body.) Compose and submit per the PR body section below. On success, report the PR URL to the user.
+
+### Step 5e — Delete the local plan and PRD files
+
+Run only if ALL of the following hold: GH mode (`<plan_sub_issue_number>` is set); run outcome is `complete` — not `partial` or `aborted` (partial runs need the file for resumability); Step 5d submitted the PR successfully (skipped or failed → keep the files — without a merged PR, the local file is still the most complete working copy); and no CONFIRMED Step 5c.5 finding remains unresolved — a draft-for-findings PR has follow-up pending, and deleting the run's local record while its own gate holds unresolved correctness findings is the wrong default (resolved = the user's Step 5c.5 routing choice concluded it — fixes landed and the PR promoted, or the user chose promote-as-is, which ships the finding deliberately; a user-requested `--draft` with no such finding still deletes). When all four hold, follow the Local file cleanup section below. Never delete a tracked or keep-dirty file, and never improvise the deletion.
 ---
 
 ## Final completion table (Step 5 summary)
 
-The between-phase running table (SKILL.md → Progress Reporting) keeps one row per phase. At completion, switch shape: one row per **sub-agent**, grouped under its phase, with a *subtotal* line per phase — the ledger already holds exactly these rows, so render them; do not aggregate away the data the storage layer correctly keeps. This table is also where **`tool_uses` is reported** (kept out of the between-phase table to protect its width): per-agent `tool_uses` is the closest available proxy for how full each agent's context window got (SKILL.md → Run Ledger), and its spread — say a 257-call Code agent against 18–51-call reviewers — is the run's context-pressure story.
+The between-phase running table (SKILL.md → Progress reporting) keeps one row per phase. At completion, switch shape: one row per **sub-agent**, grouped under its phase, with a *subtotal* line per phase — the ledger already holds exactly these rows, so render them; do not aggregate away the data the storage layer correctly keeps. This table is also where **`tool_uses` is reported** (kept out of the between-phase table to protect its width): per-agent `tool_uses` is the closest available proxy for how full each agent's context window got (references/ledger.md), and its spread — say a 257-call Code agent against 18–51-call reviewers — is the run's context-pressure story.
 
 | Phase | Agent | Tokens | Tool uses | Active time |
 | ----- | ----- | -----: | --------: | ----------: |
@@ -91,7 +144,7 @@ Do not include file lists or code snippets in the comment — the synced body ha
 Determine draft vs. ready:
 
 - `--draft` flag passed → draft
-- Outcome is `partial` → draft (with a "Partial execution" warning at the top of the body) — EXCEPT when every unticked criterion is human-form (Step 4's Human-gate criteria rule): then ready, with the warning kept, because a plan may require this PR merged before its human gate can run
+- Outcome is `partial` → draft (with a "Partial execution" warning at the top of the body) — EXCEPT when every unticked criterion is human-form (references/human-gate.md): then ready, with the warning kept, because a plan may require this PR merged before its human gate can run
 - Pre-PR branch review (Step 5c.5) returned a CONFIRMED correctness finding the user has NOT already accepted → draft (surface the findings to the user alongside the PR URL). A finding the user accepted as promote-as-is at Step 5c.5 does not draft; it is recorded in Review notes.
 - Otherwise → ready
 
@@ -167,7 +220,7 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 
 ## Review notes
 
-<!-- include this section ONLY when Step 5c.5 produced surviving findings, when Step 4 item 10 carried defects to the report route, or when a plan contradiction was accepted as written (Step 3's batch or Later drift — the orchestrator wrote each `(accepted as written — …)` marker itself and lists them from that record) — tag each entry with its source -->
+<!-- include this section ONLY when Step 5c.5 produced surviving findings, when Step 4 item 10 carried defects to the report route, or when a plan contradiction was accepted as written (Step 3's batch or fix-cycles.md's mid-run drift — the orchestrator wrote each `(accepted as written — …)` marker itself and lists them from that record) — tag each entry with its source -->
 - <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE> <!-- branch review (Step 5c.5) -->
 - <carried defect — `file:line`, one-line description> <!-- carried, Step 4 item 10 -->
 - <plan contradiction — criterion or plan text quoted, what HEAD shows, "accepted as written"> <!-- accepted as written, Step 3 -->
@@ -186,7 +239,7 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 🤖 Opened automatically because `<branch_name>` was pushed. A human still reviews and approves.
 ```
 
-**Test plan population rule:** replace the placeholder with concrete hands-on retest steps drawn from three sources: (a) if any phase touched rendered UI (components, routes, styles — judge from phase summaries and the plan's file manifests), the UI-touching phases' acceptance criteria and reported user-visible behavior; (b) any criteria the per-phase reviews marked NEEDS-RUNTIME — these carry over regardless of whether the run touched UI (Step 4.5 promises every NEEDS-RUNTIME criterion a Test-plan entry); (c) every human-form criterion a human gate left deferred (SKILL.md Step 4's Human-gate criteria rule), verbatim, marked `(deferred human gate)`. These steps are the manual-retest gate — make each one independently checkable by a human running the app. Only when none of the three sources applies does the single `- [ ] <reviewer fills in based on feature area>` placeholder line remain.
+**Test plan population rule:** replace the placeholder with concrete hands-on retest steps drawn from three sources: (a) if any phase touched rendered UI (components, routes, styles — judge from phase summaries and the plan's file manifests), the UI-touching phases' acceptance criteria and reported user-visible behavior; (b) any criteria the per-phase reviews marked NEEDS-RUNTIME — these carry over regardless of whether the run touched UI (Step 4 item 5 promises every NEEDS-RUNTIME criterion a Test-plan entry); (c) every human-form criterion a human gate left deferred (references/human-gate.md), verbatim, marked `(deferred human gate)`. These steps are the manual-retest gate — make each one independently checkable by a human running the app. Only when none of the three sources applies does the single `- [ ] <reviewer fills in based on feature area>` placeholder line remain.
 
 The PR title is the feature name with no Conventional-Commits prefix. Per-phase commits are typed individually by the `commit` skill based on each commit's diff — aggregating them under a single PR-level prefix would mislabel a mixed-type branch. The commit list in the PR shows the full type breakdown for reviewers.
 
@@ -220,7 +273,7 @@ The branch is already pushed before any of this runs, so all work is preserved o
 
 ## Local file cleanup (Step 5e)
 
-SKILL.md Step 5e gates this (GH mode; outcome `complete`; PR submitted successfully; no unresolved CONFIRMED Step 5c.5 finding) and routes here when all four conditions hold.
+Step 5e above gates this (GH mode; outcome `complete`; PR submitted successfully; no unresolved CONFIRMED Step 5c.5 finding) and routes here when all four conditions hold.
 
 Two exemptions override the deletions below; keep the file and say which exemption applied:
 
