@@ -277,6 +277,23 @@ touch "$SCRATCH/phase-3-review-2.md" "$SCRATCH/phase-3-review-4.md" "$SCRATCH/ph
 eq "next is highest+1, ignoring the brief file" "$SCRATCH/phase-3-review-5.md" "$(bash "$RPS" review-path 3)"
 touch "$SCRATCH/phase-3-review-5.md"; bash "$RPS" review-path 3 >/dev/null
 check "review-path rm -f's the path it returns" $([ ! -e "$SCRATCH/phase-3-review-6.md" ] && echo 0 || echo 1) ""
+echo "evidence gate enforced by stage"
+touch -t 200001010000 "$SCRATCH/run.env"   # pin the run start in the past so every evidence file below is unambiguously this run's
+rm -f "$SCRATCH/phase-9-review-2.md"   # the junk file the failing-evidence test left; phase 9's latest is now the one that passed
+bash "$RPS" stage 2>"$WORK/err.txt"; rc=$?
+check "stage refuses while a phase's latest evidence file has not passed rp.sh evidence" $([ $rc -ne 0 ] && grep -q 'phase-3-review-5.md has not passed rp.sh evidence' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+printf '| C1 | MET | a.js:1 |\n\nFindings: none\n' > "$SCRATCH/phase-3-review-5.md"
+bash "$RPS" evidence "$SCRATCH/phase-3-review-5.md" 0 >/dev/null
+check "evidence pass writes the marker" $([ -e "$SCRATCH/phase-3-review-5.md.rp-ok" ] && echo 0 || echo 1) "$(ls "$SCRATCH" | grep rp-ok)"
+bash "$RPS" stage 2>"$WORK/err.txt"; rc=$?
+check "stage runs once the latest evidence file is marked (earlier unmarked files are superseded)" $rc "$(cat "$WORK/err.txt")"
+rm -f "$SCRATCH/phase-3-review-5.md.rp-ok"; touch -t 200001010000 "$SCRATCH/phase-3-review-5.md"
+bash "$RPS" stage 2>"$WORK/err.txt"; rc=$?
+check "an evidence file older than run.env (a prior run's) does not block stage" $rc "$(cat "$WORK/err.txt")"
+touch "$SCRATCH/phase-3-review-5.md"; bash "$RPS" evidence "$SCRATCH/phase-3-review-5.md" 0 >/dev/null
+bash "$RPS" review-path 3 >/dev/null   # returns -6 (rm -f'd); the marker rule is about the path it returns
+: > "$SCRATCH/phase-3-review-6.md.rp-ok"; bash "$RPS" review-path 3 >/dev/null
+check "review-path removes a stale marker with the path it returns" $([ ! -e "$SCRATCH/phase-3-review-6.md.rp-ok" ] && echo 0 || echo 1) "$(ls "$SCRATCH" | grep rp-ok)"
 touch "$SCRATCH/phase-2-commit-msg.md" "$SCRATCH/baseline-z.js" "$SCRATCH/phase-2-handoff.md"
 bash "$RPS" cleanup 2
 check "cleanup removed message file and baselines, kept handoff" $([ ! -e "$SCRATCH/phase-2-commit-msg.md" ] && [ ! -e "$SCRATCH/baseline-z.js" ] && [ ! -e "$SCRATCH/baseline-src__a.js" ] && [ -e "$SCRATCH/phase-2-handoff.md" ] && echo 0 || echo 1) "$(ls "$SCRATCH")"
@@ -293,8 +310,18 @@ bash "$RPS" brief brief-code.md x.md PHASE_HEADING=h 2>"$WORK/err.txt"; rc=$?
 check "brief refuses unfilled placeholders" $([ $rc -ne 0 ] && grep -q 'unfilled placeholders' "$WORK/err.txt" && grep -q 'SPEC_PATH' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 check "…and writes nothing" $([ ! -e "$SCRATCH/x.md" ] && echo 0 || echo 1) ""
 echo 'from a file' > "$WORK/val.txt"
-bash "$RPS" brief run-conventions.md run-conventions.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS=@"$WORK/val.txt" KEEP_DIRTY_NOTE='None declared.' TICKET_DIRECTIVE='Use `#42` as the ticket identifier.' STANDING_HAZARDS='- Never run terraform: the state lock is shared.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+bash "$RPS" brief run-conventions.md run-conventions.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS=@"$WORK/val.txt" KEEP_DIRTY_NOTE='None declared.' TICKET_DIRECTIVE='Use `#42` as the ticket identifier.' STANDING_HAZARDS='- Never run any terraform command yourself: the state lock is shared and single-holder.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "brief accepts @file values" $([ $rc -eq 0 ] && grep -q '^from a file$' "$SCRATCH/run-conventions.md" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+# A DELTAS/SANCTIONED line that restates a standing hazard is warned about, never refused.
+BC="PHASE_HEADING=h PLAN_FILE=$PWD/.agents/plans/demo-plan.md CONVENTIONS_PATH=$SCRATCH/run-conventions.md CONTEXT_POINTERS=n MANIFEST_MODIFY=n MANIFEST_REFERENCE=n SPEC_PATH=$SCRATCH/phase-1-spec.md HUMAN_FORM=None FIX_CYCLE=n COMMIT_MSG_PATH=x HANDOFF_PATH=y"
+# shellcheck disable=SC2086
+bash "$RPS" brief brief-code.md hz1.md $BC DELTAS=$'- Line-number drift: the helper moved to src/util.js.\n- Run no terraform in this phase: the state lock is shared with other agents.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "brief warns when a DELTAS line restates a standing hazard, and still writes the brief" $([ $rc -eq 0 ] && grep -q 'DELTAS line 2 restates a standing hazard' "$WORK/err.txt" && [ -s "$SCRATCH/hz1.md" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+# shellcheck disable=SC2086
+bash "$RPS" brief brief-code.md hz2.md $BC DELTAS=$'- Line-number drift: the helper moved to src/util.js.\n- Resolved ambiguity: C4 means the exported name, not the file name.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "…and is silent for phase-specific deltas" $([ $rc -eq 0 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" brief brief-review.md hz3.md PHASE=1 SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM=None CODE_BRIEF_PATH="$SCRATCH/phase-1-brief-code.md" POINTERS=None EVIDENCE_PATH=e SANCTIONED=$'- Ordered comment deletion in src/a.js (F2).\n- Reviewers run no terraform yourself: the state lock is shared.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "…and checks SANCTIONED in a Review brief too" $([ $rc -eq 0 ] && grep -q 'SANCTIONED line 2 restates a standing hazard' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 for t in brief-research.md brief-review.md brief-rereview.md; do
   keys="$(grep -oE '\{\{[A-Z0-9_]+\}\}' "$SCRATCH/briefs/$t" | sort -u | tr -d '{}' | awk -v f="$SCRATCH/phase-1-spec.md" '/^(CONVENTIONS_PATH|SPEC_PATH|PLAN_FILE|PRIOR_EVIDENCE|CODE_BRIEF_PATH)$/ { print $0 "=" f; next } { print $0 "=v" }' | tr '\n' ' ')"
   # shellcheck disable=SC2086

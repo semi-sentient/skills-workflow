@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 110 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 118 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies

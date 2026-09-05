@@ -28,7 +28,9 @@
 #                    rm -f'd first so a stale file can never satisfy the existence check)
 #   evidence <path> <findings>
 #                    exit 0 when the evidence file exists, holds at least one C<k> row,
-#                    and names at least <findings> F<k> findings; exit 1 otherwise
+#                    and names at least <findings> F<k> findings; exit 1 otherwise; a pass
+#                    writes <path>.rp-ok, which `stage` requires of every phase's latest
+#                    in-run evidence file
 #   sync             push the plan file to the GH issue body, 4 attempts with backoff;
 #                    exit 1 on persistent failure; a no-op on a local-only run
 #   drift            compare the GH body with the local plan (footer lines and CR ignored):
@@ -38,7 +40,8 @@
 #   cleanup <n>      rm phase-<n>-commit-msg.md and every baseline-* file
 #   brief <template> <out> KEY=VALUE|KEY=@file …
 #                    fill briefs/<template> into <out>; every {{KEY}} the template names
-#                    must be supplied (a value starting with a literal @ is written @@)
+#                    must be supplied (a value starting with a literal @ is written @@);
+#                    warns when a DELTAS or SANCTIONED line restates a standing hazard
 #   help             this text
 #
 # Plan shape: phases are `## Phase <id>` or `## Part <id>` H2 headings (id = digits plus
@@ -345,6 +348,7 @@ cmd_stage() {
   load_env
   local top; top="$(repo_top)"
   assert_scratch_ignored "$top"
+  assert_evidence_checked
   build_excl
   git -C "$top" add -A -- . ${EXCL[@]+"${EXCL[@]}"}
 }
@@ -395,7 +399,7 @@ cmd_review_path() {
   done
   local path
   if [ "$max" -eq 0 ]; then path="$SCRATCH/phase-$id-review.md"; else path="$SCRATCH/phase-$id-review-$((max + 1)).md"; fi
-  rm -f "$path"
+  rm -f "$path" "$path.rp-ok"   # the marker too: a stale pass must never satisfy `stage`
   printf '%s\n' "$path"
 }
 
@@ -410,7 +414,38 @@ cmd_evidence() {
   f="$(grep -oE '(^|[^A-Za-z0-9])F[0-9]+([^0-9]|$)' "$path" | grep -oE 'F[0-9]+' | sort -u | wc -l | tr -d ' ')"
   [ "$rows" -ge 1 ] || die "evidence: $path has no C<k> verdict row — incomplete review"
   [ "$f" -ge "$want" ] || die "evidence: $path names $f distinct F<k> finding(s), the return named $want — incomplete review"
+  : > "$path.rp-ok"
   echo "evidence ok: $rows C<k> row line(s), $f finding(s)"
+}
+
+# The commit path runs `stage` after the verdict; a verdict whose evidence file never
+# passed `evidence` must not reach it. Only this run's files count (newer than run.env,
+# which init rewrites on every start), and only the latest per phase — an earlier file
+# a re-spawn superseded stays as the audit record.
+assert_evidence_checked() {
+  local f id latest seen=" "
+  for f in "$SCRATCH"/phase-*-review.md "$SCRATCH"/phase-*-review-*.md; do
+    [ -e "$f" ] || continue
+    id="${f##*/phase-}"; id="${id%%-review*}"
+    case "$id" in *-*) continue ;; esac   # phase-3-brief-review.md is a brief, not evidence
+    case "$seen" in *" $id "*) continue ;; esac; seen="$seen$id "
+    latest="$(cmd_review_path_peek "$id")"
+    [ -n "$latest" ] && [ "$latest" -nt "$SCRATCH/run.env" ] && [ ! -e "$latest.rp-ok" ] && die "stage: $latest has not passed rp.sh evidence — run it before staging the commit, or rm -f the file if that review escalated"
+  done
+  return 0
+}
+
+# The highest-suffix evidence file that exists for a phase (what review-path would build on).
+cmd_review_path_peek() {
+  local id="$1" max=0 f n
+  for f in "$SCRATCH/phase-$id-review.md" "$SCRATCH/phase-$id-review-"*.md; do
+    [ -e "$f" ] || continue
+    n="${f##*/phase-$id-review}"; n="${n%.md}"; n="${n#-}"
+    [ -z "$n" ] && n=1
+    case "$n" in *[!0-9]*) continue ;; esac
+    [ "$n" -gt "$max" ] && max=$n
+  done
+  if [ "$max" -eq 0 ]; then return 0; elif [ "$max" -eq 1 ]; then printf '%s\n' "$SCRATCH/phase-$id-review.md"; else printf '%s\n' "$SCRATCH/phase-$id-review-$max.md"; fi
 }
 
 cmd_cleanup() {
@@ -463,6 +498,41 @@ cmd_pull() {
 # Keys whose value must name an existing file: the agent will read it.
 BRIEF_INPUT_KEYS=" CONVENTIONS_PATH SPEC_PATH PLAN_FILE PRIOR_EVIDENCE CODE_BRIEF_PATH "
 
+# Standing hazards are written once, into run-conventions.md; a DELTAS or SANCTIONED line
+# that restates one is the brief bloat the slot exists to prevent. Heuristic, so a warning
+# and never a refusal: a value line sharing three or more distinct words of five-plus letters
+# with one hazard line is reported. A phase-specific line that legitimately names the same
+# subject ("run `terraform plan -target=x` once, this phase only") may trip it; that is
+# the orchestrator's call to keep.
+warn_hazard_repeats() {
+  local tpl="$1" supplied="$2" conv="$SCRATCH/run-conventions.md" key var val
+  [ "$tpl" != run-conventions.md ] && [ -f "$conv" ] || return 0
+  for key in DELTAS SANCTIONED; do
+    case "$supplied" in *" $key"*) ;; *) continue ;; esac
+    var="RP_TPL_$key"; val="${!var}"
+    printf '%s\n' "$val" | awk -v key="$key" -v conv="$conv" '
+      function words(s, arr,   n, i, w, t) { n = 0; gsub(/[^A-Za-z0-9 ]/, " ", s); s = tolower(s); split(s, t, " "); for (i in t) { w = t[i]; if (length(w) >= 5 && !(w in arr)) { arr[w] = 1; n++ } } return n }
+      BEGIN {
+        inblock = 0; nh = 0
+        while ((getline line < conv) > 0) {
+          if (index(line, "**Standing hazards.**")) { inblock = 1; sub(/.*them:[[:space:]]*/, "", line); if (line == "") continue }
+          else if (inblock && (line ~ /^\*\*/ || line ~ /^## /)) inblock = 0
+          if (inblock && length(line) > 30) { nh++; hz[nh] = line }
+        }
+        close(conv)
+      }
+      length($0) > 30 {
+        delete vw; nv = words($0, vw)
+        for (h = 1; h <= nh; h++) {
+          delete hw; words(hz[h], hw); shared = 0
+          for (w in vw) if (w in hw) shared++
+          if (shared >= 3) { printf "rp.sh: warning: %s line %d restates a standing hazard (%d shared terms) — hazards live once in run-conventions.md; keep the line only if it is phase-specific: %s\n", key, NR, shared, substr($0, 1, 70) > "/dev/stderr"; break }
+        }
+      }'
+  done
+  return 0
+}
+
 cmd_brief() {
   local tpl="${1:?usage: rp.sh brief <template> <out> KEY=VALUE|KEY=@file …}" out="${2:?brief: missing <out>}"; shift 2
   local src="$SCRATCH/briefs/$tpl"
@@ -486,6 +556,7 @@ cmd_brief() {
   for k in $needed; do case "$keys" in *" $k"*) ;; *) missing="$missing $k" ;; esac; done
   [ -z "$missing" ] || die "brief: unfilled placeholders in $tpl:$missing"
   case "$out" in /*) ;; *) out="$SCRATCH/$out" ;; esac
+  warn_hazard_repeats "$tpl" "$keys"
   # One left-to-right pass per line: a substituted value is never rescanned.
   awk -v keys="$keys" '
     BEGIN { n = split(keys, k, " "); for (i = 1; i <= n; i++) if (k[i] != "") have[k[i]] = 1 }
