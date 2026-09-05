@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 78 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 110 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
@@ -343,14 +343,23 @@ assertions are the invariants issue #6 changed the skill to hold, graded on the
 
 It is the Step 2 gate before a live run, not a benchmark: one rep tells you the
 loop still closes and what it cost. First run (2026-09-03, the #6 branch): 35/35,
-peak resident context 95,954 tokens over 20 main-agent turns and 41 Bash calls,
-10 briefs at a mean of 393 chars, two corrective passes, zero compactions, $13.81. `--compare HEAD` is meaningless across the #6
-boundary (the old skill has no `rp.sh`, so the housekeeping assertions fail by
-construction there); compare within the new lineage only. For a real run, point
+peak resident context 95,954 tokens over 88 main-agent assistant records (the
+`context_tally.py` count; the fixture's own `main-agent assistant turns` counts
+text-bearing turns only and reported 20) and 41 Bash calls,
+10 spawn prompts at a mean of 393 chars, 11 authored briefs (`rp.sh brief`
+commands) at a mean of 2.6K chars, two corrective passes, zero compactions,
+$13.81. The spawn-prompt figure is not comparable with the pre-#6 brief sizes —
+the brief content moved into the `rp.sh brief` slot values, and **authored brief
+chars** is the number to watch (the fixture caps the mean at 4K and forbids
+heredoc briefs). `--compare HEAD` is meaningless across the #6 boundary (the old
+skill has no `rp.sh`, so the housekeeping assertions fail by construction there);
+compare within the new lineage only. For a real run, point
 `evals/harness/context_tally.py` at the session transcript — it reports the same
-peak figure plus the per-source byte breakdown that motivated the change
-(baselines: typescript #71 716K peak / 48 briefs at 8.8K chars; redshift #154 532K
-before its first compaction / 25 briefs at 7.3K).
+peak figure, both brief measures, and the per-source byte breakdown that
+motivated the change (baselines: typescript #71 716K peak / 48 briefs at 9.2K
+chars; redshift #154 532K before its first compaction / 25 briefs at 7.7K; the
+first live run on the #6 branch, sitevue.infrastructure 2026-09-04, 224K peak at
+the push / 13 authored briefs at 6.9K).
 
 ### Dialogue fixtures — grading an interview
 

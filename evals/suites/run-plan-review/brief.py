@@ -118,6 +118,22 @@ def _write_spec(repo: Path, phase: str, criteria: list[str], phase_id: str) -> P
     return spec_path
 
 
+def _write_code_brief_stub(repo: Path, phase_id: str, manifest_block: str) -> Path:
+    """The File Manifest section of the Code brief the orchestrator would have written.
+
+    Only that section matters to the reviewer (the template tells it to read nothing
+    else), so the stub carries the heading the template names and the two lists."""
+    scratch = repo / ".claude" / "scratch"
+    scratch.mkdir(parents=True, exist_ok=True)
+    path = scratch / f"phase-{phase_id}-brief-code.md"
+    path.write_text(
+        f"# Code brief — Phase {phase_id}\n\n## File Manifest\n\n**Files to modify** — read each one before making any changes:\n"
+        f"{manifest_block}\n\n**Files to reference** — read for patterns, interfaces, or context; do not modify:\n- None\n\n## Scoped Task\n\n(elided)\n",
+        "utf-8",
+    )
+    return path
+
+
 def compose(skill_dir: Path, *, phase: str, criteria: list[str], manifest: list[str],
             pointers: list[str], repo: Path | None = None, transport: str = "inline",
             phase_id: str = "2") -> str:
@@ -160,7 +176,14 @@ def compose(skill_dir: Path, *, phase: str, criteria: list[str], manifest: list[
     else:
         raise ValueError(f"unknown transport {transport!r}")
 
-    manifest_filled = _fill(manifest_section, {"MANIFEST": manifest_block, "SANCTIONED": "None"})
+    if "{{CODE_BRIEF_PATH}}" in manifest_section:
+        # Post-#6 transport: the reviewer reads the manifest from the phase's Code brief.
+        if repo is None:
+            raise RuntimeError("the manifest-by-pointer template needs the fixture repo path")
+        code_brief = _write_code_brief_stub(repo, phase_id, manifest_block)
+        manifest_filled = _fill(manifest_section, {"CODE_BRIEF_PATH": str(code_brief), "SANCTIONED": "None"})
+    else:
+        manifest_filled = _fill(manifest_section, {"MANIFEST": manifest_block, "SANCTIONED": "None"})
     pointers_filled = _fill(pointers_section, {"POINTERS": pointers_block})
 
     return f"""# Review brief — Phase {phase_id}

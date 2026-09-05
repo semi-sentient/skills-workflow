@@ -8,6 +8,8 @@ Standing directives for every sub-agent of this run. Your brief names the blocks
 
 {{PROJECT_CONVENTIONS}}
 
+**Standing hazards.** Run-wide operational constraints that bind every agent of this run — a shared state lock, a command no agent may run, an environment nothing may touch. Stated once here; no brief repeats them: {{STANDING_HAZARDS}}
+
 **Uncommitted user edits.** {{KEEP_DIRTY_NOTE}}
 
 **Completion Requirement.** When finished, provide a summary using this exact structure:

@@ -6,4 +6,4 @@ from phases import BANDS as PHASE
 
 def prompt(skill_dir, repo):
     return compose(skill_dir, phase=PHASE["phase"], criteria=PHASE["criteria"],
-                   manifest=PHASE["manifest"], pointers=PHASE["pointers"])
+                   manifest=PHASE["manifest"], pointers=PHASE["pointers"], repo=repo)

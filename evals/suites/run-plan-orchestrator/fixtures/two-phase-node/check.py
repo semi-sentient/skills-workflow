@@ -114,6 +114,16 @@ def check(ctx, expect):
         expect.that("no brief pastes acceptance criteria", not pasted, f"{len(pasted)} briefs carry criterion text")
     brief_files = ctx.sh(f"ls {SCRATCH} | grep -c brief") or "0"
     expect.at_least("brief files written", int(brief_files.strip() or 0), 4)
+    # The spawn prompts above are pointers; the brief bytes the orchestrator actually
+    # emitted are the `rp.sh brief` commands (slot values) and any heredoc brief.
+    authored = tr.authored_briefs()
+    expect.at_least("briefs authored (rp.sh brief or heredoc)", len(authored), 4)
+    if authored:
+        sizes = [n for _, n in authored]
+        expect.info("authored brief sizes (chars)", sizes)
+        expect.at_most("mean authored brief (chars)", sum(sizes) // len(sizes), 4000)
+        expect.at_most("largest authored brief (chars)", max(sizes), 8000)
+        expect.equals("no hand-written brief files (every brief comes from a template)", sum(1 for k, _ in authored if k == "heredoc"), 0)
 
     # --- the gate held: a review before each commit, review never sees the implementer summary
     agent_idx = [(c.index, str(c.input.get("prompt", ""))) for c in tr.agent_calls()]

@@ -13,7 +13,9 @@ can be checked against the two runs that motivated it (typescript #71: 716K peak
 Reports, for the main agent only (sidechains are the sub-agents' own contexts):
   - characters by source: user text (skill injection, compaction summaries),
     assistant prose, each tool's call text and result text
-  - sub-agent briefs: count, mean/max chars, and mean/max of the prompt field
+  - sub-agent spawn prompts: count, mean/max chars (pointers after #6, so small)
+  - authored briefs: the `rp.sh brief …` commands and `cat > …brief… <<` heredocs
+    the orchestrator wrote — the bytes that actually cost context after #6
   - Bash call count, Monitor ticks, compactions
   - peak context per assistant turn: cache_read + cache_creation + input tokens
     at the turn with the largest sum, plus the last turn's figure
@@ -26,12 +28,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 AGENT_TOOLS = {"Task", "Agent"}
+RP_BRIEF = re.compile(r'rp\.sh["\']?\s+brief\b')
+# A hand-written brief file: `cat > x-brief.md <<EOF`, `cat <<EOF > x-brief.md`, `tee`, `printf … >`.
+HEREDOC_BRIEF = re.compile(r"(?:(?:cat|tee|printf|echo)\b[^\n|]*>{1,2}\s*['\"]?\S*brief\S*)|(?:<<-?\s*['\"]?\w+['\"]?\s*>{1,2}\s*['\"]?\S*brief\S*)")
+
+
+def brief_kind(command: str) -> str | None:
+    """'template' for an `rp.sh brief` fill, 'heredoc' for a brief file written by shell, else None.
+
+    Sizes are the whole tool input (command plus description), the bytes the turn
+    costs. A shell write to any path containing "brief" counts — an `@file` value
+    named `…brief…` would be a false positive; name such files otherwise."""
+    if RP_BRIEF.search(command):
+        return "template"
+    if HEREDOC_BRIEF.search(command):
+        return "heredoc"
+    return None
 
 
 def _text_of(content) -> str:
@@ -55,6 +74,7 @@ def _text_of(content) -> str:
 def tally(path: Path) -> dict:
     chars: Counter = Counter()
     briefs: list[int] = []
+    authored: list[tuple[str, int]] = []
     tool_calls: Counter = Counter()
     turn_context: list[int] = []
     compactions = 0
@@ -117,6 +137,12 @@ def tally(path: Path) -> dict:
                     chars[f"tool_use:{name}"] += size
                     if name in AGENT_TOOLS:
                         briefs.append(len(str(inp.get("prompt", ""))))
+                    elif name == "Bash":
+                        kind = brief_kind(str(inp.get("command", "")))
+                        if kind:
+                            authored.append((kind, size))
+                    elif name == "Write" and "brief" in str(inp.get("file_path", "")):
+                        authored.append(("heredoc", size))
 
     total = sum(chars.values()) or 1
     by_source = sorted(chars.items(), key=lambda kv: -kv[1])
@@ -133,6 +159,14 @@ def tally(path: Path) -> dict:
             "max_chars": max(briefs) if briefs else 0,
             "total_chars": sum(briefs),
         },
+        "authored_briefs": {
+            "count": len(authored),
+            "template": sum(1 for k, _ in authored if k == "template"),
+            "heredoc": sum(1 for k, _ in authored if k == "heredoc"),
+            "mean_chars": round(statistics.mean(n for _, n in authored)) if authored else 0,
+            "max_chars": max((n for _, n in authored), default=0),
+            "total_chars": sum(n for _, n in authored),
+        },
         "chars_by_source": [{"source": k, "chars": v, "share": round(v / total, 3)} for k, v in by_source],
         "total_chars": total,
         "peak_context_tokens": max(turn_context) if turn_context else 0,
@@ -144,7 +178,9 @@ def render(t: dict) -> str:
     out = [
         f"{t['transcript']}",
         f"turns {t['assistant_turns']}  bash {t['bash_calls']}  monitor {t['monitor_ticks']}  compactions {t['compactions']}",
-        f"briefs {t['briefs']['count']}  mean {t['briefs']['mean_chars']:,} chars  max {t['briefs']['max_chars']:,}  total {t['briefs']['total_chars']:,}",
+        f"spawn prompts {t['briefs']['count']}  mean {t['briefs']['mean_chars']:,} chars  max {t['briefs']['max_chars']:,}  total {t['briefs']['total_chars']:,}",
+        f"authored briefs {t['authored_briefs']['count']} ({t['authored_briefs']['template']} template, {t['authored_briefs']['heredoc']} heredoc)"
+        f"  mean {t['authored_briefs']['mean_chars']:,} chars  max {t['authored_briefs']['max_chars']:,}  total {t['authored_briefs']['total_chars']:,}",
         f"peak context {t['peak_context_tokens']:,} tokens  (final turn {t['final_context_tokens']:,})",
         "",
         f"{'source':<28}{'chars':>12}{'share':>8}",

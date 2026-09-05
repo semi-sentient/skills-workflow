@@ -15,14 +15,15 @@
 #   untick <n> <k>…  uncheck criteria C<k> of phase <n>, then re-extract
 #   ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]
 #                    append one usage row to ledger.md
-#   phase-cost <n>   `| Research | Code | Review | Total | Active time |` cells for phase <n>
+#   phase-cost <n>   `| Research | Code | Review | Total | Active time |` cells for phase <n>;
+#                    warns when the phase has more review evidence files than Review rows
 #   stage            git add -A from the repo root, excluding every keep-dirty path in
 #                    tree-state.md (each exclusion is its own literal pathspec)
 #   delta            names-only unstaged + untracked delta since the last staging, minus
 #                    the plan file and keep-dirty paths, one path per line
 #   baselines        for each delta path, save its index content to baseline-<flattened
 #                    path>; prints "<path><TAB>baseline-…", "<path><TAB>new", or
-#                    "<path><TAB>deleted"
+#                    "<path><TAB>deleted"; warns and saves nothing when there is no delta
 #   review-path <n>  print the next evidence path for phase <n> (highest suffix + 1,
 #                    rm -f'd first so a stale file can never satisfy the existence check)
 #   evidence <path> <findings>
@@ -260,6 +261,11 @@ cmd_ledger() {
 cmd_phase_cost() {
   local id="${1:?usage: rp.sh phase-cost <n>}"
   ensure_ledger
+  # Every Review return owes a ledger row; the evidence files count the returns.
+  local files=0 rows f
+  for f in "$SCRATCH/phase-$id-review.md" "$SCRATCH/phase-$id-review-"*.md; do [ -e "$f" ] && files=$((files + 1)); done
+  rows="$(awk -F'|' -v id="$id" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s } NR > 2 && trim($2) == id && trim($3) == "Review" { n++ } END { print n + 0 }' "$SCRATCH/ledger.md")"
+  [ "$files" -le "$rows" ] || warn "phase $id has $files review evidence file(s) but $rows Review ledger row(s) — a Review return went unrecorded; add it with: rp.sh ledger $id Review <tokens> <tool_uses> <duration_ms>"
   awk -F'|' -v id="$id" '
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     function fmtk(v, multi) { if (v !~ /^[0-9]+$/) return "n/a"; return multi ? sprintf("%dK", (v + 500) / 1000) : sprintf("%.1fK", v / 1000) }
@@ -362,8 +368,10 @@ baseline_name() { printf 'baseline-%s\n' "$(printf '%s' "$1" | sed 's#/#__#g')";
 cmd_baselines() {
   load_env
   local top; top="$(repo_top)"
-  local p base
-  cmd_delta | while IFS= read -r p; do
+  local p base delta
+  delta="$(cmd_delta)"
+  [ -n "$delta" ] || { warn "baselines: no delta since the last staging — run this after the fix agent returns and before rp.sh stage"; return 0; }
+  printf '%s\n' "$delta" | while IFS= read -r p; do
     base="$(baseline_name "$p")"
     if [ ! -e "$top/$p" ]; then
       rm -f "$SCRATCH/$base"; printf '%s\tdeleted\n' "$p"
@@ -453,7 +461,7 @@ cmd_pull() {
 # ----------------------------------------------------------------------- briefs
 
 # Keys whose value must name an existing file: the agent will read it.
-BRIEF_INPUT_KEYS=" CONVENTIONS_PATH SPEC_PATH PLAN_FILE PRIOR_EVIDENCE "
+BRIEF_INPUT_KEYS=" CONVENTIONS_PATH SPEC_PATH PLAN_FILE PRIOR_EVIDENCE CODE_BRIEF_PATH "
 
 cmd_brief() {
   local tpl="${1:?usage: rp.sh brief <template> <out> KEY=VALUE|KEY=@file …}" out="${2:?brief: missing <out>}"; shift 2

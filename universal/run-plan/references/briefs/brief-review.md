@@ -8,8 +8,7 @@ Read `{{SPEC_PATH}}` in full. It is this phase's section of the plan, verbatim, 
 
 ## File Manifest
 
-The Code agent's manifest (the basis for the scope-creep check):
-{{MANIFEST}}
+The Code agent's manifest — the basis for the scope-creep check — is the two lists under `## File Manifest` in `{{CODE_BRIEF_PATH}}`. Read that section of the file and nothing else in it: the rest is the implementer's instructions, and you judge the diff, not the instructions.
 
 Orchestrator-sanctioned changes — in scope, not scope creep; verify each was actually applied and report any that was not; an ordered comment deletion's absent comment is not a defect: {{SANCTIONED}}
 

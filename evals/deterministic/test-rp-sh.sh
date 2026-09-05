@@ -166,8 +166,19 @@ eq "phase-cost phase 2 (multi-value cells, n/a kept)" "| — | 354K·113K·n/a |
 eq "phase-cost unknown phase" "| — | — | — | — | — |" "$(bash "$RPS" phase-cost 9)"
 bash "$RPS" ledger 4 Research 1000 1 60000 R2 a; bash "$RPS" ledger 4 Research 1000 1 120000 R2 b; bash "$RPS" ledger 4 Code 2000 2 30000
 eq "phase-cost parallel group counted at max" "| 1K·1K | 2.0K | — | 4.0K | 0:02:30 (Σ 0:03:30, 1 parallel group) |" "$(bash "$RPS" phase-cost 4)"
+# Every Review return owes a ledger row: evidence files are the count of returns.
+touch "$SCRATCH/phase-1-review.md" "$SCRATCH/phase-1-review-2.md"
+out="$(bash "$RPS" phase-cost 1 2>"$WORK/err.txt")"
+check "phase-cost warns when evidence files outnumber Review rows" $(grep -q 'phase 1 has 2 review evidence file(s) but 1 Review ledger row(s)' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+eq "…and still prints the cells" "| 68.2K | 151.6K | 78.1K | 297.9K | 0:58:41 |" "$out"
+touch "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
+bash "$RPS" phase-cost 2 2>"$WORK/err.txt" >/dev/null
+check "phase-cost is silent when every evidence file has its Review row" $([ -s "$WORK/err.txt" ] && echo 1 || echo 0) "$(cat "$WORK/err.txt")"
+rm -f "$SCRATCH/phase-1-review.md" "$SCRATCH/phase-1-review-2.md" "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
 
 echo "stage / delta / baselines with keep-dirty paths"
+out="$(bash "$RPS" baselines 2>"$WORK/err.txt")"
+check "baselines with no delta warns and saves nothing" $([ -z "$out" ] && grep -q 'no delta since the last staging' "$WORK/err.txt" && ! ls "$SCRATCH"/baseline-* >/dev/null 2>&1 && echo 0 || echo 1) "$out $(cat "$WORK/err.txt")"
 printf 'keep-dirty: docs/design draft.md\nkeep-dirty: docs/old.md\nkeep-dirty: docs/new.md\n' > "$SCRATCH/tree-state.md"
 echo 'edited' >> "docs/design draft.md"; git mv docs/old.md docs/new.md; echo 'phase work' >> src/a.js; echo 'new' > src/c.js
 git add .agents/plans/demo-plan.md   # the plan's tick edits are already staged, as after item 5
@@ -239,9 +250,13 @@ check "…and a plan without Architectural decisions warns" $(grep -q "no '## Ar
 bash "$RP" init "$SKILL" "$WORK/scd" .agents/plans/demo-plan.md 42 2>"$WORK/err.txt" >/dev/null
 check "a plan with Architectural decisions does not warn about them" $(grep -q 'Architectural decisions' "$WORK/err.txt" && echo 1 || echo 0) "$(cat "$WORK/err.txt")"
 # A5/B12: brief values may contain {{TOKENS}}; @@ is a literal at-sign.
-bash "$RPS" brief run-conventions.md rc2.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS='mentions {{SPEC_PATH}} and {{KEEP_DIRTY_NOTE}}' KEEP_DIRTY_NOTE='@@scope/pkg is fine' TICKET_DIRECTIVE='t' >/dev/null 2>"$WORK/err.txt"; rc=$?
+bash "$RPS" brief run-conventions.md rc2.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS='mentions {{SPEC_PATH}} and {{KEEP_DIRTY_NOTE}}' KEEP_DIRTY_NOTE='@@scope/pkg is fine' TICKET_DIRECTIVE='t' STANDING_HAZARDS='None.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "brief accepts values containing placeholders and @@ literals" $([ $rc -eq 0 ] && grep -q 'mentions {{SPEC_PATH}} and {{KEEP_DIRTY_NOTE}}' "$SCRATCH/rc2.md" && grep -q '^\*\*Uncommitted user edits.\*\* @scope/pkg is fine' "$SCRATCH/rc2.md" && echo 0 || echo 1) "$(cat "$WORK/err.txt"; grep -n 'mentions\|scope' "$SCRATCH/rc2.md")"
 bash "$RPS" brief brief-code.md nope.md PHASE_HEADING=h PLAN_FILE=/nonexistent/plan.md CONVENTIONS_PATH="$SCRATCH/run-conventions.md" CONTEXT_POINTERS=n DELTAS=n MANIFEST_MODIFY=n MANIFEST_REFERENCE=n SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM=n FIX_CYCLE=n COMMIT_MSG_PATH=x HANDOFF_PATH=y 2>"$WORK/err.txt"; rc=$?
+bash "$RPS" brief brief-review.md nope.md PHASE=1 SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM=None CODE_BRIEF_PATH="$SCRATCH/phase-1-brief-code.md" SANCTIONED=None POINTERS=None EVIDENCE_PATH=x 2>"$WORK/err2.txt"; rc2=$?
+check "brief refuses a CODE_BRIEF_PATH that does not exist" $([ $rc2 -ne 0 ] && grep -q 'CODE_BRIEF_PATH names' "$WORK/err2.txt" && echo 0 || echo 1) "$(cat "$WORK/err2.txt")"
+bash "$RPS" brief brief-prepr.md pre-pr-brief-review.md SCOPE_REF='main...HEAD' OUT_OF_SCOPE=None HOOKS='- none' POINTERS=None >/dev/null 2>"$WORK/err2.txt"; rc2=$?
+check "brief fills the pre-PR template" $([ $rc2 -eq 0 ] && grep -q 'git diff main...HEAD' "$SCRATCH/pre-pr-brief-review.md" && ! grep -q '{{' "$SCRATCH/pre-pr-brief-review.md" && echo 0 || echo 1) "$(cat "$WORK/err2.txt")"
 check "brief refuses an input path that does not exist" $([ $rc -ne 0 ] && grep -q 'PLAN_FILE names /nonexistent/plan.md' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 # A2: evidence check.
 printf '| C1 | MET | a.js:1 |\n| C2 | NOT MET | gap |\n\nFindings\n\nF1 — behaviour — gap at a.js:3\nF2 — documentation — stale comment\n' > "$SCRATCH/phase-9-review.md"
@@ -278,10 +293,10 @@ bash "$RPS" brief brief-code.md x.md PHASE_HEADING=h 2>"$WORK/err.txt"; rc=$?
 check "brief refuses unfilled placeholders" $([ $rc -ne 0 ] && grep -q 'unfilled placeholders' "$WORK/err.txt" && grep -q 'SPEC_PATH' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 check "…and writes nothing" $([ ! -e "$SCRATCH/x.md" ] && echo 0 || echo 1) ""
 echo 'from a file' > "$WORK/val.txt"
-bash "$RPS" brief run-conventions.md run-conventions.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS=@"$WORK/val.txt" KEEP_DIRTY_NOTE='None declared.' TICKET_DIRECTIVE='Use `#42` as the ticket identifier.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+bash "$RPS" brief run-conventions.md run-conventions.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS=@"$WORK/val.txt" KEEP_DIRTY_NOTE='None declared.' TICKET_DIRECTIVE='Use `#42` as the ticket identifier.' STANDING_HAZARDS='- Never run terraform: the state lock is shared.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "brief accepts @file values" $([ $rc -eq 0 ] && grep -q '^from a file$' "$SCRATCH/run-conventions.md" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 for t in brief-research.md brief-review.md brief-rereview.md; do
-  keys="$(grep -oE '\{\{[A-Z0-9_]+\}\}' "$SCRATCH/briefs/$t" | sort -u | tr -d '{}' | awk -v f="$SCRATCH/phase-1-spec.md" '/^(CONVENTIONS_PATH|SPEC_PATH|PLAN_FILE|PRIOR_EVIDENCE)$/ { print $0 "=" f; next } { print $0 "=v" }' | tr '\n' ' ')"
+  keys="$(grep -oE '\{\{[A-Z0-9_]+\}\}' "$SCRATCH/briefs/$t" | sort -u | tr -d '{}' | awk -v f="$SCRATCH/phase-1-spec.md" '/^(CONVENTIONS_PATH|SPEC_PATH|PLAN_FILE|PRIOR_EVIDENCE|CODE_BRIEF_PATH)$/ { print $0 "=" f; next } { print $0 "=v" }' | tr '\n' ' ')"
   # shellcheck disable=SC2086
   bash "$RPS" brief "$t" "out-$t" $keys >/dev/null 2>"$WORK/err.txt"; rc=$?
   check "template $t fills with all its placeholders" $rc "$(cat "$WORK/err.txt")"
