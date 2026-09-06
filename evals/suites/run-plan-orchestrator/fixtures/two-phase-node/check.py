@@ -64,7 +64,12 @@ def check(ctx, expect):
     bash_calls = tr.tool_calls("Bash", main_only=True)
     skill_idx = sorted(c.index for c in tr.tool_calls("Skill", main_only=True))
     commit_bash_idx = sorted(c.index for c in bash_calls if re.search(r"git\s+(?:-\S+\s+)*commit\b", c.command))
-    diff_rx = re.compile(r"\bgit\s+(?:(?:-[cC]\s+\S+|--no-pager|-\S+)\s+)*diff\b(?![^|;&]*--(?:quiet|name-only|name-status|stat|numstat)\b)")
+    # The pre-`diff` flag repetition must stay unambiguous or it backtracks
+    # exponentially (CodeQL py/redos). Two rules: no alternative may match what
+    # `-\S+` already matches (so no `--no-pager` branch), and `-c`/`-C`'s separate
+    # argument may not start with `-`, or `-C -x` parses both as one flag-plus-arg
+    # and as two flags.
+    diff_rx = re.compile(r"\bgit\s+(?:(?:-[cC]\s+[^-\s]\S*|-\S+)\s+)*diff\b(?![^|;&]*--(?:quiet|name-only|name-status|stat|numstat)\b)")
 
     def in_fallback(i: int) -> bool:
         prior = [s for s in skill_idx if s < i]
