@@ -34,7 +34,7 @@ plus the declared-path validation in a production repo.
 | Step 1b — genuine tie, two plans one issue | `probe tie` | exercised ×2 |
 | Step 1b — PRD guard, nothing survives the discard | `probe guard` | exercised ×1 — impure, see note |
 | Step 1b — fetch-from-GH fallback (no local file) | — | **cold** |
-| Step 1b.1 — no parent epic, `<gh_issue_number>` unset | burn-in full run | exercised |
+| Step 1b.2 (was 1b.1) — no parent epic, `<gh_issue_number>` unset | burn-in full run | exercised |
 | Step 1c — local ahead of GH, pre-confirmation push | — | **cold** |
 | Step 1e.2 — interrupted-phase detection | — | **cold** |
 | Step 1e.2 — untracked plan file, detection skipped | production runs | exercised ×2 (2026-08-16 sitevue.web #303, 2026-08-19 sitevue.server G6 — both repos git-ignore `.agents/plans/`) |
@@ -136,7 +136,10 @@ plus the declared-path validation in a production repo.
   pattern. Covering `77aae51` needs an ad-hoc commit outside run-plan on a branch
   like `feat/123-x` or `markus/eng-142-y`.
 - **Highest-value untested paths as of 2026-08-19:** `tree-state.md` reload on
-  resume, and the compaction re-read clauses (agent-operations.md re-read,
-  staging-site tree-state consult). Neither production run hit a resume, a
-  compaction, or a reload — the conditions the 08-13 compression cuts most
-  plausibly degrade.
+  resume, and the compaction re-read clauses. Neither production run hit a
+  resume, a compaction, or a reload — the conditions the 08-13 compression cuts
+  most plausibly degrade. (2026-09: the staging-site tree-state consult is now
+  `rp.sh stage`, covered deterministically by `evals/deterministic/test-rp-sh.sh`;
+  agent-operations.md is no longer held in memory, so its re-read clause is gone —
+  the remaining compaction exposure is `plan-index.md`, which Context Discipline
+  says to re-read in the plan's place.)

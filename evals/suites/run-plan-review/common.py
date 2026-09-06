@@ -12,6 +12,8 @@ having:
 
 from __future__ import annotations
 
+import re
+
 MET, NOT_MET, NEEDS_RUNTIME = "MET", "NOT_MET", "NEEDS_RUNTIME"
 
 
@@ -61,6 +63,7 @@ def verdicts(ctx, expect) -> list[dict]:
 
 def expect_covered_every_criterion(expect, rows: list[dict], criteria: list[str]) -> None:
     expect.equals("one verdict per acceptance criterion", len(rows), len(criteria))
+    expect.info("criterion fields", " | ".join(str(r.get("criterion", ""))[:24] for r in rows))
     expect.that("every verdict is a recognised value",
                 all(r["_verdict"] in {MET, NOT_MET, NEEDS_RUNTIME} for r in rows),
                 ", ".join(r["_verdict"] for r in rows))
@@ -118,17 +121,39 @@ def _tokens(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z_][a-z_0-9]{2,}", (text or "").lower())}
 
 
+def _label_index(text: str) -> int | None:
+    """`C3` / `(C3)` / `C3: …` → 2. The spec transport labels criteria this way
+    (rp.sh extract), and a reviewer that read the spec file returns the label."""
+    import re
+
+    m = re.match(r"^\(?C(\d+)\)?(?:\W.*)?$", (text or "").strip(), re.I)
+    if not m or int(m.group(1)) < 1:
+        return None
+    return int(m.group(1)) - 1
+
+
 def align(rows: list[dict], criteria: list[str]) -> dict[int, dict]:
     """Map each returned verdict onto the declared criterion it is about.
 
-    Positional mapping alone is unsafe — the model may reorder or merge rows —
+    A row whose criterion field is a `C<k>` label maps by label. Otherwise,
+    positional mapping alone is unsafe — the model may reorder or merge rows —
     so each row is matched to its best-overlapping criterion, with position as
     the tie-break. Unmatched rows are simply absent from the result, which shows
     up as a missing expected index rather than a silent pass.
     """
     out: dict[int, dict] = {}
     used: set[int] = set()
+    # Label pass first, so a text row cannot claim an index a labelled row owns.
+    labelled: set[int] = set()
     for pos, row in enumerate(rows):
+        li = _label_index(row.get("criterion", ""))
+        if li is not None and 0 <= li < len(criteria) and li not in used:
+            out[li] = row
+            used.add(li)
+            labelled.add(pos)
+    for pos, row in enumerate(rows):
+        if pos in labelled:
+            continue
         rt = _tokens(row.get("criterion", ""))
         best, best_score = None, 0.0
         for i, crit in enumerate(criteria):
@@ -146,6 +171,23 @@ def align(rows: list[dict], criteria: list[str]) -> dict[int, dict]:
             out[best] = row
             used.add(best)
     return out
+
+
+def expect_read_spec_file(expect, ctx, spec_relpath: str, criteria_count: int) -> None:
+    """Spec transport: the reviewer must actually read the spec file, and its
+    verdict rows must come back by `C<k>` label — proof it read the numbering
+    rather than reconstructing criteria from the diff or the phase prose."""
+    spec_abs = str(ctx.repo / spec_relpath)
+    read = any(spec_abs in p or spec_relpath in p for p in ctx.trace.reads()) or ctx.trace.ran(
+        re.escape(spec_relpath.rsplit("/", 1)[-1])
+    )
+    expect.that("read the phase spec file", read, f"reads: {ctx.trace.reads()[:5]}")
+    rows = (ctx.json_from_result(require_key="verdicts") or {}).get("verdicts") or []
+    labels = [_label_index(r.get("criterion", "")) for r in rows]
+    expect.that("returned every verdict by C<k> label",
+                len(rows) == criteria_count and all(l is not None for l in labels)
+                and sorted(l for l in labels if l is not None) == list(range(criteria_count)),
+                f"labels: {[None if l is None else l + 1 for l in labels]}")
 
 
 def expect_seeded(expect, rows: list[dict], criteria: list[str], expected: list[int]) -> None:

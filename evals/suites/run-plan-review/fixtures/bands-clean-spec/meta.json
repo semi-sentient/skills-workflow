@@ -1,0 +1,5 @@
+{
+  "skill": "run-plan",
+  "description": "Correct rate-band implementation, criteria delivered by phase-2-spec.md as in production — zero NOT_MET, every verdict by C<k> label",
+  "timeout_s": 900
+}

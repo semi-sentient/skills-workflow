@@ -47,7 +47,9 @@ A skill is a prompt, so an edit has no compiler and no test suite to fall back o
 | A behavioural rule (turn structure, ordering, a refusal, a detected convention) | A Tier 1 fixture asserting it, then `./evals/run.py <suite> --compare HEAD --reps 3` |
 | A `run-plan` agent brief | `./evals/run.py run-plan-review --compare HEAD --reps 3` |
 | Deleting a clause you suspect is dead weight | `./evals/run.py <suite> --compare worktree --arm worktree --ablate '<file>:<regex>'` |
-| Mechanical metrics (token footprint, call counts) | A deterministic estimate beats a noisy experiment — write the arithmetic down |
+| Mechanical metrics (token footprint, call counts) | A deterministic estimate beats a noisy experiment — write the arithmetic down; `evals/harness/context_tally.py <transcript>` measures a real run |
+| Shell a skill ships (`run-plan`'s `references/rp.sh`) | `./evals/deterministic/test-rp-sh.sh` — no model, sub-second |
+| `run-plan`'s orchestrator loop (brief shape, file brokering, review-before-commit, peak context) | `./evals/run.py run-plan-orchestrator --reps 1` — one end-to-end dialogue run, ~$5–15 |
 | Irreversible git/GH paths | `./scripts/burn-in.sh` (below) |
 
 ```bash
@@ -72,6 +74,6 @@ The fixture is single-use (a complete run leaves checked criteria, a pushed bran
 ## Guidelines
 
 - **Descriptions matter.** The `description` field determines when an agent loads the skill. Be specific about the trigger — "Use when generating React components" is better than "Helps with frontend work."
-- **Keep `SKILL.md` under 500 lines.** Move detailed reference material into a `references/` subfolder next to `SKILL.md` (see `universal/tdd/references/` and `universal/run-plan/references/` for examples) and link to it from the main skill file.
+- **Keep `SKILL.md` under 500 lines, 50 KB, and 7,000 words** (`evals/lint.py` enforces all three). `SKILL.md` is injected verbatim on every invocation and re-paid after every compaction, so its size is resident context for the whole run — a line cap alone was passed by writing paragraphs, which is how `run-plan` reached 102 KB at 480 lines. Move procedure that only some runs exercise into a `references/` file loaded when its trigger fires (see `universal/run-plan/references/` for the pattern: each file opens with the condition that loads it), and link to it from the main skill file. A new mechanism must displace text or live in a reference.
 - **Avoid agent-specific features in shared skills.** Claude Code frontmatter like `allowed-tools`, `context: fork`, and `paths` won't be understood by other agents. If a skill genuinely needs these, note the agent dependency in the description.
 - **Test before merging.** Install the skill locally and verify it triggers correctly and produces useful output.

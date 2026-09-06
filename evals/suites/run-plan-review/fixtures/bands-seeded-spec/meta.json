@@ -1,0 +1,5 @@
+{
+  "skill": "run-plan",
+  "description": "Strict > at the target boundary, criteria delivered by phase-2-spec.md as in production — the reviewer must read the file and still catch it, returning verdicts by C<k> label",
+  "timeout_s": 900
+}
