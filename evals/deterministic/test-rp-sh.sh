@@ -317,6 +317,7 @@ BC="PHASE_HEADING=h PLAN_FILE=$PWD/.agents/plans/demo-plan.md CONVENTIONS_PATH=$
 # shellcheck disable=SC2086
 bash "$RPS" brief brief-code.md hz1.md $BC DELTAS=$'- Line-number drift: the helper moved to src/util.js.\n- Run no terraform in this phase: the state lock is shared with other agents.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "brief warns when a DELTAS line restates a standing hazard, and still writes the brief" $([ $rc -eq 0 ] && grep -q 'DELTAS line 2 restates a standing hazard' "$WORK/err.txt" && [ -s "$SCRATCH/hz1.md" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and names the colliding hazard bullet" $(grep -q 'hazard: - Never run any terraform command yourself' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 # shellcheck disable=SC2086
 bash "$RPS" brief brief-code.md hz2.md $BC DELTAS=$'- Line-number drift: the helper moved to src/util.js.\n- Resolved ambiguity: C4 means the exported name, not the file name.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "…and is silent for phase-specific deltas" $([ $rc -eq 0 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"

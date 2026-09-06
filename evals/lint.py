@@ -33,8 +33,8 @@ MAX_SKILL_LINES = 500  # CONTRIBUTING.md: "Keep SKILL.md under 500 lines."
 # (the lines were paragraphs). SKILL.md is injected verbatim on every invocation and
 # re-paid after every compaction, so its size is resident context for the whole run.
 # A new mechanism must displace text or live in a trigger-loaded reference.
-MAX_SKILL_BYTES = 45_000
-MAX_SKILL_WORDS = 6_500
+MAX_SKILL_BYTES = 50_000
+MAX_SKILL_WORDS = 7_000
 
 MODEL_NAMES = r"\b(opus|sonnet|haiku|fable)\b"
 

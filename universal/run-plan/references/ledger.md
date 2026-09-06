@@ -29,7 +29,7 @@ All reported timing derives from summed `duration_ms` (parallel groups at their 
 
 ## The between-phase progress table
 
-After each phase, render progress as a GitHub-flavored markdown table (it displays cleanly in the user's terminal — prefer it over ASCII box-art). `rp.sh phase-cost <n>` prints the five cost cells for one row; the orchestrator supplies `#`, the short title, and the Status:
+After each phase, render progress as a GitHub-flavored markdown table (it displays cleanly in the user's terminal — prefer it over ASCII box-art). `rp.sh phase-cost <n>` prints the five cost cells for one row — for every phase, including one that spawned no agent (a human-gate-only or amended-out phase), whose cells it prints as dashes; the orchestrator supplies `#`, the short title, and the Status:
 
 | # | Phase | Status | Research | Code | Review | Total | Active time |
 | - | ----- | ------ | -------: | ---: | -----: | ----: | ----------: |

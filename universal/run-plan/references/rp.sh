@@ -526,7 +526,7 @@ warn_hazard_repeats() {
         for (h = 1; h <= nh; h++) {
           delete hw; words(hz[h], hw); shared = 0
           for (w in vw) if (w in hw) shared++
-          if (shared >= 3) { printf "rp.sh: warning: %s line %d restates a standing hazard (%d shared terms) — hazards live once in run-conventions.md; keep the line only if it is phase-specific: %s\n", key, NR, shared, substr($0, 1, 70) > "/dev/stderr"; break }
+          if (shared >= 3) { printf "rp.sh: warning: %s line %d restates a standing hazard (%d shared terms) — hazards live once in run-conventions.md; keep the line only if it is phase-specific:\n    line:   %s\n    hazard: %s\n", key, NR, shared, substr($0, 1, 90), substr(hz[h], 1, 90) > "/dev/stderr"; break }
         }
       }'
   done

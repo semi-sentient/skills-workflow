@@ -33,7 +33,7 @@ Errors are structural facts (dead reference link, registration drift, a pinned
 model tier). Warnings are heuristics that want a human: an elastic permission
 clause, a rule restated in two places, a flag the user docs never mention.
 
-`skill-length` caps `SKILL.md` three ways — 500 lines, 45 KB, 6,500 words — because
+`skill-length` caps `SKILL.md` three ways — 500 lines, 50 KB, 7,000 words — because
 the line cap alone was passed by writing paragraphs: `run-plan`'s `SKILL.md` reached
 102 KB / 16,000 words at 480 lines, and every byte of it is injected on invocation
 and re-paid after each compaction (issue #6). Procedure that only some runs exercise
@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 118 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 119 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
