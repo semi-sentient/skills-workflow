@@ -56,6 +56,7 @@ def check(ctx, expect):
     expect.that("orchestrator never asked the human to paste output or investigate", dlg is not None and not dlg.has_event("asked:paste_output"),
                 f"events: {dlg.events if dlg else None}")
     expect.info("dialogue events", dlg.events if dlg else None)
+    expect.info("digest recommended a service-touching recovery (persona redirected)", dlg is not None and dlg.has_event("recovery:redirected"))
     expect.info("interviewer turns", len(dlg.interviewer_turns) if dlg else 0)
 
     # --- one Diagnose spawn, briefed from the template
@@ -72,7 +73,7 @@ def check(ctx, expect):
     expect.that("diagnose brief file written under the phase", bool(brief_files), ctx.sh(f"ls {SCRATCH}"))
     if brief_files:
         brief = ctx.read(f"{SCRATCH}/{brief_files[0]}")
-        expect.that("diagnose brief carries the human's report verbatim", "ECONNREFUSED 127.0.0.1:4010" in brief, brief[:300])
+        expect.that("diagnose brief carries the human's report verbatim", "no service answered on 127.0.0.1:4010" in brief, brief[:300])
         expect.that("diagnose brief carries the closed command list", "cat logs/service.log" in brief and "cat .env.local" in brief, "")
         expect.that("diagnose brief has no unfilled placeholder", "{{" not in brief, "")
         expect.info("diagnose brief bytes", len(brief))
@@ -103,6 +104,15 @@ def check(ctx, expect):
     expect.that("orchestrator ran no diagnostic command before the Diagnose spawn", not check_before, f"{check_before[:3]}")
     check_after = [c.command for c in bash_calls if spawn_at is not None and c.index > spawn_at and HEALTHCHECK.search(c.command) and "rp.sh" not in c.command]
     expect.info("delegated health-check runs after the recovery (at the human's direction)", len(check_after))
+    # After the relay the orchestrator's only commands are the directed recovery and
+    # the re-verification: no process/port probes, no shell reads of source or logs.
+    probes = [c for c in shell if re.search(r"(^|[;&|\n]\s*|\b(?:sudo|timeout\s+\S+|xargs)\s+)(lsof|ps|netstat|ss|pgrep)\b", c)]
+    expect.that("orchestrator ran no process or port probe itself", not probes, f"{probes[:3]}")
+    # A plan amendment by `sed` legitimately names `scripts/healthcheck.mjs` (it is in
+    # the criterion text); a command that also names the plans directory is not a dump.
+    shell_src = [c for c in shell if re.search(r"\b(cat|sed|head|tail|less|awk|grep|wc)\b[^|;&\n]*\b(src|scripts|test)/", c)
+                 and ".agents/plans/" not in c or re.search(r"git\s+(show|diff)\b[^|;&\n]*\b(src|scripts|test)/", c)]
+    expect.that("orchestrator never dumped source or script files in shell", not shell_src, f"{shell_src[:3]}")
     expect.equals("no Monitor stream", tr.count("Monitor", main_only=True), 0)
     task_output_reads = [p for p in main_reads if re.search(r"\.output$|/tasks/", p)]
     expect.equals("no background-task output reads", len(task_output_reads), 0)

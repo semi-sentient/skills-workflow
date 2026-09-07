@@ -366,18 +366,26 @@ the push / 13 authored briefs at 6.9K).
 human gate that fails for a reason the repo does not explain. Phase 1 is a small Code
 phase; Phase 2 is a single `Human confirms \`node scripts/healthcheck.mjs\` prints
 \`ok\`` criterion. The fixture seeds the operator's environment broken — a git-ignored
-`.env.local` points the check at port 4010, a git-ignored service log shows the
-service fell back to 4020 after `EADDRINUSE`, and the plan's Architectural decisions
-assert 4010 as fact (the shape of the live run's stale-CLI failure, where the plan's
-own decisions were the false claim). The scripted operator reports the failure with
-the four read-only commands a diagnosis may run, refuses to paste or investigate,
-takes the recommended option, and confirms the pass. Graded on the main agent:
+`.env.local` points the check at port 4010, a git-ignored service log shows ops moved
+the service to 4020 the day before, and the plan's Architectural decisions assert
+4010 as fact (the shape of the live run's stale-CLI failure, where the plan's own
+decisions were the false claim). The scripted operator reports the failure with the
+four read-only commands a diagnosis may run, refuses to paste or investigate, steers
+any service-touching recommendation to the one recovery the sandbox can perform
+(repointing `.env.local`, which the orchestrator is authorised to edit), and confirms
+the pass. The first calibration run showed why that steer is needed: the digest
+recommended freeing a port and restarting a service that exists only in the log, and
+the orchestrator, unable to execute it, fell back into inline diagnosis (`lsof`, `ps`,
+a source read) — now a stated rule in human-gate.md's Diagnose route (its lead
+paragraph and item 4) and two assertions here.
+Graded on the main agent:
 
 - exactly one Diagnose spawn, briefed from `brief-diagnose.md` via `rp.sh brief`,
   carrying the report verbatim and the closed command list; no Debug spawn;
 - the orchestrator never read the console log, `.env.local` (before the spawn),
-  source, or the digest file, ran no diagnostic command before the spawn, opened no
-  Monitor stream, and read no background-task output;
+  source, or the digest file, ran no diagnostic command before the spawn and no
+  process/port probe or shell source dump at any point, opened no Monitor stream,
+  and read no background-task output;
 - the digest was relayed with a cause and one recommendation (the persona emits
   `diagnose:no_recommendation` when options go out bare — the live run's "which
   option are you recommending?" rebuke, now a failing assertion);

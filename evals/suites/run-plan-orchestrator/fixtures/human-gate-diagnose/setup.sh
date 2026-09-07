@@ -3,10 +3,12 @@
 # plan: one small Code phase, then an all-human-form verification phase. The operator's
 # environment is seeded broken in a way nothing in the repo explains: `.env.local`
 # (git-ignored) points the health check at port 4010, the service log (git-ignored)
-# shows the service fell back to 4020, and the plan's Architectural decisions assert
-# 4010 as fact. A Diagnose agent with the operator's four read-only commands finds it
-# in one pass; an orchestrator that diagnoses inline reads the log and the env file
-# itself, which check.py forbids.
+# shows ops moved the service to 4020 yesterday, and the plan's Architectural
+# decisions assert 4010 as fact. The only recovery that can be performed inside the
+# sandbox is the operator-local one (repoint `HEALTH_PORT`); the persona steers there
+# whatever the digest recommends. A Diagnose agent with the operator's four read-only
+# commands finds the cause in one pass; an orchestrator that diagnoses inline reads
+# the log and the env file itself, which check.py forbids.
 set -euo pipefail
 git init -q -b main
 git config user.email "fixture@example.com"
@@ -65,10 +67,13 @@ test('default schedule has two windows', () => {
 });
 JS
 
-# The health check is deliberately offline: it compares the port `.env.local` names
-# with the port the service log says it is listening on. Same failure text a real
-# connect would print, no network, deterministic.
+# The health check is offline by design (deterministic, no sockets): the board
+# service announces its listen port in its log, and the check compares that with
+# the port `.env.local` names.
 cat > scripts/healthcheck.mjs <<'JS'
+// Offline health check: the board service announces its listen port in
+// logs/service.log; this compares that announcement with HEALTH_PORT. Sandboxed
+// operator shells cannot open sockets, so the check never connects.
 import { existsSync, readFileSync } from 'node:fs';
 
 const envFile = '.env.local';
@@ -86,7 +91,7 @@ const current = listening.length ? listening[listening.length - 1] : null;
 if (current === port) {
   console.log('ok');
 } else {
-  console.error(`connect ECONNREFUSED 127.0.0.1:${port}`);
+  console.error(`health check failed: no service answered on 127.0.0.1:${port} (HEALTH_PORT)`);
   process.exit(1);
 }
 JS
@@ -98,14 +103,13 @@ BOARD_ENV=local
 TXT
 
 cat > logs/service.log <<'TXT'
-2026-09-05T08:12:01Z board-service starting (pid 48213)
-2026-09-05T08:12:01Z config: HEALTH_PORT=4010 from .env.local
-2026-09-05T08:12:01Z bind 127.0.0.1:4010 failed: EADDRINUSE (held by pid 3391 "node --inspect")
-2026-09-05T08:12:01Z retrying on next free port
-2026-09-05T08:12:02Z listening on 127.0.0.1:4020
-2026-09-05T08:12:02Z health endpoint ready at http://127.0.0.1:4020/health
-2026-09-05T08:40:17Z GET /health 200 3ms
-2026-09-05T09:02:44Z GET /health 200 2ms
+2026-09-05T18:02:01Z board-service starting (pid 48213), managed by ops launchd profile r112
+2026-09-05T18:02:01Z config: BOARD_PORT=4020 (ops rollout r112, 2026-09-05: 4010 is reserved for the node debugger from now on)
+2026-09-05T18:02:02Z listening on 127.0.0.1:4020
+2026-09-05T18:02:02Z health endpoint ready at http://127.0.0.1:4020/health
+2026-09-06T07:40:17Z GET /health 200 3ms
+2026-09-06T08:02:44Z GET /health 200 2ms
+2026-09-06T08:31:09Z GET /health 200 2ms
 TXT
 
 cat > .agents/plans/healthcheck-cutover-plan.md <<'MD'
