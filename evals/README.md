@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 119 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 137 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
@@ -50,7 +50,8 @@ into its scratch directory and calls for everything the skill text used to descr
 as shell: plan extraction into `plan-index.md` and `phase-<n>-spec.md` files with
 `C<k>` criterion labels, ticking criteria by label, ledger rows, staging with the
 keep-dirty exclusions, the post-verdict delta and its baselines, evidence-path
-resolution, GH sync/drift/pull, per-phase cleanup, and filling brief templates. The
+resolution, GH sync/drift/pull, per-phase cleanup, filling brief templates, and the
+one-call bounded wait (`rp.sh wait`). The
 test builds a throwaway repo with a synthetic plan covering the shapes real plans
 have taken (`Phase 6A`, a `Part N` heading, wrapped criteria, a backticked
 `Human verifies`, a GH footer), keep-dirty paths with spaces and a rename, and a
@@ -319,9 +320,9 @@ never prints, and an uncountable per-station claim with no station set defined �
 every one a defensible flag. The Criteria verifiability item catches exactly the
 class of defect its own eval author kept writing.
 
-### `run-plan-orchestrator` — 1 dialogue fixture, 35 assertions, ~$14, ~45min
+### `run-plan-orchestrator` — 2 dialogue fixtures, ~85 assertions, ~$25, ~75min
 
-The one suite that runs `run-plan` itself. A two-phase Node plan (the rate-band
+The one suite that runs `run-plan` itself. **`two-phase-node`**: a two-phase Node plan (the rate-band
 module, then a board renderer that must reuse it) in a fresh local-only repo; the
 scripted user confirms the Step 2 gate and otherwise lets the run proceed. The
 assertions are the invariants issue #6 changed the skill to hold, graded on the
@@ -360,6 +361,40 @@ motivated the change (baselines: typescript #71 716K peak / 48 briefs at 9.2K
 chars; redshift #154 532K before its first compaction / 25 briefs at 7.7K; the
 first live run on the #6 branch, sitevue.infrastructure 2026-09-04, 224K peak at
 the push / 13 authored briefs at 6.9K).
+
+**`human-gate-diagnose`** is the second fixture, for issue #12: the same loop, then a
+human gate that fails for a reason the repo does not explain. Phase 1 is a small Code
+phase; Phase 2 is a single `Human confirms \`node scripts/healthcheck.mjs\` prints
+\`ok\`` criterion. The fixture seeds the operator's environment broken — a git-ignored
+`.env.local` points the check at port 4010, a git-ignored service log shows ops moved
+the service to 4020 the day before, and the plan's Architectural decisions assert
+4010 as fact (the shape of the live run's stale-CLI failure, where the plan's own
+decisions were the false claim). The scripted operator reports the failure with the
+four read-only commands a diagnosis may run, refuses to paste or investigate, steers
+any service-touching recommendation to the one recovery the sandbox can perform
+(repointing `.env.local`, which the orchestrator is authorised to edit), and confirms
+the pass. The first calibration run showed why that steer is needed: the digest
+recommended freeing a port and restarting a service that exists only in the log, and
+the orchestrator, unable to execute it, fell back into inline diagnosis (`lsof`, `ps`,
+a source read) — now a stated rule in human-gate.md's Diagnose route (its lead
+paragraph and item 4) and two assertions here.
+Graded on the main agent:
+
+- exactly one Diagnose spawn, briefed from `brief-diagnose.md` via `rp.sh brief`,
+  carrying the report verbatim and the closed command list; no Debug spawn;
+- the orchestrator never read the console log, `.env.local` (before the spawn),
+  source, or the digest file, ran no diagnostic command before the spawn and no
+  process/port probe or shell source dump at any point, opened no Monitor stream,
+  and read no background-task output;
+- the digest was relayed with a cause and one recommendation (the persona emits
+  `diagnose:no_recommendation` when options go out bare — the live run's "which
+  option are you recommending?" rebuke, now a failing assertion);
+- the criterion carries the ` (gate: …; recovery: …; digest …)` amendment in the
+  plan and, via `rp.sh extract`, in the spec; the ledger has one `Research` row
+  noted `diagnose`; all four criteria ticked, tree clean;
+- **gate stretch growth** — resident context from the last Phase 1 commit to the
+  end of the run — is recorded (commit → spawn, spawn → end) and gated under 60K.
+  The live run's equivalent stretch was 121,815 tokens across four agentless phases.
 
 ### Dialogue fixtures — grading an interview
 
