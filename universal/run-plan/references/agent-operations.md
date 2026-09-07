@@ -1,6 +1,6 @@
 # Agent Operations
 
-Read this when SKILL.md points here: to compose an Architect or Debug brief (the five templated briefs need nothing from this file), or when a scoped re-review looks applicable (Scoped Re-review Exceptions). It is not held in working memory; the brief templates under `briefs/` are the definitions the agents actually receive, and `rp.sh brief` fills them.
+Read this when SKILL.md points here: to compose an Architect or Debug brief (the six templated briefs need nothing from this file), or when a scoped re-review looks applicable (Scoped Re-review Exceptions). It is not held in working memory; the brief templates under `briefs/` are the definitions the agents actually receive, and `rp.sh brief` fills them.
 
 ---
 
@@ -41,11 +41,23 @@ Research never modifies the repo in either tier. The file-backed tier's one sanc
 
 **Role:** Expert software debugger specializing in systematic problem diagnosis and resolution.
 
-**When to use:** a Code agent reports failures, test errors, or unexpected behavior it couldn't resolve; a human reports a failure at a human gate; a pre-commit hook rejects the phase's commit.
+**When to use:** a Code agent reports failures, test errors, or unexpected behavior it couldn't resolve; a human reports a failure at a human gate **that names committed code** (a report naming no committed file is human-gate.md's Diagnose route, never Debug); a pre-commit hook rejects the phase's commit.
 
 **Diagnostic protocol:** (1) reflect on 5–7 possible sources of the problem; (2) narrow to the 1–2 most likely causes; (3) investigate those causes (read files, inspect state, add logging); (4) implement the fix; (5) verify the fix and run the test suite.
 
 **Expected output:** root cause, fix applied (Files-changed list, `[comment-only]` marked where true), test results, related issues discovered. A Debug brief carries no Commit Message Directive: the fix is committed via the fallback path.
+
+### Diagnose
+
+`subagent_type: general-purpose` (read-only conduct — the brief says so) · brief: `brief-diagnose.md`. Ledger Mode `Research`, Note `diagnose C<k>` (it lands in the Research column, like Architect).
+
+**Role:** a read-only incident analyst for a human-gate failure that is not a code defect — the operator's environment, a live resource's state, a tool version, a credential, a timing window.
+
+**When to use:** only from human-gate.md's Diagnose route — a human-form criterion the human reports failed (or a delegated read-only check that fails) where the report names no committed file. Never for a Code agent's failure or a reviewer's NOT MET; those are Debug and retry.
+
+**What it gets:** the criterion by label and spec path, the human's report verbatim, a closed list of read-only commands the human authorised, the plan's Architectural decisions as claims to test, and a digest path. The brief itself carries the read-only mandate and the prohibition on running anything outside the list — the orchestrator's prose never restates them.
+
+**Return contract** (the template states it; the orchestrator relays it): a short digest — cause, evidence, ranked options, exactly one recommendation, and the commands it lacked — with the same digest plus its evidence appendix written to the digest path, which the orchestrator never reads.
 
 **Composing an Architect or Debug brief inline.** Write it to `<scratch_dir>/phase-<n>-brief-<architect|debug>.md` and spawn with the standard pointer line. Sections: (1) role preamble — the Role text above; (2) codebase context — the plan file and `## Architectural decisions` by reference, the phase's `phase-<n>-spec.md`, research files and handoffs by path, and the failure description or design question in 2–5 sentences; (3) `Read <scratch_dir>/run-conventions.md in full; the blocks labelled All modes` — plus `Code and Debug modes` for Debug — `are part of this brief`; (4) the task; (5) expected output as above. Do not paste criteria, research, or handoff text into it.
 

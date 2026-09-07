@@ -107,7 +107,7 @@ echo "init"
 out="$(bash "$RP" init "$SKILL" "$SCRATCH" .agents/plans/demo-plan.md 42 2>"$WORK/err.txt")"; rc=$?
 check "init exits 0" $rc "$(cat "$WORK/err.txt")"
 check "init copied rp.sh" $([ -f "$SCRATCH/rp.sh" ] && echo 0 || echo 1) ""
-check "init copied templates" $([ -f "$SCRATCH/briefs/brief-code.md" ] && [ -f "$SCRATCH/briefs/run-conventions.md" ] && echo 0 || echo 1) ""
+check "init copied templates" $([ -f "$SCRATCH/briefs/brief-code.md" ] && [ -f "$SCRATCH/briefs/run-conventions.md" ] && [ -f "$SCRATCH/briefs/brief-diagnose.md" ] && echo 0 || echo 1) ""
 check "init wrote ledger header" $(grep -q '^| Phase | Mode' "$SCRATCH/ledger.md" && echo 0 || echo 1) ""
 check "init summary names phases" $(printf '%s' "$out" | grep -q '^### Phase 6A' && echo 0 || echo 1) "$out"
 check "init warned about the prose checkbox" $(grep -q 'warning: phase 1 has a checkbox line outside' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
@@ -323,7 +323,12 @@ bash "$RPS" brief brief-code.md hz2.md $BC DELTAS=$'- Line-number drift: the hel
 check "…and is silent for phase-specific deltas" $([ $rc -eq 0 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 bash "$RPS" brief brief-review.md hz3.md PHASE=1 SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM=None CODE_BRIEF_PATH="$SCRATCH/phase-1-brief-code.md" POINTERS=None EVIDENCE_PATH=e SANCTIONED=$'- Ordered comment deletion in src/a.js (F2).\n- Reviewers run no terraform yourself: the state lock is shared.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "…and checks SANCTIONED in a Review brief too" $([ $rc -eq 0 ] && grep -q 'SANCTIONED line 2 restates a standing hazard' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
-for t in brief-research.md brief-review.md brief-rereview.md; do
+bash "$RPS" brief brief-diagnose.md phase-2-brief-diagnose-C3.md PHASE=2 CRITERION=C3 PLAN_FILE="$PWD/.agents/plans/demo-plan.md" SPEC_PATH="$SCRATCH/phase-2-spec.md" CONVENTIONS_PATH="$SCRATCH/run-conventions.md" HUMAN_REPORT=$'C3 fails: `aws ec2 describe-instances` prints `Unknown options: --volume-initialization-rate`.\nNothing in the repo changed.' AUTHORISED_COMMANDS=$'- `which -a aws`\n- `aws --version`\n- `cat logs/service.log`' DIGEST_PATH="$SCRATCH/phase-2-diagnose-C3.md" >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "brief fills brief-diagnose.md" $rc "$(cat "$WORK/err.txt")"
+check "diagnose brief carries the report, the closed list, the digest path, and no placeholder" $(grep -Fq 'Unknown options: --volume-initialization-rate' "$SCRATCH/phase-2-brief-diagnose-C3.md" && grep -q '^- `aws --version`$' "$SCRATCH/phase-2-brief-diagnose-C3.md" && grep -Fq "$SCRATCH/phase-2-diagnose-C3.md" "$SCRATCH/phase-2-brief-diagnose-C3.md" && ! grep -q '{{' "$SCRATCH/phase-2-brief-diagnose-C3.md" && echo 0 || echo 1) "$(grep -n '{{\|aws --version' "$SCRATCH/phase-2-brief-diagnose-C3.md")"
+check "diagnose brief states the read-only mandate itself" $(grep -q 'never run a command that creates, modifies, deletes' "$SCRATCH/phase-2-brief-diagnose-C3.md" && grep -q 'nothing else' "$SCRATCH/phase-2-brief-diagnose-C3.md" && echo 0 || echo 1) ""
+check "DIGEST_PATH is an output slot: brief accepts it without the file existing" $([ ! -e "$SCRATCH/phase-2-diagnose-C3.md" ] && echo 0 || echo 1) ""
+for t in brief-research.md brief-review.md brief-rereview.md brief-diagnose.md; do
   keys="$(grep -oE '\{\{[A-Z0-9_]+\}\}' "$SCRATCH/briefs/$t" | sort -u | tr -d '{}' | awk -v f="$SCRATCH/phase-1-spec.md" '/^(CONVENTIONS_PATH|SPEC_PATH|PLAN_FILE|PRIOR_EVIDENCE|CODE_BRIEF_PATH)$/ { print $0 "=" f; next } { print $0 "=v" }' | tr '\n' ' ')"
   # shellcheck disable=SC2086
   bash "$RPS" brief "$t" "out-$t" $keys >/dev/null 2>"$WORK/err.txt"; rc=$?
@@ -331,6 +336,32 @@ for t in brief-research.md brief-review.md brief-rereview.md; do
 done
 bash "$RPS" brief nope.md y.md 2>"$WORK/err.txt"; rc=$?
 check "brief names missing template" $([ $rc -ne 0 ] && grep -q 'no template' "$WORK/err.txt" && echo 0 || echo 1) ""
+
+echo "wait"
+printf '0' > "$WORK/ctr"
+out="$(bash "$RPS" wait "n=\$(cat '$WORK/ctr'); echo \$((n+1)) > '$WORK/ctr'; if [ \$n -ge 2 ]; then echo succeeded; else echo pending; fi" 'succeeded' 10 1 2>"$WORK/err.txt")"; rc=$?
+check "wait polls until the state matches and exits 0" $rc "$(cat "$WORK/err.txt")"
+check "wait prints the final state only, once" $(printf '%s\n' "$out" | grep -Eqx 'succeeded \(after [0-9]+s, 3 poll\(s\)\)' && [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] && echo 0 || echo 1) "$out"
+out="$(bash "$RPS" wait 'echo pending' 'succeeded' 2 1 2>"$WORK/err.txt")"; rc=$?
+check "wait times out with exit 1" $([ $rc -eq 1 ] && echo 0 || echo 1) "rc=$rc $(cat "$WORK/err.txt")"
+check "wait's timeout line names the last state" $(printf '%s\n' "$out" | grep -Eqx 'timeout after [0-9]+s \([0-9]+ poll\(s\)\) — last state: pending' && echo 0 || echo 1) "$out"
+out="$(bash "$RPS" wait 'echo failed' 'succeeded|failed' 5 1)"; rc=$?
+check "wait ends on any named terminal state (alternation)" $([ $rc -eq 0 ] && printf '%s' "$out" | grep -q '^failed (after' && echo 0 || echo 1) "rc=$rc $out"
+out="$(bash "$RPS" wait "printf 'InService\r\n'" 'InService' 5 1)"; rc=$?
+check "wait matches a CRLF-terminated state" $([ $rc -eq 0 ] && printf '%s' "$out" | grep -q '^InService (after' && echo 0 || echo 1) "rc=$rc $out"
+out="$(bash "$RPS" wait "printf 'a\nsucceeded\n\n'" 'succeeded' 5 1)"; rc=$?
+check "wait matches any output line, ignoring trailing blank lines" $([ $rc -eq 0 ] && echo 0 || echo 1) "rc=$rc $out"
+out="$(bash "$RPS" wait 'echo boom >&2; exit 3' 'succeeded' 1 1)"; rc=$?
+check "wait reports a failing command as a state, not a crash" $([ $rc -eq 1 ] && printf '%s' "$out" | grep -Fq 'last state: (exit 3: boom)' && echo 0 || echo 1) "rc=$rc $out"
+out="$(bash "$RPS" wait 'exit 3' '\(exit 3: \)' 5 1)"; rc=$?
+check "wait can treat a command failure as terminal" $([ $rc -eq 0 ] && echo 0 || echo 1) "rc=$rc $out"
+bash "$RPS" wait 'echo x' 'x' abc 2>"$WORK/err.txt"; rc=$?
+check "wait rejects a non-numeric timeout" $([ $rc -ne 0 ] && grep -q 'not a positive integer' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" wait 'echo x' 'x' 5 0 2>"$WORK/err.txt"; rc=$?
+check "wait rejects a zero interval" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
+bash "$RPS" wait 'echo x' 2>"$WORK/err.txt"; rc=$?
+check "wait requires a timeout" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
+check "wait leaves no stderr scratch file behind" $(! ls "$SCRATCH"/.wait-stderr.* >/dev/null 2>&1 && echo 0 || echo 1) "$(ls "$SCRATCH"/.wait-stderr.* 2>/dev/null)"
 
 echo "sync / drift / pull (stubbed gh)"
 mkdir -p "$WORK/bin"
@@ -381,7 +412,7 @@ bash "$RP" init "$SKILL" "$WORK/sc3" "$WORK/nophase.md" abc 2>"$WORK/err.txt"; r
 check "init rejects a non-numeric issue" $([ $rc -ne 0 ] && grep -q 'bare number' "$WORK/err.txt" && echo 0 || echo 1) ""
 bash "$RPS" bogus 2>"$WORK/err.txt"; rc=$?
 check "unknown command fails" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
-check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && echo 0 || echo 1) ""
+check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && echo 0 || echo 1) ""
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
