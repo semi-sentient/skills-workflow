@@ -150,6 +150,82 @@ bash "$RPS" tick 6A 1 >/dev/null 2>&1
 check "tick works on an alphanumeric phase id" $(grep -q '^- \[x\] `grep -c alarm' .agents/plans/demo-plan.md && echo 0 || echo 1) ""
 check "footer survives ticks" $(tail -1 .agents/plans/demo-plan.md | grep -q 'gh-sub-issue: 42' && echo 0 || echo 1) ""
 
+# The run is GH-backed (issue 42) and amend/add-criterion chain sync, so the gh stub is needed from here on.
+mkdir -p "$WORK/bin"
+cat > "$WORK/bin/gh" <<'GH'
+#!/usr/bin/env bash
+# stub: `gh issue view N --json body --jq .body` prints $GH_BODY_FILE; `gh issue edit N --body-file F` copies F there.
+case "$1 $2" in
+  "issue view") cat "$GH_BODY_FILE" ;;
+  "issue edit") if [ -n "${GH_FAIL:-}" ]; then echo "boom" >&2; exit 1; fi; shift 3; cp "$2" "$GH_BODY_FILE" ;;
+  *) exit 2 ;;
+esac
+GH
+chmod +x "$WORK/bin/gh"
+export PATH="$WORK/bin:$PATH" GH_BODY_FILE="$WORK/gh-body.txt"
+echo "amend / add-criterion (issue #13)"
+# Plan state here: Phase 1 C1 [x], C2 [x] (wrapped), C3 [ ]; Phase 6A C1 [x]; three [x] in all.
+check "the plan carries no (C<k>) labels — a label regex over the plan is the 2026-09-14 failure" $(grep -q '(C2)' .agents/plans/demo-plan.md && echo 1 || echo 0) ""
+cp .agents/plans/demo-plan.md "$WORK/before.md"
+bash "$RPS" amend 1 2 '`bandForRate` returns green at or above target (amended after commit — target equality was ambiguous)' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend by label exits 0 on a ticked criterion (a '- [ ]' anchor would have missed it)" $rc "$(cat "$WORK/err.txt")"
+check "amend kept the tick and replaced the wrapped line too" $(grep -q '^- \[x\] `bandForRate` returns green at or above target (amended after commit' .agents/plans/demo-plan.md && ! grep -q 'never amber' .agents/plans/demo-plan.md && echo 0 || echo 1) "$(grep -n 'bandForRate\|never amber' .agents/plans/demo-plan.md)"
+eq "amend changed nothing else (one line replaced, one wrapped line dropped)" "3" "$(diff "$WORK/before.md" .agents/plans/demo-plan.md | grep -c '^[<>]')"
+eq "amend re-extracted: criteria 1 shows the new C2 text under its label" $'- [x] (C1) (already done) `src/a.js` exists\n- [x] (C2) `bandForRate` returns green at or above target (amended after commit — target equality was ambiguous)\n- [ ] (C3) Tests cover the boundary' "$(bash "$RPS" criteria 1)"
+eq "ticks unchanged by amend" "3" "$(grep -c '^- \[x\]' .agents/plans/demo-plan.md)"
+bash "$RPS" amend 1 3 'Tests cover both boundaries' >/dev/null 2>&1
+check "amend on an unticked criterion keeps it unticked" $(grep -q '^- \[ \] Tests cover both boundaries$' .agents/plans/demo-plan.md && echo 0 || echo 1) ""
+cp .agents/plans/demo-plan.md "$WORK/before.md"
+bash "$RPS" amend 1 9 'nope' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend of a missing criterion fails and names it" $([ $rc -ne 0 ] && grep -q 'no criterion C9' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" amend 1 2 '- [ ] with a checkbox' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend refuses text that carries its own checkbox" $([ $rc -ne 0 ] && grep -q 'text only' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" amend 1 x 'nope' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend rejects a non-numeric k" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
+check "…and every refusal left the plan unchanged" $(cmp -s "$WORK/before.md" .agents/plans/demo-plan.md && echo 0 || echo 1) "$(diff "$WORK/before.md" .agents/plans/demo-plan.md)"
+bash "$RPS" amend --text 'keep `/api/v1`' 'keep `/api/v2` (accepted as written — HEAD already serves v2)' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend --text replaces prose outside a criterion" $([ $rc -eq 0 ] && grep -q 'keep `/api/v2` (accepted as written' .agents/plans/demo-plan.md && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and re-extracted the index" $(grep -q 'keep `/api/v2`' "$idx" && echo 0 || echo 1) ""
+cp .agents/plans/demo-plan.md "$WORK/before.md"
+bash "$RPS" amend --text 'no such anchor anywhere' 'x' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend --text refuses an anchor with 0 matches" $([ $rc -ne 0 ] && grep -q 'anchor not found' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" amend --text 'Acceptance criteria' 'x' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend --text refuses an anchor with >1 matches" $([ $rc -ne 0 ] && grep -q 'more than once' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and both refusals left the plan unchanged" $(cmp -s "$WORK/before.md" .agents/plans/demo-plan.md && echo 0 || echo 1) ""
+printf 'Set up the module.\n' > "$WORK/old.txt"; printf 'Set up the module (amended mid-run — it is a package now).\n' > "$WORK/new.txt"
+bash "$RPS" amend --text @"$WORK/old.txt" @"$WORK/new.txt" >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend --text accepts @file values (multi-line anchors need no shell quoting)" $([ $rc -eq 0 ] && grep -q '^Set up the module (amended mid-run' .agents/plans/demo-plan.md && grep -q 'it is a package now' "$SCRATCH/phase-1-spec.md" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+eq "amend --text changed exactly one line (whole-file diff)" "2" "$(diff "$WORK/before.md" .agents/plans/demo-plan.md | grep -c '^[<>]')"
+cp .agents/plans/demo-plan.md "$WORK/before.md"
+bash "$RPS" amend --text '- [ ] Tests cover both boundaries' '- [x] Tests cover both boundaries' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend --text refuses to touch a checkbox line (ticking goes through tick/untick)" $([ $rc -ne 0 ] && grep -q 'checkbox line is a criterion' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" amend 1 3 $'two\nlines' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend refuses a multi-line criterion text" $([ $rc -ne 0 ] && grep -q 'one line' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" add-criterion 1 $'two\nlines' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "add-criterion refuses a multi-line criterion text" $([ $rc -ne 0 ] && grep -q 'one line' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and those refusals left the plan unchanged" $(cmp -s "$WORK/before.md" .agents/plans/demo-plan.md && echo 0 || echo 1) ""
+out="$(bash "$RPS" add-criterion 1 '`bandForRate` throws a `RangeError` on a non-positive target (added mid-run — found by execution)' 2>"$WORK/err.txt")"; rc=$?
+check "add-criterion exits 0, prints the new label, and synced" $([ $rc -eq 0 ] && [ "$out" = $'phase 1: added C4\nsynced #42' ] && echo 0 || echo 1) "out=$out $(cat "$WORK/err.txt")"
+eq "add-criterion appended after the last criterion, unticked, labels C1–C3 unchanged" $'- [x] (C1) (already done) `src/a.js` exists\n- [x] (C2) `bandForRate` returns green at or above target (amended after commit — target equality was ambiguous)\n- [ ] (C3) Tests cover both boundaries\n- [ ] (C4) `bandForRate` throws a `RangeError` on a non-positive target (added mid-run — found by execution)' "$(bash "$RPS" criteria 1)"
+check "add-criterion landed inside Phase 1, before the separator" $(awk '/^- \[ \] `bandForRate` throws/ { f = NR } f && NR == f + 1 { print ($0 == "" ? 0 : 1); exit }' .agents/plans/demo-plan.md | grep -q 0 && grep -q 'Criteria: 11 (3 checked)' "$idx" && echo 0 || echo 1) "$(grep -n -A2 'RangeError' .agents/plans/demo-plan.md; grep '^Plan file' "$idx")"
+bash "$RPS" add-criterion 7 'Archive the flag docs' >/dev/null 2>&1
+eq "add-criterion works on a Part heading with no AC heading" $'- [ ] (C1) Remove the flag\n- [ ] (C2) Update the README\n- [ ] (C3) Archive the flag docs' "$(bash "$RPS" criteria 7)"
+bash "$RPS" add-criterion 1 '- [ ] boxed' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "add-criterion refuses text that carries its own checkbox" $([ $rc -ne 0 ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+printf '# Plan: E\n\n## Architectural decisions\n\n- none\n\n## Phase 1: Empty\n\n### Acceptance criteria\n\n## Phase 2: Bare\n\nprose only\n' > "$WORK/empty-ac.md"
+bash "$RP" init "$SKILL" "$WORK/sce" "$WORK/empty-ac.md" >/dev/null 2>&1
+bash "$WORK/sce/rp.sh" add-criterion 1 'first ever' >/dev/null 2>&1; rc=$?
+check "add-criterion on a phase with an empty AC section places the criterion under the heading" $([ $rc -eq 0 ] && [ "$(bash "$WORK/sce/rp.sh" criteria 1)" = '- [ ] (C1) first ever' ] && echo 0 || echo 1) "$(cat "$WORK/empty-ac.md")"
+bash "$WORK/sce/rp.sh" add-criterion 2 'nowhere to go' 2>"$WORK/err.txt"; rc=$?
+check "add-criterion on a phase with neither criteria nor an AC heading fails with guidance" $([ $rc -ne 0 ] && grep -q 'no Acceptance criteria heading' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+# Reopen sequence: untick, amend with the suffix, and review-path gives the next suffix.
+touch "$SCRATCH/phase-1-review.md"
+bash "$RPS" untick 1 2 >/dev/null 2>&1 && bash "$RPS" amend 1 2 '`bandForRate` returns green strictly above target (reopened — equality is amber after all)' >/dev/null 2>&1
+check "reopen: untick then amend leaves the criterion unticked with its suffix" $(grep -q '^- \[ \] `bandForRate` returns green strictly above target (reopened' .agents/plans/demo-plan.md && echo 0 || echo 1) "$(grep -n bandForRate .agents/plans/demo-plan.md)"
+eq "reopen: review-path hands out the next evidence suffix" "$SCRATCH/phase-1-review-2.md" "$(bash "$RPS" review-path 1)"
+rm -f "$SCRATCH/phase-1-review.md"
+bash "$RPS" tick 1 2 >/dev/null 2>&1   # restore the earlier tick count for the tests below
+
 echo "ledger / phase-cost"
 bash "$RPS" ledger 1 Research 68217 41 113266 R1 "shared layer"
 bash "$RPS" ledger 3 Research 59404 36 98112 R1 "api client"
@@ -364,18 +440,6 @@ check "wait requires a timeout" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
 check "wait leaves no stderr scratch file behind" $(! ls "$SCRATCH"/.wait-stderr.* >/dev/null 2>&1 && echo 0 || echo 1) "$(ls "$SCRATCH"/.wait-stderr.* 2>/dev/null)"
 
 echo "sync / drift / pull (stubbed gh)"
-mkdir -p "$WORK/bin"
-cat > "$WORK/bin/gh" <<'GH'
-#!/usr/bin/env bash
-# stub: `gh issue view N --json body --jq .body` prints $GH_BODY_FILE; `gh issue edit N --body-file F` copies F there.
-case "$1 $2" in
-  "issue view") cat "$GH_BODY_FILE" ;;
-  "issue edit") if [ -n "${GH_FAIL:-}" ]; then echo "boom" >&2; exit 1; fi; shift 3; cp "$2" "$GH_BODY_FILE" ;;
-  *) exit 2 ;;
-esac
-GH
-chmod +x "$WORK/bin/gh"
-export PATH="$WORK/bin:$PATH" GH_BODY_FILE="$WORK/gh-body.txt"
 grep -v 'gh-sub-issue' .agents/plans/demo-plan.md > "$GH_BODY_FILE"
 eq "drift: identical modulo footer" "identical" "$(bash "$RPS" drift)"
 sed 's/^- \[x\] \(.*already done\)/- [ ] \1/' "$GH_BODY_FILE" > "$WORK/t" && mv "$WORK/t" "$GH_BODY_FILE"
@@ -392,6 +456,12 @@ out="$(bash "$RPS" sync)"; rc=$?
 check "sync pushes the plan" $([ $rc -eq 0 ] && [ "$out" = "synced #42" ] && cmp -s .agents/plans/demo-plan.md "$GH_BODY_FILE" && echo 0 || echo 1) "$out"
 GH_FAIL=1 bash "$RPS" sync 2>"$WORK/err.txt"; rc=$?
 check "sync fails loudly after retries" $([ $rc -ne 0 ] && grep -q 'failed after 4 attempts: boom' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+out="$(bash "$RPS" amend --text 'no migrations' 'no migrations (accepted as written — none needed at HEAD)' 2>"$WORK/err.txt")"; rc=$?
+check "amend chains sync in GH mode" $([ $rc -eq 0 ] && [ "$out" = "synced #42" ] && grep -q 'none needed at HEAD' "$GH_BODY_FILE" && echo 0 || echo 1) "out=$out $(cat "$WORK/err.txt")"
+out="$(bash "$RPS" add-criterion 2 'Human confirms the banner (added mid-run — ops asked)' 2>"$WORK/err.txt")"; rc=$?
+check "add-criterion chains sync in GH mode" $([ $rc -eq 0 ] && printf '%s\n' "$out" | grep -q '^synced #42$' && grep -q 'ops asked' "$GH_BODY_FILE" && echo 0 || echo 1) "out=$out $(cat "$WORK/err.txt")"
+GH_FAIL=1 bash "$RPS" amend 2 1 '`renderBoard` includes the strip and the legend (amended after commit — legend landed)' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend exits 1 when the chained sync fails, with the local edit and re-extract already done" $([ $rc -ne 0 ] && grep -q 'failed after 4 attempts' "$WORK/err.txt" && grep -q 'legend landed' .agents/plans/demo-plan.md && grep -q 'legend landed' "$SCRATCH/phase-2-spec.md" && ! grep -q 'legend landed' "$GH_BODY_FILE" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 # A1/B5: CRLF bodies compare equal and pull never writes CR into the plan or the specs.
 grep -v 'gh-sub-issue' .agents/plans/demo-plan.md | sed 's/$/\r/' > "$GH_BODY_FILE"
 eq "drift: CRLF body vs LF local is identical" "identical" "$(bash "$RPS" drift)"
@@ -412,7 +482,7 @@ bash "$RP" init "$SKILL" "$WORK/sc3" "$WORK/nophase.md" abc 2>"$WORK/err.txt"; r
 check "init rejects a non-numeric issue" $([ $rc -ne 0 ] && grep -q 'bare number' "$WORK/err.txt" && echo 0 || echo 1) ""
 bash "$RPS" bogus 2>"$WORK/err.txt"; rc=$?
 check "unknown command fails" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
-check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && echo 0 || echo 1) ""
+check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && echo 0 || echo 1) ""
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -13,6 +13,18 @@
 #   criteria <n>     the labelled criteria of phase <n>
 #   tick <n> <k>…    check criteria C<k> of phase <n> in the plan file, then re-extract
 #   untick <n> <k>…  uncheck criteria C<k> of phase <n>, then re-extract
+#   amend <n> <k> <text>
+#                    replace the text of criterion C<k> of phase <n> with <text> (the
+#                    checkbox is kept as it is — pass the text only), then re-extract
+#                    and, in GH mode, sync; <text> may be @file
+#   amend --text <old> <new>
+#                    replace prose outside a criterion: <old> must occur exactly once in
+#                    the plan file (literal, may span lines; quote more context on a
+#                    miss); values may be @file; then re-extract and, in GH mode, sync
+#   add-criterion <n> <text>
+#                    append an unticked criterion at the end of phase <n>'s list (labels
+#                    of existing criteria stay stable), print its label, then re-extract
+#                    and, in GH mode, sync; <text> may be @file
 #   ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]
 #                    append one usage row to ledger.md
 #   phase-cost <n>   `| Research | Code | Review | Total | Active time |` cells for phase <n>;
@@ -63,6 +75,7 @@ warn() { printf 'rp.sh: warning: %s\n' "$*" >&2; }
 SELF="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
 SCRATCH="$(dirname "$SELF")"
 SEP="$(printf '\001')"   # field separator for the annotated stream — a TAB can occur in plan text
+NL="$(printf '\nx')"; NL="${NL%x}"
 
 load_env() {
   [ -f "$SCRATCH/run.env" ] || die "run.env missing in $SCRATCH — run: bash <skill_dir>/references/rp.sh init …"
@@ -248,6 +261,86 @@ set_tick() {
   ' > "$PLAN_FILE.rp-tick" || { rm -f "$PLAN_FILE.rp-tick"; exit 1; }
   write_plan < "$PLAN_FILE.rp-tick"; rm -f "$PLAN_FILE.rp-tick"
   extract
+}
+
+# A KEY=@file convention shared with `brief`: @path reads the value from a file, @@
+# is a literal at-sign.
+arg_val() {
+  case "$1" in
+    @@*) printf '%s' "${1#@}" ;;
+    @*) [ -f "${1#@}" ] || die "no file ${1#@}"; cat "${1#@}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# After any plan-text change: the spec files must match, and in GH mode the issue body
+# too (sync's failure exit is the orchestrator's escalation signal; the local edit and
+# the re-extract have already happened).
+after_amend() { extract; [ -z "${ISSUE:-}" ] || cmd_sync; }
+
+# The two failure modes every hand edit in production hit: anchoring on a `(C<k>)`
+# label (they exist only in the index and spec files) and anchoring on `- [ ]` (misses a
+# ticked criterion). Resolving the label through the annotated stream avoids both.
+cmd_amend() {
+  load_env
+  if [ "${1:-}" = --text ]; then
+    shift
+    local old new; old="$(arg_val "${1:?usage: rp.sh amend --text <old> <new>}")"; new="$(arg_val "${2:?amend --text: missing <new>}")"
+    [ -n "$old" ] || die "amend --text: <old> is empty"
+    case "$old" in *'- ['*) die "amend --text: a checkbox line is a criterion — use rp.sh amend <n> <k> for its text, tick/untick for its state" ;; esac
+    case "$new" in *'- ['*) die "amend --text: a checkbox line is a criterion — use rp.sh amend <n> <k> for its text, tick/untick for its state" ;; esac
+    local s; s="$(cat "$PLAN_FILE"; printf x)"; s="${s%x}"   # keep trailing newlines exactly
+    local head="${s%%"$old"*}"
+    [ "$head" != "$s" ] || die "amend --text: anchor not found in $PLAN_FILE — quote the plan's own text exactly"
+    local tail="${s#*"$old"}"
+    case "$tail" in *"$old"*) die "amend --text: anchor matches more than once in $PLAN_FILE — quote more context so it is unique" ;; esac
+    printf '%s' "$head$new$tail" | write_plan
+  else
+    local id="${1:?usage: rp.sh amend <n> <k> <text> | amend --text <old> <new>}" k="${2:?amend: missing <k>}" new
+    new="$(arg_val "${3:?amend: missing <text>}")"
+    case "$k" in ''|*[!0-9]*) die "amend: '$k' is not a criterion number (pass 3, not C3)" ;; esac
+    case "$new" in '- ['*) die "amend: pass the criterion text only — the checkbox is preserved, never rewritten" ;; esac
+    case "$new" in *"$NL"*) die "amend: pass the criterion as one line — an unindented second line would leave the criterion" ;; esac
+    [ -n "$new" ] || die "amend: <text> is empty"
+    assert_phase "$id"
+    annotate | NEW="$new" awk -F"$SEP" -v id="$id" -v k="$k" "$AWK_PHASE_LIB"'
+      $1 == id && $3 == k && $2 == "crit" { hit = 1; print crit_mark($4) " " ENVIRON["NEW"]; next }
+      $1 == id && $3 == k && $2 == "cont" { next }   # the new text replaces the wrapped lines too
+      { print $4 }
+      END { if (!hit) { printf "rp.sh: phase %s has no criterion C%s\n", id, k > "/dev/stderr"; exit 1 } }
+    ' > "$PLAN_FILE.rp-amend" || { rm -f "$PLAN_FILE.rp-amend"; exit 1; }
+    write_plan < "$PLAN_FILE.rp-amend"; rm -f "$PLAN_FILE.rp-amend"
+  fi
+  after_amend
+}
+
+# Appending keeps every existing label stable — a criterion inserted mid-list would
+# renumber ticked criteria under the verdicts and evidence files that cite them.
+cmd_add_criterion() {
+  load_env
+  local id="${1:?usage: rp.sh add-criterion <n> <text>}" text
+  text="$(arg_val "${2:?add-criterion: missing <text>}")"
+  case "$text" in '- ['*) die "add-criterion: pass the criterion text only — the checkbox is written for you" ;; esac
+  case "$text" in *"$NL"*) die "add-criterion: pass the criterion as one line" ;; esac
+  [ -n "$text" ] || die "add-criterion: <text> is empty"
+  assert_phase "$id"
+  local tsv="$SCRATCH/.annotated.tsv" n
+  annotate > "$tsv"
+  # Insert after the phase's last criterion line (or its last wrapped line); with no
+  # criteria, right after its Acceptance-criteria heading. Two passes over the stream.
+  n="$(awk -F"$SEP" -v id="$id" '$1 == id && $2 == "crit" { n = $3 } END { print n + 1 }' "$tsv")"
+  NEW="$text" awk -F"$SEP" -v id="$id" '
+    function emit() { print "- [ ] " ENVIRON["NEW"]; done = 1 }
+    FNR == NR { if ($1 == id && ($2 == "crit" || $2 == "cont")) last = FNR; if ($1 == id && $2 == "ac-heading") ac = FNR; next }
+    { print $4 }
+    FNR == last && !done { emit() }
+    FNR == ac && !last && !done { print ""; emit() }
+    END { if (!done) { printf "rp.sh: phase %s has no criteria and no Acceptance criteria heading — add one to the plan first\n", id > "/dev/stderr"; exit 1 } }
+  ' "$tsv" "$tsv" > "$PLAN_FILE.rp-add" || { rm -f "$PLAN_FILE.rp-add" "$tsv"; exit 1; }
+  rm -f "$tsv"
+  write_plan < "$PLAN_FILE.rp-add"; rm -f "$PLAN_FILE.rp-add"
+  echo "phase $id: added C$n"
+  after_amend
 }
 
 # ---------------------------------------------------------------------- ledger
@@ -659,6 +752,8 @@ case "$cmd" in
   criteria)    cmd_criteria "$@" ;;
   tick)        set_tick x "$@" ;;
   untick)      set_tick " " "$@" ;;
+  amend)       cmd_amend "$@" ;;
+  add-criterion) cmd_add_criterion "$@" ;;
   ledger)      cmd_ledger "$@" ;;
   phase-cost)  cmd_phase_cost "$@" ;;
   stage)       cmd_stage ;;
