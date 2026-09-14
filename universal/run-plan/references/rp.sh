@@ -42,6 +42,12 @@
 #                    fill briefs/<template> into <out>; every {{KEY}} the template names
 #                    must be supplied (a value starting with a literal @ is written @@);
 #                    warns when a DELTAS or SANCTIONED line restates a standing hazard
+#   wait <command> <expected> <timeout_s> [interval_s]
+#                    one bounded poll: run <command> (bash -c) every interval_s (default
+#                    30) until an output line matches <expected> as an anchored extended
+#                    regex — name every terminal state, e.g. 'succeeded|failed' — or
+#                    timeout_s passes; prints the final state only, never the
+#                    intermediate ones; exit 0 on a match, 1 on timeout
 #   help             this text
 #
 # Plan shape: phases are `## Phase <id>` or `## Part <id>` H2 headings (id = digits plus
@@ -493,6 +499,41 @@ cmd_pull() {
   extract
 }
 
+# ------------------------------------------------------------------------- wait
+
+# The whole wait is one call and one line of output: a poll stream in the
+# orchestrator's context was the largest single context source of the third live
+# run on #6. A failing command is a state too — `(exit <rc>: <last stderr line>)` —
+# so a transient API error neither ends the wait nor goes unseen at the timeout.
+# One poll that hangs is not bounded here (no portable timeout(1)); the host's own
+# per-call limit is the backstop, and the trap removes the stderr file on any exit.
+cmd_wait() {
+  local cmd="${1:?usage: rp.sh wait <command> <expected> <timeout_s> [interval_s]}" want="${2:?wait: missing <expected> regex}" timeout="${3:?wait: missing <timeout_s>}" interval="${4:-30}"
+  [ -n "$cmd" ] && [ -n "$want" ] || die "wait: <command> and <expected> must be non-empty"
+  case "$timeout" in ''|*[!0-9]*|0) die "wait: timeout_s '$timeout' is not a positive integer" ;; esac
+  case "$interval" in ''|*[!0-9]*|0) die "wait: interval_s '$interval' is not a positive integer" ;; esac
+  local err="$SCRATCH/.wait-stderr.$$" state rc polls=0 remaining
+  RP_WAIT_ERR="$err"   # global: the EXIT trap outlives this function's locals
+  trap 'rm -f "${RP_WAIT_ERR:-}"' EXIT INT TERM
+  SECONDS=0
+  while :; do
+    if state="$(bash -c "$cmd" 2>"$err")"; then rc=0; else rc=$?; fi
+    polls=$((polls + 1))
+    state="$(printf '%s' "$state" | tr -d '\r' | awk 'NF { last = NR } { buf[NR] = $0 } END { for (i = 1; i <= last; i++) print buf[i] }')"
+    [ $rc -eq 0 ] || state="(exit $rc: $(tail -n 1 "$err" 2>/dev/null))"
+    rm -f "$err"
+    if printf '%s\n' "$state" | grep -Eqx -- "$want"; then
+      printf '%s (after %ss, %s poll(s))\n' "$state" "$SECONDS" "$polls"
+      return 0
+    fi
+    remaining=$((timeout - SECONDS))
+    [ "$remaining" -gt 0 ] || break
+    sleep "$(( remaining < interval ? remaining : interval ))"
+  done
+  printf 'timeout after %ss (%s poll(s)) — last state: %s\n' "$SECONDS" "$polls" "$state"
+  return 1
+}
+
 # ----------------------------------------------------------------------- briefs
 
 # Keys whose value must name an existing file: the agent will read it.
@@ -630,6 +671,7 @@ case "$cmd" in
   pull)        cmd_pull ;;
   cleanup)     cmd_cleanup "$@" ;;
   brief)       cmd_brief "$@" ;;
+  wait)        cmd_wait "$@" ;;
   help|-h|--help) sed -n '2,/^# git; gh for/p' "$SELF" | sed 's/^# \{0,1\}//' ;;
   *) die "unknown command '$cmd' (try: rp.sh help)" ;;
 esac

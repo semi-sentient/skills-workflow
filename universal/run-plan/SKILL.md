@@ -151,7 +151,7 @@ For each phase, sequentially:
 
 ## Agent modes
 
-Five modes, all `general-purpose` except inline-lookup Research (`Explore`): **Research** (file-backed by default; inline lookup for a single small answer), **Code**, **Architect**, **Debug**, **Review**. Research and Review are read-only toward the repo *by conduct*, not by capability; Review keeps the same model tier as Code, never a smaller one. Full definitions, the Architect/Debug brief composition, the scoped re-review exceptions, and the pre-PR variant: [references/agent-operations.md](references/agent-operations.md) — load it when one of those is needed, not before.
+Six modes, all `general-purpose` except inline-lookup Research (`Explore`): **Research** (file-backed by default; inline lookup for a single small answer), **Code**, **Architect**, **Debug**, **Review**, **Diagnose** (a human-gate failure the report does not locate in committed code; spawned only from human-gate.md, ledgered as `Research`). Research, Review, and Diagnose are read-only toward the repo *by conduct*, not by capability; Review keeps the same model tier as Code, never a smaller one. Full definitions, the Architect/Debug brief composition, the scoped re-review exceptions, and the pre-PR variant: [references/agent-operations.md](references/agent-operations.md) — load it when one of those is needed, not before.
 
 ## Brief recipes
 
@@ -163,6 +163,7 @@ Briefs are files. Fill a template with `rp.sh brief <template> <out> KEY=VALUE �
 - **`brief-review.md`** — `PHASE`, `SPEC_PATH`, `HUMAN_FORM`, `CODE_BRIEF_PATH` (`phase-<n>-brief-code.md`, the first attempt's brief — never a fix-cycle brief; the reviewer reads its File Manifest there), `SANCTIONED` (pre-authorized cleanups and ordered comment deletions, or `None`), `POINTERS` (prior-phase handoffs by path, or `None (first phase).`), `EVIDENCE_PATH`.
 - **`brief-prepr.md`** (Step 5c.5 only) — `SCOPE_REF` (`<base_branch>...HEAD`, or `<inputs_commit_sha>...HEAD` when completion-templates.md selects it), `OUT_OF_SCOPE` (a mid-branch inputs commit named as out of scope, or `None`), `HOOKS` (forward-compatibility hooks from the phase summaries, or `None`), `POINTERS` (handoff paths, or `None`). Output `pre-pr-brief-review.md`; a second round after fixes is `pre-pr-brief-review-2.md`.
 - **`brief-rereview.md`** (scoped re-reviews only) — `PHASE`, `SPEC_PATH`, `TRIGGER_CRITERIA`, `DELTA_FILES`, `SANCTIONED`, `SCRATCH_DIR`, `EVIDENCE_PATH` — composed per agent-operations.md → Scoped Re-review Exceptions.
+- **`brief-diagnose.md`** (human-gate.md's Diagnose route only) — `PHASE`, `CRITERION` (the label), `PLAN_FILE`, `SPEC_PATH`, `CONVENTIONS_PATH`, `HUMAN_REPORT` (the human's report verbatim), `AUTHORISED_COMMANDS` (the human's closed read-only list, as bullets), `DIGEST_PATH` (`<scratch_dir>/phase-<n>-diagnose-C<k>.md`). Output `phase-<n>-brief-diagnose-C<k>.md`.
 
 `rp.sh brief` also refuses a `CONVENTIONS_PATH`, `SPEC_PATH`, `PLAN_FILE`, or `CODE_BRIEF_PATH` that does not exist on disk — an agent must never be pointed at a missing file.
 
@@ -172,7 +173,8 @@ Briefs are files. Fill a template with `rp.sh brief <template> <out> KEY=VALUE �
 
 - **DO NOT** read source code files, phase diffs, evidence files, spec files, or the plan file — agents read them. The one spec-file exception is Step 1d's: the phase a drift or human-gate question is about, read once while composing that question. The two sanctioned inline diff reads are the `commit` skill's: Step 4 item 7's fallback and working-tree.md's Step 1e.4. A reviewer's or agent's factual claim that must be checked before it reaches the user goes to an inline-lookup `Explore` (Brief recipes) carrying the claim and its `file:line` — relaying it as the agent's claim, cited, is the default; opening the file yourself is never the check.
 - **DO NOT** run tests, builds, or linters, or implement code changes — delegate.
-- **DO NOT** compose shell that `rp.sh` provides — staging, ticking, ledger rows, evidence paths, sync, drift, cleanup, briefs.
+- **DO NOT** diagnose a human-gate failure yourself — console pulls, `describe` loops, and log reads go to a Diagnose agent; a wait on an operation is one `rp.sh wait` call, never a poll stream (human-gate.md).
+- **DO NOT** compose shell that `rp.sh` provides — staging, ticking, ledger rows, evidence paths, sync, drift, cleanup, briefs, bounded waits.
 - **DO** read `plan-index.md` once at Step 1d, and re-read it after compaction instead of the plan.
 - **DO** load a reference when its trigger fires and not before: branch-and-resume.md (dirty tree / existing branch / resume), working-tree.md (unexplained dirt), human-gate.md (a `Human-form` or `Human-gate` index line), fix-cycles.md (the first failure, NOT MET, routed defect, death, or mid-run drift), agent-operations.md (an Architect or Debug brief, a scoped re-review), ledger.md (a figure needs interpreting), completion-templates.md (Step 5). None is held in working memory afterwards; re-read on the next trigger if it has been compacted away.
 - **DO** own git and GH: the branch (Step 1e), staging and commits (Step 4), the push and PR (Step 5) — agents never `git add` or commit.

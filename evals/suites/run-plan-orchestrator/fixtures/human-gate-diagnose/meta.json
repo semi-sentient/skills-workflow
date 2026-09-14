@@ -1,0 +1,10 @@
+{
+  "skill": "run-plan",
+  "mode": "dialogue",
+  "companions": ["commit", "tdd"],
+  "description": "run-plan's human gate when a human-form criterion fails for an environmental reason (issue #12): one Diagnose spawn, no console or source reads by the orchestrator, a digest relayed with one recommendation, the chosen recovery written into the plan as a criterion amendment, and the gate stretch's main-agent context growth bounded",
+  "args": ".agents/plans/healthcheck-cutover-plan.md --no-github",
+  "max_turns": 12,
+  "call_timeout_s": 2400,
+  "timeout_s": 7200
+}

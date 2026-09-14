@@ -13,11 +13,11 @@ bash <scratch_dir>/rp.sh ledger <phase> <mode> <subagent_tokens> <tool_uses> <du
 ```
 
 - **Phase** is the plan's phase id (`3`, `6A`), or `setup` for whole-run research, `pre-PR` for the branch review, `followup` for post-run fixes. Mid-phase research (fix-cycles.md item 4) takes its phase's id.
-- **Mode** is one word: `Research`, `Code`, `Architect`, `Debug`, `Review`. Retries and re-reviews keep their mode; the Note carries the qualifier.
+- **Mode** is one word: `Research`, `Code`, `Architect`, `Debug`, `Review`. Retries and re-reviews keep their mode; the Note carries the qualifier. A Diagnose spawn (human-gate.md) is recorded as `Research` with Note `diagnose C<k>`.
 - **group** is blank for a solo spawn; rows spawned concurrently in one batch share a short label (`R1`, `R2`, …) and `phase-cost` counts the group's **max** duration, not its sum. Pass `""` to skip it when a note follows.
 - **note** names what the row was: `all MET`, `retry 1/2`, `corrective 2/2`, `deletion 1/1`, `re-review`, `no budget` (a hook-failure Debug), a death (`died — no return`; the re-spawn's row carries the Note its dead predecessor would have — the cycle is charged once). The tracker flags and any mid-run budget claim derive from these Notes, never from memory.
 - Record raw numbers; `phase-cost` formats. A field the host did not expose is `n/a` — never fabricated.
-- Only sub-agent returns become rows. Orchestrator-side commands (a pre-commit hook, `rp.sh` calls, a human-gate check) are never ledger rows and never enter Active time; the earlier option of bracketing one heavy command with `date` was dropped with the script — do not re-add it as a `Code` row.
+- Only sub-agent returns become rows. Orchestrator-side commands (a pre-commit hook, `rp.sh` calls, a human-gate check, an `rp.sh wait`) are never ledger rows and never enter Active time; the earlier option of bracketing one heavy command with `date` was dropped with the script — do not re-add it as a `Code` row.
 
 **`subagent_tokens` is cumulative tokens the agent processed across its internal turns — throughput, not peak context occupancy.** Report it as throughput; do NOT present it as "% of context window" (a long agent can process far more than the window without ever occupying it). Per-agent tokens are a **cost** signal; `tool_uses` is the closest available **occupancy** proxy — nothing evicts within a single sub-agent, so its context grows monotonically with tool-using turns, and a 250-call agent ran far closer to its window than a 30-call one whatever their token figures suggest. True peak occupancy is unmeasured on this host.
 
