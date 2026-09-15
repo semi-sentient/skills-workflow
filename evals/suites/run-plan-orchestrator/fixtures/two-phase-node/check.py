@@ -93,7 +93,7 @@ def check(ctx, expect):
                   and "- [ ]" in str(c.input.get("old_string", "")) and "- [x]" in str(c.input.get("new_string", ""))]
     expect.that("rp.sh tick ran (no hand-ticking via Edit)", "tick" in used and not tick_edits,
                 f"used={sorted(used)} hand-ticks={len(tick_edits)}")
-    unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "ledger", "phase-cost", "stage",
+    unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "amend", "add-criterion", "ledger", "phase-cost", "stage",
                              "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "help"})
     expect.info("rp.sh commands that do not exist (guessed)", unknown)
     expect.that("rp.sh ledger ran", "ledger" in used, f"used={sorted(used)}")

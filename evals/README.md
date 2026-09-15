@@ -42,13 +42,15 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 137 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 171 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
 into its scratch directory and calls for everything the skill text used to describe
 as shell: plan extraction into `plan-index.md` and `phase-<n>-spec.md` files with
-`C<k>` criterion labels, ticking criteria by label, ledger rows, staging with the
+`C<k>` criterion labels, ticking criteria by label, amending a criterion by label or
+prose by unique anchor and appending a criterion (`rp.sh amend` / `add-criterion`,
+issue #13), ledger rows, staging with the
 keep-dirty exclusions, the post-verdict delta and its baselines, evidence-path
 resolution, GH sync/drift/pull, per-phase cleanup, filling brief templates, and the
 one-call bounded wait (`rp.sh wait`). The
@@ -320,7 +322,7 @@ never prints, and an uncountable per-station claim with no station set defined �
 every one a defensible flag. The Criteria verifiability item catches exactly the
 class of defect its own eval author kept writing.
 
-### `run-plan-orchestrator` — 2 dialogue fixtures, ~85 assertions, ~$25, ~75min
+### `run-plan-orchestrator` — 3 dialogue fixtures, ~135 assertions, ~$40, ~2h
 
 The one suite that runs `run-plan` itself. **`two-phase-node`**: a two-phase Node plan (the rate-band
 module, then a board renderer that must reuse it) in a fresh local-only repo; the
@@ -395,6 +397,52 @@ Graded on the main agent:
 - **gate stretch growth** — resident context from the last Phase 1 commit to the
   end of the run — is recorded (commit → spawn, spawn → end) and gated under 60K.
   The live run's equivalent stretch was 121,815 tokens across four agentless phases.
+
+**`mid-run-criteria`** is the third fixture, for issue #13: the two-phase Node plan again,
+with one defect execution is certain to find — Phase 2's test criterion expects a rate of
+3.4 against a target of 5 to render `[amber]`, but 3.4/5 = 0.68 is below the 0.7 watch
+factor Phase 1 implements, so the correct output is `[red]`. Nothing in HEAD contradicts
+it (`bands.js` does not exist yet), so Step 3's research is unlikely to flag it; the
+Phase 2 Code agent's own test run, or the reviewer's case-by-case read of C4, surfaces it
+as a finding that quotes the plan. The scripted developer answers "amend" and, in the same
+breath, asks for a new criterion on already-committed Phase 1 (or, if the question came
+early, to be added the moment Phase 1 commits) (`bandForRate` throws a `RangeError` on a non-positive
+target) — the shape of the third live run on #6, where two criteria were appended to a
+committed phase and one was unticked and redone, with six plan edits by hand and a
+`git reset` to separate two phases' staged work. Graded on the main agent:
+
+- no `Edit`/`Write` of the plan file and no hand-written shell edit of it (python,
+  heredoc, `sed -i`, redirect); `rp.sh amend` used, `rp.sh add-criterion` used exactly
+  once (guessed `rp.sh` commands are recorded, not graded);
+- Phase 1's original six criteria still at their positions with their identifiers (labels
+  stable; any reworded text carries a suffix from the table), the new one appended as C7 with the ` (added mid-run — …)` suffix, Phase 2's
+  amended criterion rewritten in place with ` (amended mid-run — …)`, both spec files
+  re-extracted, everything ticked;
+- no `git reset`, `git stash`, `git restore --staged`, or hand-written `git add`;
+- after `add-criterion`: a Code spawn for Phase 1 briefed to a new `phase-1-brief-code-<k>.md`,
+  then a **full** Review from `brief-review.md` (never `brief-rereview.md`), then a
+  commit; Phase 2 re-reviewed after its own amendment; the ledger's Phase 1 rows note
+  the reopen; two evidence files for Phase 1;
+- **amendment stretch growth** — resident context from the first `rp.sh amend` /
+  `add-criterion` call to the first commit after the reopened phase's re-review — recorded
+  and gated under 90K, a first calibration ceiling (the live web run spent 32K on four hand
+  edits alone).
+
+First run (2026-09-14, the #13 branch): 50/50 after two grading fixes, peak resident context
+104,803 tokens, amendment stretch 33,478 tokens (two Code spawns, two full reviews, two
+commit-skill diff reads), 4 interviewer turns, 30 main-agent Bash calls, $11.07, 36 min.
+Two things the run showed that the fixture now records as `info` rather than gating: the
+Step 3 research sweep flagged the plan-internal contradiction before Phase 1 ran (the
+persona's queued-request path was the one exercised — the orchestrator kept a `PENDING.md`
+memo and ran `add-criterion` right after Phase 1's commit, checking `git diff --cached
+--quiet` and `rp.sh delta` first), and the reopen review's finding that C1/C3's wording
+now conflicted with C7 was amended by the orchestrator without a drift question ("the
+disposition is the one C7 already implies") — protocol-correct mechanics (untick, `rp.sh
+amend`, full re-review) on a decision the drift rule reserves for the user. The grading
+fixes: a heredoc memo that *mentions* `rp.sh add-criterion` is not a call (`_exec` strips
+heredoc bodies before any command regex), and "ticked labels unchanged" is graded as each
+original criterion keeping its position and identifier, with any reworded text carrying a
+suffix from the table — not as byte identity.
 
 ### Dialogue fixtures — grading an interview
 

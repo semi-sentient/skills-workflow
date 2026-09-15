@@ -1,0 +1,10 @@
+{
+  "skill": "run-plan",
+  "mode": "dialogue",
+  "companions": ["commit", "tdd"],
+  "description": "run-plan's mid-run criteria protocol (issue #13): a Phase 2 contradiction found only by execution is amended with rp.sh amend, a new criterion lands on committed Phase 1 via rp.sh add-criterion, the reopened phase is re-reviewed in full before its commit, no hand-written plan edit and no git reset, and the amendment stretch's main-agent context growth is bounded",
+  "args": ".agents/plans/board-lines-plan.md --no-github",
+  "max_turns": 10,
+  "call_timeout_s": 3600,
+  "timeout_s": 7200
+}
