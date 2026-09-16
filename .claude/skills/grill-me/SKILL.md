@@ -1,1 +1,0 @@
-../../../universal/grill-me/SKILL.md

@@ -139,6 +139,8 @@ skills-workflow/
 
 Each skill is a directory containing a `SKILL.md` file with YAML frontmatter (`name`, `description`) and markdown instructions. Supporting files (templates, scripts, reference docs) can live alongside `SKILL.md` in the same directory.
 
+The domain folders hold the real files and are what consumers install from. The agent discovery directories (`.agents/skills/`, `.claude/skills/`) are symlinks into them, gitignored, and exist only so agents working in *this* repo can invoke the skills — regenerate them with `./scripts/register-skill.sh --all` after cloning, or after a pull that removes them. Committing them is what broke lock-file hashes and `skills update`; see [CONTRIBUTING.md](CONTRIBUTING.md#why-the-discovery-directories-are-not-committed).
+
 The domain folders (`universal/`, `frontend/`, `backend/`, `ml/`, etc.) are organizational — the CLI discovers skills by their `name` frontmatter, not their directory path. Stack-specific skills should make their target obvious in the skill name (e.g. `ktor-conventions`, `hono-conventions`) rather than relying on directory nesting.
 
 ## Contributing

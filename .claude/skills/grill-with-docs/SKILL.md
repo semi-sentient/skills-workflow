@@ -1,1 +1,0 @@
-../../../universal/grill-with-docs/SKILL.md

@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # register-skill.sh — Register a skill in agent discovery directories
 #
-# The skills CLI discovers skills from .agents/skills/ and .claude/skills/.
-# Domain folders (universal/, frontend/, etc.) are for organization only.
-# This script creates the required real directories and file symlinks.
+# Agents (Claude Code, Cursor, Roo) discover skills from .agents/skills/ and
+# .claude/skills/. Domain folders (universal/, frontend/, etc.) hold the real
+# files. This script creates the discovery directories and file symlinks.
+#
+# The discovery directories are gitignored, not committed: a symlink and its
+# target are two paths to one skill, and the `skills` CLI picks the symlink,
+# hashes nothing (empty-string digest) and then refuses to update because
+# "multiple current paths match". Consumers install from the domain folders.
 #
 # Usage:
 #   ./scripts/register-skill.sh <skill-name>
+#   ./scripts/register-skill.sh --all      # regenerate everything (after a clone or pull)
 #
 # Example:
 #   ./scripts/register-skill.sh tdd
@@ -16,12 +22,28 @@ set -euo pipefail
 SKILL_NAME="${1:-}"
 
 if [[ -z "$SKILL_NAME" ]]; then
-  echo "Usage: $0 <skill-name>" >&2
+  echo "Usage: $0 <skill-name> | --all" >&2
   exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# --all: register every skill found in every domain folder. This is the
+# bootstrap after a clone — and after any pull that removes the discovery
+# directories, since they are not committed.
+if [[ "$SKILL_NAME" == "--all" ]]; then
+  found=0
+  while IFS= read -r skill_md; do
+    found=$((found + 1))
+    REGISTER_SKILL_ALL=1 bash "${BASH_SOURCE[0]}" "$(basename "$(dirname "$skill_md")")"
+  done < <(cd "$REPO_ROOT" && find . -mindepth 3 -maxdepth 3 -name SKILL.md -not -path "./.*" | sort)
+  if [[ $found -eq 0 ]]; then
+    echo "No skills found in any domain folder." >&2
+    exit 1
+  fi
+  exit 0
+fi
 
 # Find the skill across all domain directories (non-hidden, non-scripts)
 SKILL_SOURCE=""
@@ -92,10 +114,11 @@ done
 echo ""
 if [[ $REGISTERED -gt 0 ]]; then
   echo "Registered '$SKILL_NAME' in ${REGISTERED} agent director$([ $REGISTERED -eq 1 ] && echo y || echo ies)."
-  echo ""
-  echo "Next steps:"
-  echo "  1. Add '$SKILL_NAME' to the Available Skills table in README.md"
-  echo "  2. Commit the new symlinks: git add .agents/skills/$SKILL_NAME .claude/skills/$SKILL_NAME"
+  if [[ -z "${REGISTER_SKILL_ALL:-}" ]]; then
+    echo ""
+    echo "Next step: add '$SKILL_NAME' to the Available Skills table in README.md."
+    echo "The symlinks themselves are gitignored — nothing to commit here."
+  fi
 else
   echo "Nothing to do — '$SKILL_NAME' is already registered everywhere."
 fi
