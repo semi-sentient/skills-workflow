@@ -158,6 +158,13 @@ def check(ctx, expect):
     plan_reads = [p for p in main_reads if p.endswith("healthcheck-cutover-plan.md")]
     expect.that("orchestrator never Read the plan file", not plan_reads, f"{plan_reads}")
     expect.that("rp.sh init/stage/ledger/brief ran", {"init", "stage", "ledger", "brief"} <= used, f"used={sorted(used)}")
+    # --- #11: the completion table comes from rp.sh totals, never from the ledger file
+    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    ledger_dumps = [c for c in shell if any(re.search(r"scratch/run-plan/[^/\s]+/ledger\.md", seg) and re.search(r"\b(cat|less|head|tail|sed|awk|more)\b", seg)
+                                             for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", c))]
+    expect.that("orchestrator never dumped the scratch ledger.md", not ledger_dumps, f"{ledger_dumps[:3]}")
+    ct_reads = [p for p in main_reads if p.endswith("completion-templates.md")] + [c for c in main_bash if "completion-templates.md" in c]
+    expect.at_most("completion-templates.md read at most once", len(ct_reads), 1)
     expect.that("no hand-written git add -A", not any(re.search(r"git\s+add\s+-A", c) for c in main_bash), "")
     review_idx = [i for i, p in agent_idx if re.search(r"\bReview\b", p)]
     commit_idx = sorted([c.index for c in bash_calls if re.search(r"git\s+commit\b", c.command)] + [c.index for c in tr.tool_calls("Skill", main_only=True)])
