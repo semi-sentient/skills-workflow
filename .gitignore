@@ -23,6 +23,14 @@ temp/
 !.vscode/extensions.json
 .DS_Store
 
+# Agent discovery directories — generated, never committed.
+# These hold symlinks into the domain folders. Committing them gave the
+# `skills` CLI two paths for every skill (the real file and the symlink),
+# which made it record the empty-string digest and skip updates entirely.
+# Regenerate after cloning: ./scripts/register-skill.sh --all
+.agents/skills/
+.claude/skills/
+
 # Agent research / planning files
 .agents/plans
 .agents/scratch

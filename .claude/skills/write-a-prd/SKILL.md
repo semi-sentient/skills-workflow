@@ -1,1 +1,0 @@
-../../../universal/write-a-prd/SKILL.md
