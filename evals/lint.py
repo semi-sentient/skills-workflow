@@ -455,8 +455,8 @@ def check_registration(d: SkillDoc) -> None:
                 "registration",
                 f"Not registered in {agent_dir}/ — agents working in this repo "
                 f"will not find it. The discovery directories are gitignored; after "
-                f"a fresh clone run ./scripts/register-skill.sh --all, or for this "
-                f"skill alone ./scripts/register-skill.sh {d.name}",
+                f"a clone or a pull that removed them run ./scripts/register-skill.sh "
+                f"--all, or for this skill alone ./scripts/register-skill.sh {d.name}",
             )
             continue
         present = {p.name for p in linked.iterdir() if not p.name.startswith(".")}

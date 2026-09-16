@@ -22,7 +22,7 @@ Your skill instructions here...
 ./scripts/register-skill.sh <skill-name>
 ```
 
-   The discovery directories (`.agents/skills/`, `.claude/skills/`) are gitignored — they exist for local use only and are never committed. Regenerate them after a fresh clone with `./scripts/register-skill.sh --all`. Consumers install straight from the domain folders; see [Why the discovery directories are not committed](#why-the-discovery-directories-are-not-committed).
+   The discovery directories (`.agents/skills/`, `.claude/skills/`) are gitignored — they exist for local use only and are never committed. Regenerate them with `./scripts/register-skill.sh --all` after a fresh clone — and after any pull that removes them, since git deletes a directory once its last tracked entry is gone. Consumers install straight from the domain folders; see [Why the discovery directories are not committed](#why-the-discovery-directories-are-not-committed).
 
 5. Update the **Available Skills** table in the [README](README.md).
 6. If the new skill reads or invokes another skill at runtime, add a row to the **Skill dependencies** table in the README so installers know what else to pull in.
@@ -51,7 +51,7 @@ Updates broke too, and more visibly. `skills update` re-discovers the source rep
 
 That is why `npx skills@latest update` stopped picking up changes.
 
-Keeping the discovery directories out of git leaves exactly one path per skill. Consumers get `universal/<name>/SKILL.md` and a real digest; existing lock files migrate themselves on the next update.
+Keeping the discovery directories out of git leaves exactly one path per skill. The cost is that pulling the change deletes them from existing clones, and in-repo skill invocations stop resolving until `./scripts/register-skill.sh --all` puts them back. Consumers get `universal/<name>/SKILL.md` and a real digest; existing lock files migrate themselves on the next update.
 
 ### Proving a change is an improvement
 

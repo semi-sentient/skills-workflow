@@ -12,7 +12,7 @@
 #
 # Usage:
 #   ./scripts/register-skill.sh <skill-name>
-#   ./scripts/register-skill.sh --all      # regenerate everything (after a clone)
+#   ./scripts/register-skill.sh --all      # regenerate everything (after a clone or pull)
 #
 # Example:
 #   ./scripts/register-skill.sh tdd
@@ -30,12 +30,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # --all: register every skill found in every domain folder. This is the
-# after-clone bootstrap, since the discovery directories are not committed.
+# bootstrap after a clone — and after any pull that removes the discovery
+# directories, since they are not committed.
 if [[ "$SKILL_NAME" == "--all" ]]; then
   found=0
   while IFS= read -r skill_md; do
     found=$((found + 1))
-    bash "${BASH_SOURCE[0]}" "$(basename "$(dirname "$skill_md")")"
+    REGISTER_SKILL_ALL=1 bash "${BASH_SOURCE[0]}" "$(basename "$(dirname "$skill_md")")"
   done < <(cd "$REPO_ROOT" && find . -mindepth 3 -maxdepth 3 -name SKILL.md -not -path "./.*" | sort)
   if [[ $found -eq 0 ]]; then
     echo "No skills found in any domain folder." >&2
@@ -113,9 +114,11 @@ done
 echo ""
 if [[ $REGISTERED -gt 0 ]]; then
   echo "Registered '$SKILL_NAME' in ${REGISTERED} agent director$([ $REGISTERED -eq 1 ] && echo y || echo ies)."
-  echo ""
-  echo "Next step: add '$SKILL_NAME' to the Available Skills table in README.md."
-  echo "The symlinks themselves are gitignored — nothing to commit here."
+  if [[ -z "${REGISTER_SKILL_ALL:-}" ]]; then
+    echo ""
+    echo "Next step: add '$SKILL_NAME' to the Available Skills table in README.md."
+    echo "The symlinks themselves are gitignored — nothing to commit here."
+  fi
 else
   echo "Nothing to do — '$SKILL_NAME' is already registered everywhere."
 fi

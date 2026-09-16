@@ -27,7 +27,8 @@ temp/
 # These hold symlinks into the domain folders. Committing them gave the
 # `skills` CLI two paths for every skill (the real file and the symlink),
 # which made it record the empty-string digest and skip updates entirely.
-# Regenerate after cloning: ./scripts/register-skill.sh --all
+# Regenerate with ./scripts/register-skill.sh --all after cloning, and after
+# any pull that removes them — git deletes the directories, not just the links.
 .agents/skills/
 .claude/skills/
 
