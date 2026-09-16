@@ -97,9 +97,16 @@ def check(ctx, expect):
     expect.equals("rp.sh add-criterion used once for the Phase 1 criterion", len(add_cmds), 1)
     expect.info("rp.sh amend calls", len(amend_cmds))
     unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "amend", "add-criterion", "ledger", "phase-cost", "stage",
-                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "help"})
+                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "help"})
     expect.info("rp.sh commands that do not exist (guessed)", unknown)
     expect.info("rp.sh commands used", sorted(used))
+    # --- #11: the completion table comes from rp.sh totals, never from the ledger file
+    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    ledger_dumps = [c for c in shell if any(re.search(r"scratch/run-plan/[^/\s]+/ledger\.md", seg) and re.search(r"\b(cat|less|head|tail|sed|awk|more)\b", seg)
+                                             for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", c))]
+    expect.that("orchestrator never dumped the scratch ledger.md", not ledger_dumps, f"{ledger_dumps[:3]}")
+    ct_reads = [p for p in main_reads if p.endswith("completion-templates.md")] + [c for c in main_bash if "completion-templates.md" in c]
+    expect.at_most("completion-templates.md read at most once", len(ct_reads), 1)
 
     # --- the plan: labels stable, suffixes written, everything ticked
     plan = ctx.read(PLAN)

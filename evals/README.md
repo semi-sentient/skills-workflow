@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 171 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 185 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
@@ -333,7 +333,9 @@ assertions are the invariants issue #6 changed the skill to hold, graded on the
 - the orchestrator never `Read` the plan file or dumped it in shell, never read a
   source or test file, never read a diff — it read `plan-index.md`;
 - housekeeping went through `rp.sh` (`init`, `stage`, `tick`, `ledger`, `brief`,
-  `review-path`), with no hand-written `git add -A` and no `Edit` of the plan;
+  `review-path`, `totals`), with no hand-written `git add -A` and no `Edit` of the plan,
+  no dump of the scratch `ledger.md`, and `completion-templates.md` read at most once;
+  the Step 5 stretch (last commit → final turn) is recorded and gated under 15K (#11);
 - every sub-agent prompt is a pointer at a brief file, under 3,000 chars, mean
   under 1,500, and none pastes a criterion;
 - at least two Code and two Review agents ran, a review preceded every commit, and

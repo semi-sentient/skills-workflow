@@ -28,7 +28,17 @@
 #   ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]
 #                    append one usage row to ledger.md
 #   phase-cost <n>   `| Research | Code | Review | Total | Active time |` cells for phase <n>;
-#                    warns when the phase has more review evidence files than Review rows
+#                    warns when the phase has more review evidence files than Review rows,
+#                    and when two or more `setup` rows carry no Parallel group
+#   totals [<phase>=<status> …]
+#                    the Step 5 completion table from ledger.md: one row per sub-agent
+#                    grouped by phase in ledger order, a subtotal line per phase carrying
+#                    the <status> passed for it (the tracker's Status cell, flags
+#                    included), and a Totals row; Active time counts each Parallel
+#                    group at its max, with the Σ as an aside
+#   carry <phase> <text>
+#                    append one carried finding (`- Phase <phase>: <text>`) to
+#                    carried-findings.md; <text> may be @file; Step 5 reads the file once
 #   stage            git add -A from the repo root, excluding every keep-dirty path in
 #                    tree-state.md (each exclusion is its own literal pathspec)
 #   delta            names-only unstaged + untracked delta since the last staging, minus
@@ -360,9 +370,19 @@ cmd_ledger() {
 # Architect lands in the Research column, Debug and retries in Code. Active time sums
 # duration_ms with rows sharing a Parallel group counted at the group's max. A column
 # with nothing numeric to sum prints n/a, never a fabricated zero.
+# Concurrent spawns must share a Parallel group or their durations are summed: the
+# column is the only record of concurrency, and both live runs left it blank on the
+# research batch. Two or more setup rows without one is the shape that error takes.
+warn_ungrouped_setup() {
+  awk -F'|' 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    NR > 2 && trim($2) == "setup" { n++; if (trim($7) == "") u++ }
+    END { if (n >= 2 && u) printf "rp.sh: warning: %d of %d setup rows carry no Parallel group — their Active time is summed, not taken at the batch max; every row of a concurrent batch shares one group label (SKILL.md Step 3)\n", u, n > "/dev/stderr" }' "$SCRATCH/ledger.md"
+}
+
 cmd_phase_cost() {
   local id="${1:?usage: rp.sh phase-cost <n>}"
   ensure_ledger
+  [ "$id" != setup ] || warn_ungrouped_setup
   # Every Review return owes a ledger row; the evidence files count the returns.
   local files=0 rows f
   for f in "$SCRATCH/phase-$id-review.md" "$SCRATCH/phase-$id-review-"*.md; do [ -e "$f" ] && files=$((files + 1)); done
@@ -402,6 +422,70 @@ cmd_phase_cost() {
       printf "| %s | %s | %s | %s | %s |\n", cell["Research"], cell["Code"], cell["Review"], anytok ? sprintf("%.1fK", total / 1000) : "n/a", t
     }
   ' "$SCRATCH/ledger.md"
+}
+
+# The Step 5 table: the ledger's rows, grouped by phase in first-appearance order (the
+# ledger is append-only, so that is spawn order), each phase closed by a subtotal line
+# carrying the Status the orchestrator passes for it, then a Totals row. Same
+# arithmetic as phase-cost; the per-row Agent cell is the Mode plus the Note.
+cmd_totals() {
+  ensure_ledger
+  warn_ungrouped_setup
+  local flags="" kv
+  for kv in "$@"; do
+    case "$kv" in *=*) ;; *) die "totals: expected <phase>=<status>, got '$kv'" ;; esac
+    flags="$flags$kv$SEP"
+  done
+  RP_FLAGS="$flags" awk -F'|' -v SEP="$SEP" '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    function fmtk(v) { if (v !~ /^[0-9]+$/) return "n/a"; return sprintf("%.1fK", v / 1000) }
+    function hms(ms,   s) { s = int(ms / 1000); return sprintf("%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60) }
+    function active(ph,   a, g) { a = solo[ph]; for (g in gmax) if (index(g, ph SEP) == 1) a += gmax[g]; return a }
+    function work(ph,   a, g) { a = solo[ph]; for (g in gmax) if (index(g, ph SEP) == 1) a += gsum[g]; return a }
+    function ngroups(ph,   n, g) { n = 0; for (g in gcount) if (index(g, ph SEP) == 1 && gcount[g] > 1) n++; return n }
+    function tcell(act, wrk, ng, anyd) { if (!anyd) return "n/a"; return ng ? sprintf("%s (Σ %s, %d parallel group%s)", hms(act), hms(wrk), ng, (ng > 1 ? "s" : "")) : hms(act) }
+    BEGIN { n = split(ENVIRON["RP_FLAGS"], kvs, SEP); for (i = 1; i <= n; i++) if (kvs[i] != "") { k = kvs[i]; sub(/=.*/, "", k); v = kvs[i]; sub(/^[^=]*=/, "", v); if (v != "") status[k] = v; sorder[++ns] = k } }
+    NR <= 2 { next }
+    {
+      ph = trim($2); mode = trim($3); tok = trim($4); tu = trim($5); dur = trim($6); grp = trim($7); note = trim($8)
+      if (ph == "") next
+      if (!(ph in seen)) { seen[ph] = 1; order[++np] = ph }
+      rows++; prow[ph]++
+      agent = mode; if (note != "") agent = agent " (" note ")"
+      line[ph, prow[ph]] = sprintf("| %s | %s | %s | %s | %s |", ph, agent, fmtk(tok), (tu == "" ? "—" : tu), (dur ~ /^[0-9]+$/ ? hms(dur) : "n/a"))
+      if (tok ~ /^[0-9]+$/) { ptok[ph] += tok; anytok[ph] = 1; ttok += tok; anyt = 1 }
+      if (dur ~ /^[0-9]+$/) {
+        dur += 0; anydur[ph] = 1; anyd = 1
+        if (grp == "") solo[ph] += dur
+        else { g = ph SEP grp; if (!(g in gmax) || dur > gmax[g]) gmax[g] = dur; gsum[g] += dur; gcount[g]++ }
+      }
+    }
+    END {
+      print "| Phase | Agent | Tokens | Tool uses | Active time |"
+      print "| ----- | ----- | -----: | --------: | ----------: |"
+      if (!rows) { print "| — | *no sub-agent rows* | — | — | — |"; exit }
+      for (i = 1; i <= np; i++) {
+        ph = order[i]
+        for (r = 1; r <= prow[ph]; r++) print line[ph, r]
+        st = (ph in status) ? " — " status[ph] : ""
+        ng = ngroups(ph); tact += active(ph); twork += work(ph); tng += ng
+        printf "| %s | *subtotal*%s | %s | — | %s |\n", ph, st, (anytok[ph] ? fmtk(ptok[ph]) : "n/a"), tcell(active(ph), work(ph), ng, anydur[ph])
+      }
+      # A phase with a status but no rows (human-gate-only, amended out) still gets its
+      # line, as phase-cost prints dashes for it — a silent drop would lose the phase.
+      for (i = 1; i <= ns; i++) { ph = sorder[i]; if (!(ph in seen) && !(ph in done)) { done[ph] = 1; printf "| %s | *subtotal*%s | — | — | — |\n", ph, ((ph in status) ? " — " status[ph] : "") } }
+      printf "| — | **Totals** — %d sub-agent%s | **%s** | — | **%s** |\n", rows, (rows > 1 ? "s" : ""), (anyt ? fmtk(ttok) : "n/a"), tcell(tact, twork, tng, anyd)
+    }
+  ' "$SCRATCH/ledger.md"
+}
+
+# Step 4 item 10's report route: a finding the run will not fix lives in this file, not in
+# the orchestrator's context, until Step 5 reads it once. Absent when nothing was carried.
+cmd_carry() {
+  local id="${1:?usage: rp.sh carry <phase> <text>}" text
+  text="$(arg_val "${2:?carry: missing <text>}")"
+  [ -n "$text" ] || die "carry: <text> is empty"
+  printf -- '- Phase %s: %s\n' "$id" "$text" >> "$SCRATCH/carried-findings.md"
 }
 
 # --------------------------------------------------------------------- git side
@@ -634,10 +718,11 @@ BRIEF_INPUT_KEYS=" CONVENTIONS_PATH SPEC_PATH PLAN_FILE PRIOR_EVIDENCE CODE_BRIE
 
 # Standing hazards are written once, into run-conventions.md; a DELTAS or SANCTIONED line
 # that restates one is the brief bloat the slot exists to prevent. Heuristic, so a warning
-# and never a refusal: a value line sharing three or more distinct words of five-plus letters
-# with one hazard line is reported. A phase-specific line that legitimately names the same
-# subject ("run `terraform plan -target=x` once, this phase only") may trip it; that is
-# the orchestrator's call to keep.
+# and never a refusal: a value line sharing five or more distinct words of five-plus letters
+# with one hazard line is reported. Three was the first floor; across two live runs every
+# 3- and 4-term hit was a phase-specific line naming the hazard's subject (18 of 18), and
+# the 6- and 7-term hits were restatements. A phase-specific line can still trip it; that
+# is the orchestrator's call to keep.
 warn_hazard_repeats() {
   local tpl="$1" supplied="$2" conv="$SCRATCH/run-conventions.md" key var val
   [ "$tpl" != run-conventions.md ] && [ -f "$conv" ] || return 0
@@ -660,7 +745,7 @@ warn_hazard_repeats() {
         for (h = 1; h <= nh; h++) {
           delete hw; words(hz[h], hw); shared = 0
           for (w in vw) if (w in hw) shared++
-          if (shared >= 3) { printf "rp.sh: warning: %s line %d restates a standing hazard (%d shared terms) — hazards live once in run-conventions.md; keep the line only if it is phase-specific:\n    line:   %s\n    hazard: %s\n", key, NR, shared, substr($0, 1, 90), substr(hz[h], 1, 90) > "/dev/stderr"; break }
+          if (shared >= 5) { printf "rp.sh: warning: %s line %d restates a standing hazard (%d shared terms) — hazards live once in run-conventions.md; keep the line only if it is phase-specific:\n    line:   %s\n    hazard: %s\n", key, NR, shared, substr($0, 1, 90), substr(hz[h], 1, 90) > "/dev/stderr"; break }
         }
       }'
   done
@@ -756,6 +841,8 @@ case "$cmd" in
   add-criterion) cmd_add_criterion "$@" ;;
   ledger)      cmd_ledger "$@" ;;
   phase-cost)  cmd_phase_cost "$@" ;;
+  totals)      cmd_totals "$@" ;;
+  carry)       cmd_carry "$@" ;;
   stage)       cmd_stage ;;
   delta)       cmd_delta ;;
   baselines)   cmd_baselines ;;

@@ -9,6 +9,43 @@ PLAN = ".agents/plans/shift-board-plan.md"
 SCRATCH = ".agents/scratch/run-plan/shift-board"
 
 
+def _record_contexts(records):
+    """Per main-agent assistant record: (resident context, [tool_use blocks])."""
+    out = []
+    for rec in records:
+        if rec.get("type") != "assistant" or rec.get("isSidechain"):
+            continue
+        msg = rec.get("message") or {}
+        u = msg.get("usage") or {}
+        n = int(u.get("cache_read_input_tokens") or 0) + int(u.get("cache_creation_input_tokens") or 0) + int(u.get("input_tokens") or 0)
+        content = msg.get("content") or []
+        uses = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"] if isinstance(content, list) else []
+        out.append((n, uses))
+    return out
+
+
+def _dumps_file(cmd: str, path_rx: str) -> bool:
+    """A shell segment that prints a file matching `path_rx` (cat/less/head/tail/sed/awk)."""
+    for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", cmd):
+        if re.search(path_rx, seg) and re.search(r"\b(cat|less|head|tail|sed|awk|more)\b", seg):
+            return True
+    return False
+
+
+def _reference_reads(reads, bash) -> list[str]:
+    """Skill reference files the orchestrator opened, by basename, in order (Read or shell)."""
+    out = []
+    for p in reads:
+        m = re.search(r"references/([\w-]+\.md)$", p)
+        if m:
+            out.append(m.group(1))
+    for c in bash:
+        if re.search(r"rp\.sh['\"]?\s+[a-z-]+", c):
+            continue  # an rp.sh call names references/rp.sh and the templates it fills, not a read
+        out.extend(m.group(1) for m in re.finditer(r"references/([\w-]+\.md)\b", c))
+    return out
+
+
 def check(ctx, expect):
     tr = ctx.trace
     dlg = ctx.dialogue
@@ -94,11 +131,18 @@ def check(ctx, expect):
     expect.that("rp.sh tick ran (no hand-ticking via Edit)", "tick" in used and not tick_edits,
                 f"used={sorted(used)} hand-ticks={len(tick_edits)}")
     unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "amend", "add-criterion", "ledger", "phase-cost", "stage",
-                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "help"})
+                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "help"})
     expect.info("rp.sh commands that do not exist (guessed)", unknown)
     expect.that("rp.sh ledger ran", "ledger" in used, f"used={sorted(used)}")
     expect.that("rp.sh brief composed the briefs", "brief" in used, f"used={sorted(used)}")
     expect.that("rp.sh review-path resolved evidence paths", "review-path" in used, f"used={sorted(used)}")
+    # --- #11: the completion table comes from rp.sh totals, never from the ledger file
+    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    ledger_dumps = [c for c in main_bash if _dumps_file(c, r"scratch/run-plan/[^/\s]+/ledger\.md")]
+    expect.that("orchestrator never dumped the scratch ledger.md (no cat/sed/head of it)", not ledger_dumps, f"{ledger_dumps[:3]}")
+    ct_reads = [p for p in main_reads if p.endswith("completion-templates.md")] + [c for c in main_bash if "completion-templates.md" in c]
+    expect.at_most("completion-templates.md read at most once", len(ct_reads), 1)
+    expect.info("reference files read by the orchestrator", _reference_reads(main_reads, main_bash))
     expect.info("rp.sh commands used", sorted(used))
     expect.that("phase spec files exist", ctx.exists(f"{SCRATCH}/phase-1-spec.md") and ctx.exists(f"{SCRATCH}/phase-2-spec.md"), "")
     ledger = ctx.read(f"{SCRATCH}/ledger.md")
@@ -148,6 +192,25 @@ def check(ctx, expect):
     # --- the yardstick
     ctxs = tr.context_per_turn()
     peak = max(ctxs) if ctxs else 0
+    # Step 5 stretch: resident context from the record carrying the last commit (Skill or
+    # git commit) to the final turn — the completion table, summary, and wrap-up. The two
+    # September live runs spent +24.5K and +20.7K here hand-rendering the table and reading
+    # completion-templates.md in slices; the 2026-09-05 fixture run spent +7.5K with a
+    # `cat ledger.md` and a help-text dump looking for a totals command.
+    recs = _record_contexts(tr.records)
+    last_commit_rec = None
+    for ri, (n, uses) in enumerate(recs):
+        for b in uses:
+            inp = b.get("input") or {}
+            if b.get("name") == "Skill" or (b.get("name") == "Bash" and re.search(r"\bgit\s+(?:-\S+\s+)*commit\b", str(inp.get("command", "")))):
+                last_commit_rec = ri
+    if last_commit_rec is not None and ctxs:
+        start = next((n for n, _ in recs[last_commit_rec:] if n), 0)
+        expect.info("context at the last commit (tokens)", start)
+        expect.info("Step 5 stretch growth (last commit → final turn, tokens)", ctxs[-1] - start)
+        expect.at_most("Step 5 stretch growth under 15K", ctxs[-1] - start, 15_000)
+    else:
+        expect.that("Step 5 stretch could be located (a commit record exists)", False, f"commit_rec={last_commit_rec}")
     expect.info("main-agent assistant turns", len(tr.main_turns))
     expect.info("main-agent bash calls", len(main_bash))
     expect.info("peak resident context (tokens)", peak)
