@@ -19,11 +19,13 @@ Reports, for the main agent only (sidechains are the sub-agents' own contexts):
   - Bash call count, Monitor ticks, compactions
   - peak context per assistant turn: cache_read + cache_creation + input tokens
     at the turn with the largest sum, plus the last turn's figure
-  - reference loads: each `references/<file>.md` the orchestrator opened (Read, or a
-    shell command naming it), with the result chars each load cost — the bytes issue
+  - reference loads: each `references/<file>.md` the orchestrator opened (a Read of it,
+    or a shell segment that prints it), with the result chars each load cost — the bytes issue
     #11 trimmed (completion-templates.md read in five slices on the 2026-09-14 run)
   - Step 5 stretch: resident-context growth from the record carrying the last commit
-    (Skill or `git commit`) to the final turn — the completion table and wrap-up
+    (Skill or `git commit`) in the file to the final turn — the completion table and
+    wrap-up. A commit made after the run (a follow-up in the same session) moves the
+    start; check the record the report names before quoting the figure
 
 `peak_context_tokens` is the number the live-run target is written against
 (under 400K on a 9-phase plan; zero compactions).
@@ -41,10 +43,11 @@ from pathlib import Path
 
 AGENT_TOOLS = {"Task", "Agent"}
 RP_BRIEF = re.compile(r'rp\.sh["\']?\s+brief\b')
-# A skill reference the orchestrator opened. `rp.sh` calls name `references/rp.sh`
-# and the brief templates, which are executed or filled, not read into context.
+# A skill reference the orchestrator opened: a Read of it, or a shell segment that prints
+# it. A path merely mentioned in a command — a heredoc writing tree-state.md that names
+# `references/completion-templates.md` — is not a load (the 2026-09-19 web run had one).
 REFERENCE_FILE = re.compile(r"references/([\w-]+\.md)\b")
-RP_SH_CALL = re.compile(r"rp\.sh['\"]?\s+[a-z-]+")
+REFERENCE_READ = re.compile(r"(?:^|[|;&]\s*|&&\s*)(?:cat|less|more|head|tail|sed|awk)\b[^|;&\n]*references/([\w-]+\.md)\b", re.M)
 GIT_COMMIT = re.compile(r"\bgit\s+(?:-\S+\s+)*commit\b")
 # A hand-written brief file: `cat > x-brief.md <<EOF`, `cat <<EOF > x-brief.md`, `tee`, `printf … >`.
 HEREDOC_BRIEF = re.compile(r"(?:(?:cat|tee|printf|echo)\b[^\n|]*>{1,2}\s*['\"]?\S*brief\S*)|(?:<<-?\s*['\"]?\w+['\"]?\s*>{1,2}\s*['\"]?\S*brief\S*)")
@@ -152,9 +155,12 @@ def tally(path: Path) -> dict:
                     tool_calls[name] += 1
                     size = len(json.dumps(inp))
                     chars[f"tool_use:{name}"] += size
-                    call_text = str(inp.get("command", "")) + " " + str(inp.get("file_path", ""))
-                    ref = REFERENCE_FILE.search(call_text)
-                    if ref and name in ("Read", "Bash") and not RP_SH_CALL.search(call_text):
+                    ref = None
+                    if name == "Read":
+                        ref = REFERENCE_FILE.search(str(inp.get("file_path", "")))
+                    elif name == "Bash":
+                        ref = REFERENCE_READ.search(str(inp.get("command", "")))
+                    if ref:
                         pending_ref[block.get("id", "")] = ref.group(1)
                     if ctx and (name == "Skill" or (name == "Bash" and GIT_COMMIT.search(str(inp.get("command", ""))))):
                         ctx_at_last_commit = ctx
