@@ -250,6 +250,57 @@ eq "…and still prints the cells" "| 68.2K | 151.6K | 78.1K | 297.9K | 0:58:41 
 touch "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
 bash "$RPS" phase-cost 2 2>"$WORK/err.txt" >/dev/null
 check "phase-cost is silent when every evidence file has its Review row" $([ -s "$WORK/err.txt" ] && echo 1 || echo 0) "$(cat "$WORK/err.txt")"
+
+echo "totals / carry"
+# Phases in ledger order (first appearance), Agent = Mode + Note, subtotal per phase with the
+# Status passed for it, parallel group at its max with the Σ aside, n/a kept, Totals row.
+expected='| Phase | Agent | Tokens | Tool uses | Active time |
+| ----- | ----- | -----: | --------: | ----------: |
+| 1 | Research (shared layer) | 68.2K | 41 | 0:01:53 |
+| 1 | Code | 151.6K | 84 | 0:50:57 |
+| 1 | Review (all MET) | 78.1K | 32 | 0:05:50 |
+| 1 | *subtotal* — ✓ Complete | 297.9K | — | 0:58:41 |
+| 3 | Research (api client) | 59.4K | 36 | 0:01:38 |
+| 3 | *subtotal* | 59.4K | — | 0:01:38 |
+| 2 | Code | 353.9K | 202 | 1:12:03 |
+| 2 | Code (retry 1/2) | 113.2K | 96 | 0:22:41 |
+| 2 | Review | 124.6K | 44 | 0:16:52 |
+| 2 | Review (re-review) | 119.3K | 38 | 0:14:20 |
+| 2 | Debug (death) | n/a | n/a | n/a |
+| 2 | *subtotal* — ✓ Complete (↻ retry 1/2) | 711.0K | — | 2:05:56 |
+| 4 | Research (a) | 1.0K | 1 | 0:01:00 |
+| 4 | Research (b) | 1.0K | 1 | 0:02:00 |
+| 4 | Code | 2.0K | 2 | 0:00:30 |
+| 4 | *subtotal* — ▶ Current | 4.0K | — | 0:02:30 (Σ 0:03:30, 1 parallel group) |
+| — | **Totals** — 12 sub-agents | **1072.3K** | — | **3:08:45 (Σ 3:09:45, 1 parallel group)** |'
+out="$(bash "$RPS" totals 1='✓ Complete' 2='✓ Complete (↻ retry 1/2)' 4='▶ Current' 2>"$WORK/err.txt")"; rc=$?
+eq "totals renders the completion table from the ledger" "$expected" "$out"
+check "totals is silent when no setup rows lack a group" $([ $rc -eq 0 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "totals subtotal Active time equals phase-cost's" $([ "$(printf '%s\n' "$out" | grep '^| 2 | \*subtotal\*' | awk -F'|' '{gsub(/^ +| +$/, "", $6); print $6}')" = "$(bash "$RPS" phase-cost 2 | awk -F'|' '{gsub(/^ +| +$/, "", $6); print $6}')" ] && echo 0 || echo 1) "$out"
+out="$(bash "$RPS" totals 6A='⚠ human gate — deferred' 1= 2>"$WORK/err.txt")"
+check "totals prints a dashes line for a status whose phase has no rows, and treats an empty status as none" $(printf '%s\n' "$out" | grep -Fq '| 6A | *subtotal* — ⚠ human gate — deferred | — | — | — |' && printf '%s\n' "$out" | grep -Fq '| 1 | *subtotal* | 297.9K |' && echo 0 || echo 1) "$out"
+bash "$RPS" totals 'not-a-pair' 2>"$WORK/err.txt"; rc=$?
+check "totals refuses an argument that is not <phase>=<status>" $([ $rc -ne 0 ] && grep -q 'expected <phase>=<status>' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+# The concurrency column is the only record of concurrency: two setup rows without one warn.
+bash "$RPS" ledger setup Research 44376 14 226640 "" "modules"
+bash "$RPS" totals >/dev/null 2>"$WORK/err.txt"
+check "one ungrouped setup row does not warn (a solo spawn is legitimate)" $([ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" ledger setup Research 39810 12 201004 "" "consumers"
+bash "$RPS" totals >/dev/null 2>"$WORK/err.txt"
+check "totals warns when two setup rows carry no Parallel group" $(grep -q '2 of 2 setup rows carry no Parallel group' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" phase-cost setup >/dev/null 2>"$WORK/err.txt"
+check "phase-cost setup warns the same way" $(grep -q 'setup rows carry no Parallel group' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" phase-cost 2 >/dev/null 2>"$WORK/err.txt"
+check "phase-cost for another phase does not carry the setup warning" $([ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+sed 's/^| setup | Research | \([0-9]*\) | \([0-9]*\) | \([0-9]*\) |  |/| setup | Research | \1 | \2 | \3 | R0 |/' "$SCRATCH/ledger.md" > "$WORK/t" && mv "$WORK/t" "$SCRATCH/ledger.md"
+out="$(bash "$RPS" totals setup='✓' 2>"$WORK/err.txt")"
+check "…and is silent once both carry a group, counting the batch at its max" $([ ! -s "$WORK/err.txt" ] && printf '%s\n' "$out" | grep -Fq '| setup | *subtotal* — ✓ | 84.2K | — | 0:03:46 (Σ 0:07:07, 1 parallel group) |' && echo 0 || echo 1) "$(cat "$WORK/err.txt"; printf '%s\n' "$out" | grep setup)"
+bash "$RPS" carry 1 'F3 — `src/a.js:12` comment restates the code (documentation)'
+printf 'F1 — `src/b.js:4` unclamped index (behaviour, budget exhausted)' > "$WORK/cf.txt"
+bash "$RPS" carry 2 @"$WORK/cf.txt"
+eq "carry appends one line per finding to carried-findings.md" $'- Phase 1: F3 — `src/a.js:12` comment restates the code (documentation)\n- Phase 2: F1 — `src/b.js:4` unclamped index (behaviour, budget exhausted)' "$(cat "$SCRATCH/carried-findings.md")"
+bash "$RPS" carry 2 '' 2>"$WORK/err.txt"; rc=$?
+check "carry refuses an empty finding" $([ $rc -ne 0 ] && grep -q 'carry' "$WORK/err.txt" && [ "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')" = 2 ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 rm -f "$SCRATCH/phase-1-review.md" "$SCRATCH/phase-1-review-2.md" "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
 
 echo "stage / delta / baselines with keep-dirty paths"
@@ -386,19 +437,36 @@ bash "$RPS" brief brief-code.md x.md PHASE_HEADING=h 2>"$WORK/err.txt"; rc=$?
 check "brief refuses unfilled placeholders" $([ $rc -ne 0 ] && grep -q 'unfilled placeholders' "$WORK/err.txt" && grep -q 'SPEC_PATH' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 check "…and writes nothing" $([ ! -e "$SCRATCH/x.md" ] && echo 0 || echo 1) ""
 echo 'from a file' > "$WORK/val.txt"
-bash "$RPS" brief run-conventions.md run-conventions.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS=@"$WORK/val.txt" KEEP_DIRTY_NOTE='None declared.' TICKET_DIRECTIVE='Use `#42` as the ticket identifier.' STANDING_HAZARDS='- Never run any terraform command yourself: the state lock is shared and single-holder.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+bash "$RPS" brief run-conventions.md run-conventions.md SCRATCH_DIR="$SCRATCH" PROJECT_CONVENTIONS=@"$WORK/val.txt" KEEP_DIRTY_NOTE='None declared.' TICKET_DIRECTIVE='Use `#42` as the ticket identifier.' STANDING_HAZARDS=$'- **Never run `terraform apply`.** Nothing in this plan is applied until Phase 3, and that apply is a human action. No agent applies anything.\n- Always prefix Terraform commands with `AWS_PROFILE="sitevue-aws-profile"`. The profile has **no default region** — export `AWS_REGION=us-east-2` for raw `aws` CLI calls.' >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "brief accepts @file values" $([ $rc -eq 0 ] && grep -q '^from a file$' "$SCRATCH/run-conventions.md" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 # A DELTAS/SANCTIONED line that restates a standing hazard is warned about, never refused.
+# Floor: five shared terms. Both lines below are quoted from the 2026-09-14 infra run: the
+# first fired at 7 shared terms and restates the `terraform apply` hazard; the second fired
+# at 3 (terraform, profile, sitevue) and is the phase-specific line the floor of 3 kept
+# flagging — 14 such warnings in that run, every one judged phase-specific and kept.
+GENUINE='- **You write the runbook; you do NOT execute it.** Phases 1 and 2 are committed but **nothing has been applied to AWS**. The `terraform apply`, the deliberate break, and the two pipeline runs are human actions gated behind this phase'"'"'s human-form criteria. Never run `terraform apply`, never start a pipeline execution, never modify a bucket.'
+SPECIFIC='- `terraform fmt -recursive` and `AWS_PROFILE="sitevue-aws-profile" terraform validate` must still pass; re-run both and report them. A comment deletion should not move the plan numbers, but run `AWS_PROFILE="sitevue-aws-profile" terraform plan -target=module.webapp_pipeline` and confirm it still reads `Plan: 1 to add, 1 to change, 0 to destroy` — say so loudly if it does not.'
 BC="PHASE_HEADING=h PLAN_FILE=$PWD/.agents/plans/demo-plan.md CONVENTIONS_PATH=$SCRATCH/run-conventions.md CONTEXT_POINTERS=n MANIFEST_MODIFY=n MANIFEST_REFERENCE=n SPEC_PATH=$SCRATCH/phase-1-spec.md HUMAN_FORM=None FIX_CYCLE=n COMMIT_MSG_PATH=x HANDOFF_PATH=y"
 # shellcheck disable=SC2086
-bash "$RPS" brief brief-code.md hz1.md $BC DELTAS=$'- Line-number drift: the helper moved to src/util.js.\n- Run no terraform in this phase: the state lock is shared with other agents.' >/dev/null 2>"$WORK/err.txt"; rc=$?
-check "brief warns when a DELTAS line restates a standing hazard, and still writes the brief" $([ $rc -eq 0 ] && grep -q 'DELTAS line 2 restates a standing hazard' "$WORK/err.txt" && [ -s "$SCRATCH/hz1.md" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
-check "…and names the colliding hazard bullet" $(grep -q 'hazard: - Never run any terraform command yourself' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" brief brief-code.md hz1.md $BC DELTAS="- Line-number drift: the helper moved to src/util.js.
+$GENUINE" >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "brief warns when a DELTAS line restates a standing hazard (7 shared terms), and still writes the brief" $([ $rc -eq 0 ] && grep -q 'DELTAS line 2 restates a standing hazard (7 shared terms)' "$WORK/err.txt" && [ -s "$SCRATCH/hz1.md" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and names the colliding hazard bullet" $(grep -Fq 'hazard: - **Never run `terraform apply`.**' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 # shellcheck disable=SC2086
-bash "$RPS" brief brief-code.md hz2.md $BC DELTAS=$'- Line-number drift: the helper moved to src/util.js.\n- Resolved ambiguity: C4 means the exported name, not the file name.' >/dev/null 2>"$WORK/err.txt"; rc=$?
-check "…and is silent for phase-specific deltas" $([ $rc -eq 0 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
-bash "$RPS" brief brief-review.md hz3.md PHASE=1 SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM=None CODE_BRIEF_PATH="$SCRATCH/phase-1-brief-code.md" POINTERS=None EVIDENCE_PATH=e SANCTIONED=$'- Ordered comment deletion in src/a.js (F2).\n- Reviewers run no terraform yourself: the state lock is shared.' >/dev/null 2>"$WORK/err.txt"; rc=$?
+bash "$RPS" brief brief-code.md hz2.md $BC DELTAS="- Line-number drift: the helper moved to src/util.js.
+$SPECIFIC
+- Resolved ambiguity: C4 means the exported name, not the file name." >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "…and is silent for a phase-specific line sharing 3 terms with a hazard" $([ $rc -eq 0 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$RPS" brief brief-review.md hz3.md PHASE=1 SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM=None CODE_BRIEF_PATH="$SCRATCH/phase-1-brief-code.md" POINTERS=None EVIDENCE_PATH=e SANCTIONED="- Ordered comment deletion in src/a.js (F2).
+$GENUINE" >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "…and checks SANCTIONED in a Review brief too" $([ $rc -eq 0 ] && grep -q 'SANCTIONED line 2 restates a standing hazard' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+# The floor itself: exactly 4 shared terms is silent, exactly 5 warns (synthetic pair against the first hazard).
+# shellcheck disable=SC2086
+bash "$RPS" brief brief-code.md hz4.md $BC DELTAS='- Never apply terraform changes in this pass; nothing else moves.' >/dev/null 2>"$WORK/err.txt"
+check "4 shared terms is under the floor" $([ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+# shellcheck disable=SC2086
+bash "$RPS" brief brief-code.md hz5.md $BC DELTAS='- Never apply terraform changes in this pass; nothing is applied.' >/dev/null 2>"$WORK/err.txt"
+check "5 shared terms is the floor" $(grep -q 'restates a standing hazard (5 shared terms)' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 bash "$RPS" brief brief-diagnose.md phase-2-brief-diagnose-C3.md PHASE=2 CRITERION=C3 PLAN_FILE="$PWD/.agents/plans/demo-plan.md" SPEC_PATH="$SCRATCH/phase-2-spec.md" CONVENTIONS_PATH="$SCRATCH/run-conventions.md" HUMAN_REPORT=$'C3 fails: `aws ec2 describe-instances` prints `Unknown options: --volume-initialization-rate`.\nNothing in the repo changed.' AUTHORISED_COMMANDS=$'- `which -a aws`\n- `aws --version`\n- `cat logs/service.log`' DIGEST_PATH="$SCRATCH/phase-2-diagnose-C3.md" >/dev/null 2>"$WORK/err.txt"; rc=$?
 check "brief fills brief-diagnose.md" $rc "$(cat "$WORK/err.txt")"
 check "diagnose brief carries the report, the closed list, the digest path, and no placeholder" $(grep -Fq 'Unknown options: --volume-initialization-rate' "$SCRATCH/phase-2-brief-diagnose-C3.md" && grep -q '^- `aws --version`$' "$SCRATCH/phase-2-brief-diagnose-C3.md" && grep -Fq "$SCRATCH/phase-2-diagnose-C3.md" "$SCRATCH/phase-2-brief-diagnose-C3.md" && ! grep -q '{{' "$SCRATCH/phase-2-brief-diagnose-C3.md" && echo 0 || echo 1) "$(grep -n '{{\|aws --version' "$SCRATCH/phase-2-brief-diagnose-C3.md")"

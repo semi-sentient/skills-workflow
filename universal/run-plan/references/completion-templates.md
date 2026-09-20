@@ -1,14 +1,12 @@
 # Completion Templates and the Step 5 procedure
 
-Load this reference at Step 5, once `<outcome>` is classified. It owns the Step 5 procedure (below), the final completion table, the summary comment, the push and pre-PR review routing, the PR body and submission flow, and the local-file cleanup Step 5e follows.
-
-(The active-time / token figures come from the run ledger. On a host exposing no usage metadata, drop those figures — or label a wall-clock elapsed as approximate — per references/ledger.md; the templates otherwise stand.)
+Read this once, whole, at Step 5, once `<outcome>` is classified. It owns the Step 5 procedure (below), the summary comment, the push and pre-PR review routing, the PR body and submission flow, and the local-file cleanup Step 5e follows. The completion table is `rp.sh totals` output (format and example in references/ledger.md); on a host exposing no usage metadata its cells read `n/a` — drop the figures rather than fabricate them.
 
 ---
 
 ## Step 5 procedure
 
-**Final summary** (every run): what was accomplished across all phases; the final completion table (below) rendered from the ledger; a **Total active time** line (the subtotal lines summed — idle-immune, parallel groups counted at their max) and total tokens; optionally one **Elapsed** line (`now − RUN_START` from `run.env`, `h:mm:ss`) explicitly labelled as including any pauses/idle — never presented as the run's "duration"; caveats, manual steps, follow-ups; acceptance criteria that remain unchecked (`rp.sh criteria <n>` lists a phase's labelled criteria with their ticks); every amendment marker the run wrote — `(accepted as written — …)`, `(amended mid-run — …)`, `(amended after commit — …)`, `(added mid-run — …)`, `(reopened — …)` (fix-cycles.md's suffix table); and, when keep-dirty paths were declared, those paths — still uncommitted, excluded from every phase commit, absent from the PR. **Local-only runs (and only these):** state plainly that the work branch was never pushed and give the command — `git push -u origin <branch_name>`. Everything below is GH-mode only, so a run that just ends here would otherwise read as "nothing left to do".
+**Final summary** (every run): what was accomplished across all phases; the completion table — `rp.sh totals <phase>=<Status> …`, one pair per phase carrying the tracker's Status cell, pasted verbatim (its Totals row is the run's active time and token cost; never hand-render it or read `ledger.md`); optionally one **Elapsed** line (`now − RUN_START` from `run.env`, `h:mm:ss`) explicitly labelled as including any pauses/idle — never presented as the run's "duration"; caveats, manual steps, follow-ups; the carried findings — read `<scratch_dir>/carried-findings.md` once here (absent means none were carried) and reuse it for the PR's Review notes; acceptance criteria that remain unchecked (`rp.sh criteria <n>` lists a phase's labelled criteria with their ticks); every amendment marker the run wrote — `(accepted as written — …)`, `(amended mid-run — …)`, `(amended after commit — …)`, `(added mid-run — …)`, `(reopened — …)` (fix-cycles.md's suffix table); and, when keep-dirty paths were declared, those paths — still uncommitted, excluded from every phase commit, absent from the PR. **Local-only runs (and only these):** state plainly that the work branch was never pushed and give the command — `git push -u origin <branch_name>`. Everything below is GH-mode only, so a run that just ends here would otherwise read as "nothing left to do".
 
 **(GH mode, outcome `complete` or `partial` only — skip everything below on `aborted`.)**
 
@@ -29,9 +27,9 @@ Pick the template below matching the run's outcome and post it.
 
 ### Step 5c — Push the work branch
 
-Skip if `--no-branch` was passed (no dedicated branch to push). This step sits inside the GH-mode block **deliberately** — do not "fix" it by hoisting it out. A push is not a neutral local git operation: in a `<pr_open_mode> == declared` repo it is precisely what causes a PR to be opened, so a run the user scoped to local-only must not touch the remote at all.
+Skip if `--no-branch` was passed (no dedicated branch to push). This step sits inside the GH-mode block **deliberately** — in a `<pr_open_mode> == declared` repo the push is what opens the PR, so a run scoped to local-only must not touch the remote at all.
 
-**Order under `<pr_open_mode> == declared`:** run Step 5c.5 BEFORE this push. The push is what opens the PR, so a review that follows it can no longer decide whether the PR opens as draft; 5c.5's "push failed" skip condition simply does not arise in that order. Under `silent` the order as written stands.
+**Order under `<pr_open_mode> == declared`:** run Step 5c.5 BEFORE this push — a review that follows the push can no longer decide whether the PR opens as draft. Under `silent` the order as written stands.
 
 Run `git push -u origin <branch_name>`. If the push fails (branch protection, network, auth, force-push needed): surface the error verbatim; **do NOT auto-force-push**; skip Step 5d and instruct the user to resolve the push manually before opening a PR.
 
@@ -39,9 +37,9 @@ Run `git push -u origin <branch_name>`. If the push fails (branch protection, ne
 
 Skip if `--no-branch-review`, or if Step 5d will be skipped anyway (`--no-pr`, `--no-branch`, push failed in Step 5c, Step 5a's final sync failed). This gate exists to populate a PR body — never spend a branch-scope Review agent when no PR will be opened.
 
-Spawn ONE fresh Review agent at branch scope: `rp.sh brief brief-prepr.md pre-pr-brief-review.md …` (slots in SKILL.md's Brief recipes — `HOOKS` is the forward-compatibility hooks the phase summaries named; `POINTERS` the handoff paths) and the one-line pointer prompt. The template carries the mandate (correctness bugs, the integration seams between phases no per-phase gate can see, the hooks later phases should have resolved) and the output contract (surviving findings only, each verified, CONFIRMED/PLAUSIBLE, no evidence file). The orchestrator's one decision is `SCOPE_REF` — **scope it past the inputs commit, never past phase work:** when `<inputs_commit_sha>` is set AND it is the first commit ahead of base (`git rev-list --first-parent <base_branch>..HEAD | tail -1` prints it), `SCOPE_REF` is `<inputs_commit_sha>...HEAD`, not `<base_branch>...HEAD`. A mid-branch inputs commit (a resume committed inputs on top of earlier phases) keeps `<base_branch>...HEAD` — scoping past it would silently drop every earlier phase from the review — and is named in `OUT_OF_SCOPE` instead. Either way the inputs files are the user's own prose and this gate's routing offers autonomous fixes, so a finding against them is unactionable by construction.
+Spawn ONE fresh Review agent at branch scope: `rp.sh brief brief-prepr.md pre-pr-brief-review.md …` (slots in SKILL.md's Brief recipes — `HOOKS` is the forward-compatibility hooks the phase summaries named; `POINTERS` the handoff paths) and the one-line pointer prompt; the template carries the mandate and the output contract (surviving findings only, CONFIRMED/PLAUSIBLE, no evidence file). The orchestrator's one decision is `SCOPE_REF` — **scope it past the inputs commit, never past phase work:** when `<inputs_commit_sha>` is set AND it is the first commit ahead of base (`git rev-list --first-parent <base_branch>..HEAD | tail -1` prints it), `SCOPE_REF` is `<inputs_commit_sha>...HEAD`, not `<base_branch>...HEAD`. A mid-branch inputs commit (a resume committed inputs on top of earlier phases) keeps `<base_branch>...HEAD` — scoping past it would silently drop every earlier phase from the review — and is named in `OUT_OF_SCOPE` instead. Either way the inputs files are the user's own prose and this gate's routing offers autonomous fixes, so a finding against them is unactionable by construction.
 
-Record its ledger row under `pre-PR`. This gate is **detection-only** — never spawn fix agents from its findings autonomously; fixes happen only when the user picks that option in the routing below. The rule is load-bearing, not caution: a branch-scope finding often sits in the gap between what the plan says and what the user actually meant — a plan can even contradict itself — and only the user can say which behaviour was intended. An autonomous fix at this stage can ship the wrong mechanism fully implemented, tested, reviewed, and green; routing the finding to the user is what surfaces intent. Routing:
+Record its ledger row under `pre-PR`. This gate is **detection-only** — never spawn fix agents from its findings autonomously; fixes happen only when the user picks that option in the routing below (a branch-scope finding often sits in the gap between what the plan says and what the user meant, and only the user can say which was intended). Routing:
 
 - All surviving findings go into the PR body's `Review notes` section
 - If any finding is a CONFIRMED correctness bug: open the PR as **draft** instead of ready and surface the findings to the user with options — direct fixes (normal Debug/commit flow, re-push, promote) or promote as-is (under `declared`, where this review preceded the push, surface the findings BEFORE pushing — the user chooses fix-first, in which case re-run this step on the fixed branch before pushing — but only when the fixes changed executable behaviour or config; after a fix round confined to documentation files (Exception 2's path-based class), push without a further branch review — or promote-as-is, in which case push, do NOT apply the draft rule for that finding — the user has accepted it — and record it in the PR's Review notes)
@@ -53,23 +51,6 @@ Skip if any of: `--no-pr`, `--no-branch`, push failed in Step 5c. **When this st
 ### Step 5e — Delete the local plan and PRD files
 
 Run only if ALL of the following hold: GH mode (`<plan_sub_issue_number>` is set); run outcome is `complete` — not `partial` or `aborted` (partial runs need the file for resumability); Step 5d submitted the PR successfully (skipped or failed → keep the files — without a merged PR, the local file is still the most complete working copy); and no CONFIRMED Step 5c.5 finding remains unresolved — a draft-for-findings PR has follow-up pending, and deleting the run's local record while its own gate holds unresolved correctness findings is the wrong default (resolved = the user's Step 5c.5 routing choice concluded it — fixes landed and the PR promoted, or the user chose promote-as-is, which ships the finding deliberately; a user-requested `--draft` with no such finding still deletes). When all four hold, follow the Local file cleanup section below. Never delete a tracked or keep-dirty file, and never improvise the deletion.
----
-
-## Final completion table (Step 5 summary)
-
-The between-phase running table (SKILL.md → Progress reporting) keeps one row per phase. At completion, switch shape: one row per **sub-agent**, grouped under its phase, with a *subtotal* line per phase — the ledger already holds exactly these rows, so render them; do not aggregate away the data the storage layer correctly keeps. This table is also where **`tool_uses` is reported** (kept out of the between-phase table to protect its width): per-agent `tool_uses` is the closest available proxy for how full each agent's context window got (references/ledger.md), and its spread — say a 257-call Code agent against 18–51-call reviewers — is the run's context-pressure story.
-
-| Phase | Agent | Tokens | Tool uses | Active time |
-| ----- | ----- | -----: | --------: | ----------: |
-| 2 | Code | 353.9K | 202 | 1:12:03 |
-| 2 | Code (retry 1) | 113.2K | 96 | 0:22:41 |
-| 2 | Code (retry 2) | 108.0K | 71 | 0:21:14 |
-| 2 | Review | 124.6K | 44 | 0:16:52 |
-| 2 | Review (re-review 1) | 119.3K | 38 | 0:14:20 |
-| 2 | Review (re-review 2) | 120.2K | 41 | 0:14:02 |
-| 2 | *subtotal* — ✓ (↻ retry 2/2) | 939.2K | — | 2:41:12 |
-
-**Agent** is the mode plus a qualifier where one disambiguates (`Code (retry 1)`, `Research: <topic>`, `Debug`). Subtotal lines carry the phase's status flags from the running table; their Active time follows the parallel-group rule (max, with the Σ as a labeled aside). Include `setup`, `pre-PR` (Review), and `followup` groups where they occurred, and end with a **Totals** row summing the subtotal lines. The same rendered table is re-pasted verbatim into the PR body's collapsed "Run cost" section (template below).
 
 ---
 
@@ -90,8 +71,8 @@ Pick the template matching the run's outcome.
 
 **Phases:** N of N complete
 **Acceptance criteria:** M of M met
-**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger, parallel groups counted at their max — idle-immune; add wall-clock elapsed only as a clearly-labeled "elapsed, incl. pauses" aside, never as the headline)
-**Total cost:** <sum of `subagent_tokens`> tokens across <N> sub-agents
+**Total active time:** <the Totals row's Active time — idle-immune; wall-clock elapsed only as a clearly-labeled "elapsed, incl. pauses" aside, never the headline>
+**Total cost:** <the Totals row's Tokens> across <N> sub-agents
 
 ### Outcomes
 
@@ -111,8 +92,8 @@ Pick the template matching the run's outcome.
 
 **Phases:** X of N complete
 **Acceptance criteria:** Y of M met
-**Total active time:** <h:mm:ss> (summed sub-agent `duration_ms` from the ledger, parallel groups counted at their max — idle-immune)
-**Total cost:** <sum of `subagent_tokens`> tokens across <N> sub-agents
+**Total active time:** <the Totals row's Active time — idle-immune>
+**Total cost:** <the Totals row's Tokens> across <N> sub-agents
 
 ### Completed (with active time + cost)
 
@@ -218,13 +199,13 @@ Refs #<gh_issue_number> <!-- omit this line when <gh_issue_number> is unset (sta
 
 <!-- include this section ONLY when Step 5c.5 produced surviving findings, when Step 4 item 10 carried defects to the report route, or when a plan contradiction was accepted as written (Step 3's batch or fix-cycles.md's mid-run drift — the orchestrator wrote each `(accepted as written — …)` marker itself and lists them from that record) — tag each entry with its source -->
 - <finding — `file:line`, one-line description, CONFIRMED|PLAUSIBLE> <!-- branch review (Step 5c.5) -->
-- <carried defect — `file:line`, one-line description> <!-- carried, Step 4 item 10 -->
+- <carried defect — `file:line`, one-line description> <!-- carried, Step 4 item 10: the lines of <scratch_dir>/carried-findings.md, read once with the final summary -->
 - <plan contradiction — criterion or plan text quoted, what HEAD shows, "accepted as written"> <!-- accepted as written, Step 3 -->
 
 <details>
 <summary>Run cost (per sub-agent)</summary>
 
-<!-- paste the final completion table (format above) verbatim from the Step 5 summary — same rows, subtotals, and Totals; it is already rendered from the ledger, so this is a re-paste, not a re-computation. OMIT this whole details block when the host exposed no usage metadata (the table would carry no figures). -->
+<!-- paste the `rp.sh totals` output from the Step 5 summary verbatim — a re-paste, not a re-computation. OMIT this whole details block when the host exposed no usage metadata (the table would carry no figures). -->
 
 </details>
 
@@ -243,9 +224,8 @@ The PR title is the feature name with no Conventional-Commits prefix. Per-phase 
 
 ## PR step: expected paths and failures
 
-Which failures can occur depends on the path taken (see the declaration gate in Step 5d above):
+By path (the declaration gate in Step 5d above); a declared repo whose PR appears within the poll window is the happy path handled there, not a failure:
 
-- **Declared repo, PR found — the happy path (not an error).** CI opens the PR within seconds of the push, so `gh pr list --head <branch_name>` finding one is expected. Attach the body with `gh pr edit` (provenance footer already composed into it), and apply draft/ready via `gh pr ready` / `gh pr ready --undo`. Do NOT recreate.
 - **Declared repo, no PR within the poll window.** The workflow is slow, misfiring, or Actions is backed up. **Never self-create here — the repo's instructions forbid `gh pr create`**, and an engineer-authored PR would defeat the reason the rule exists (reviewer independence). The branch is safely pushed, so hand off:
   ```
   Branch <branch_name> is pushed, but no auto-opened PR appeared within ~60s.
@@ -273,8 +253,8 @@ Step 5e above gates this (GH mode; outcome `complete`; PR submitted successfully
 
 Two exemptions override the deletions below; keep the file and say which exemption applied:
 
-- **Tracked** (`git ls-files --error-unmatch <path>` succeeds) — the file is part of the branch's committed history, whether committed by this run or tracked long before it. Removing it does not make it redundant: it leaves the tree contradicting HEAD, and a PR that adds a file the tree has deleted.
-- **Declared keep-dirty** — `<keep_dirty_pathspec>` means never staged, committed, or reverted by this run; deleting the file outright would be a stronger violation than any of those.
+- **Tracked** (`git ls-files --error-unmatch <path>` succeeds) — committed on this branch, by this run or long before it; deleting it leaves the tree contradicting HEAD.
+- **Declared keep-dirty** — `<keep_dirty_pathspec>` means never staged, committed, or reverted by this run; deleting it outright is a stronger violation than any of those.
 
 1. **Delete the plan file:** `rm <plan_file_path>` (unless exempt per above)
 2. **Delete the upstream PRD file** if it is exempt from neither rule above, exists locally, and was published to GH:
@@ -283,4 +263,4 @@ Two exemptions override the deletions below; keep the file and say which exempti
    - If any condition fails, leave it alone; on a content mismatch, say why: `PRD file kept — it carries local edits never pushed to GH issue #<N>.`
 3. **Note what was deleted and what was kept in the final summary** (e.g. `Local plan and PRD files removed — GH issues #<gh_issue_number>/#<plan_sub_issue_number> and PR are the canonical record.` — drop the `#<gh_issue_number>/` segment when no parent PRD-epic exists — or `Local plan file removed; PRD file kept (not published to GH).` / `…kept (tracked on this branch).`)
 
-Rationale: the GH issues hold the final checkbox state and the PR captures the work itself, so an untracked local copy is redundant. Re-runs that need the plan file can re-fetch from GH — Step 1b's "GH ref passed → not found → fetch" path handles that automatically.
+Rationale: the GH issues hold the final checkbox state and the PR the work, so an untracked local copy is redundant; a re-run re-fetches it (Step 1b's "GH ref passed → not found → fetch").

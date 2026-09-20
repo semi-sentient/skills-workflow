@@ -19,6 +19,13 @@ Reports, for the main agent only (sidechains are the sub-agents' own contexts):
   - Bash call count, Monitor ticks, compactions
   - peak context per assistant turn: cache_read + cache_creation + input tokens
     at the turn with the largest sum, plus the last turn's figure
+  - reference loads: each `references/<file>.md` the orchestrator opened (a Read of it,
+    or a shell segment that prints it), with the result chars each load cost — the bytes issue
+    #11 trimmed (completion-templates.md read in five slices on the 2026-09-14 run)
+  - Step 5 stretch: resident-context growth from the record carrying the last commit
+    (Skill or `git commit`) in the file to the final turn — the completion table and
+    wrap-up. A commit made after the run (a follow-up in the same session) moves the
+    start; check the record the report names before quoting the figure
 
 `peak_context_tokens` is the number the live-run target is written against
 (under 400K on a 9-phase plan; zero compactions).
@@ -36,6 +43,12 @@ from pathlib import Path
 
 AGENT_TOOLS = {"Task", "Agent"}
 RP_BRIEF = re.compile(r'rp\.sh["\']?\s+brief\b')
+# A skill reference the orchestrator opened: a Read of it, or a shell segment that prints
+# it. A path merely mentioned in a command — a heredoc writing tree-state.md that names
+# `references/completion-templates.md` — is not a load (the 2026-09-19 web run had one).
+REFERENCE_FILE = re.compile(r"references/([\w-]+\.md)\b")
+REFERENCE_READ = re.compile(r"(?:^|[|;&]\s*|&&\s*)(?:cat|less|more|head|tail|sed|awk)\b[^|;&\n]*references/([\w-]+\.md)\b", re.M)
+GIT_COMMIT = re.compile(r"\bgit\s+(?:-\S+\s+)*commit\b")
 # A hand-written brief file: `cat > x-brief.md <<EOF`, `cat <<EOF > x-brief.md`, `tee`, `printf … >`.
 HEREDOC_BRIEF = re.compile(r"(?:(?:cat|tee|printf|echo)\b[^\n|]*>{1,2}\s*['\"]?\S*brief\S*)|(?:<<-?\s*['\"]?\w+['\"]?\s*>{1,2}\s*['\"]?\S*brief\S*)")
 
@@ -80,6 +93,9 @@ def tally(path: Path) -> dict:
     compactions = 0
     assistant_turns = 0
     pending_tool: dict[str, str] = {}  # tool_use_id → tool name, to attribute results
+    pending_ref: dict[str, str] = {}  # tool_use_id → reference basename the call opened
+    ref_loads: list[tuple[str, int]] = []  # (reference basename, result chars)
+    ctx_at_last_commit = 0
 
     with path.open(encoding="utf-8") as fh:
         for line in fh:
@@ -103,9 +119,13 @@ def tally(path: Path) -> dict:
                         if not isinstance(block, dict):
                             continue
                         if block.get("type") == "tool_result":
-                            name = pending_tool.pop(block.get("tool_use_id", ""), "unknown")
+                            tid = block.get("tool_use_id", "")
+                            name = pending_tool.pop(tid, "unknown")
                             inner = block.get("content")
-                            chars[f"tool_result:{name}"] += len(inner if isinstance(inner, str) else _text_of(inner))
+                            n_chars = len(inner if isinstance(inner, str) else _text_of(inner))
+                            chars[f"tool_result:{name}"] += n_chars
+                            if tid in pending_ref:
+                                ref_loads.append((pending_ref.pop(tid), n_chars))
                         elif block.get("type") == "text":
                             text += block.get("text", "")
                 if "This session is being continued from a previous conversation" in text or rec.get("isCompactSummary"):
@@ -135,6 +155,15 @@ def tally(path: Path) -> dict:
                     tool_calls[name] += 1
                     size = len(json.dumps(inp))
                     chars[f"tool_use:{name}"] += size
+                    ref = None
+                    if name == "Read":
+                        ref = REFERENCE_FILE.search(str(inp.get("file_path", "")))
+                    elif name == "Bash":
+                        ref = REFERENCE_READ.search(str(inp.get("command", "")))
+                    if ref:
+                        pending_ref[block.get("id", "")] = ref.group(1)
+                    if ctx and (name == "Skill" or (name == "Bash" and GIT_COMMIT.search(str(inp.get("command", ""))))):
+                        ctx_at_last_commit = ctx
                     if name in AGENT_TOOLS:
                         briefs.append(len(str(inp.get("prompt", ""))))
                     elif name == "Bash":
@@ -171,7 +200,21 @@ def tally(path: Path) -> dict:
         "total_chars": total,
         "peak_context_tokens": max(turn_context) if turn_context else 0,
         "final_context_tokens": turn_context[-1] if turn_context else 0,
+        "reference_loads": {
+            "count": len(ref_loads),
+            "total_chars": sum(n for _, n in ref_loads),
+            "by_file": [{"file": f, "loads": c, "chars": n} for f, (c, n) in sorted(_by_file(ref_loads).items(), key=lambda kv: -kv[1][1])],
+        },
+        "step5_stretch_tokens": (turn_context[-1] - ctx_at_last_commit) if turn_context and ctx_at_last_commit else None,
     }
+
+
+def _by_file(loads: list[tuple[str, int]]) -> dict[str, tuple[int, int]]:
+    out: dict[str, tuple[int, int]] = {}
+    for f, n in loads:
+        c, t = out.get(f, (0, 0))
+        out[f] = (c + 1, t + n)
+    return out
 
 
 def render(t: dict) -> str:
@@ -182,6 +225,9 @@ def render(t: dict) -> str:
         f"authored briefs {t['authored_briefs']['count']} ({t['authored_briefs']['template']} template, {t['authored_briefs']['heredoc']} heredoc)"
         f"  mean {t['authored_briefs']['mean_chars']:,} chars  max {t['authored_briefs']['max_chars']:,}  total {t['authored_briefs']['total_chars']:,}",
         f"peak context {t['peak_context_tokens']:,} tokens  (final turn {t['final_context_tokens']:,})",
+        f"reference loads {t['reference_loads']['count']}  {t['reference_loads']['total_chars']:,} chars  "
+        + ", ".join(f"{r['file']} ×{r['loads']} {r['chars']:,}" for r in t["reference_loads"]["by_file"]),
+        "Step 5 stretch " + (f"{t['step5_stretch_tokens']:,} tokens (last commit → final turn)" if t["step5_stretch_tokens"] is not None else "n/a (no commit found)"),
         "",
         f"{'source':<28}{'chars':>12}{'share':>8}",
     ]
