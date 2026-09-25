@@ -136,22 +136,15 @@ Write the body to a temp file (on the `declared` path, compose it with the prove
 
 ```bash
 # Wait for the auto-opened PR (CI cold start; normally appears in 15–40s).
-num=""
-for _ in $(seq 1 30); do
-  num=$(gh pr list --head <branch_name> --state open --json number --jq '.[0].number // empty')
-  [ -n "$num" ] && break
-  sleep 2
-done
-
-if [ -n "$num" ]; then
+if num=$(bash "<scratch_dir>/rp.sh" wait "gh pr list --head <branch_name> --state open --json number --jq '.[0].number // empty'" '[0-9]+' 60 2); then
   # Attach the rich content (author stays the bot identity). --body-file replaces the
   # workflow's auto-generated body, so the file must already carry the provenance footer.
   # --base re-targets the PR if the workflow opened it against a different branch than
   # the run's <base_branch> (this is what honors a --base override on the declared path).
   gh pr edit "$num" --title "<feature_name>" --body-file <temp-pr-body.md> --base <base_branch>
 else
-  # Timeout: do NOT fall back to gh pr create — the repo forbids it.
-  # Report and hand off to the user instead (see failure handling below).
+  # Timeout ($num is the timeout line, naming the last state): do NOT fall back to
+  # gh pr create — the repo forbids it. Hand off to the user (failure handling below).
   :
 fi
 ```

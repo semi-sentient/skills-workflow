@@ -68,8 +68,9 @@
 #                    one bounded poll: run <command> (bash -c) every interval_s (default
 #                    30) until an output line matches <expected> as an anchored extended
 #                    regex — name every terminal state, e.g. 'succeeded|failed' — or
-#                    timeout_s passes; prints the final state only, never the
-#                    intermediate ones; exit 0 on a match, 1 on timeout
+#                    timeout_s passes; exit 0 printing the matching line bare (so
+#                    `x=$(rp.sh wait …)` captures it), exit 1 printing a timeout line
+#                    that names the last state; never the intermediate ones
 #   help             this text
 #
 # Plan shape: phases are `## Phase <id>` or `## Part <id>` H2 headings (id = digits plus
@@ -700,7 +701,7 @@ cmd_wait() {
     [ $rc -eq 0 ] || state="(exit $rc: $(tail -n 1 "$err" 2>/dev/null))"
     rm -f "$err"
     if printf '%s\n' "$state" | grep -Eqx -- "$want"; then
-      printf '%s (after %ss, %s poll(s))\n' "$state" "$SECONDS" "$polls"
+      printf '%s\n' "$state" | grep -Ex -- "$want" | tail -n 1
       return 0
     fi
     remaining=$((timeout - SECONDS))

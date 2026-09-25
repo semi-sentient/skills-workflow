@@ -16,7 +16,7 @@ Prompt engineer for cross-harness agent skills (Claude Code, Cursor, Roo) — Ma
 
 ## Pull Requests
 
-**Opening pull requests:** Push the branch to `origin` — any branch name works. The PR title and body are filled from your commit messages, so write them for that audience. Pushing more commits updates the open PR rather than opening a new one.
+**Opening pull requests:** Push the branch to `origin` (any branch name works), then open the PR with `gh pr create --fill`. The title and body come from your commit messages, so write them for that audience. Pushing more commits updates the open PR rather than opening a new one.
 
 ## Pre-commit Review
 

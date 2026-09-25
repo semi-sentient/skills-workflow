@@ -154,15 +154,17 @@ check "footer survives ticks" $(tail -1 .agents/plans/demo-plan.md | grep -q 'gh
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/gh" <<'GH'
 #!/usr/bin/env bash
-# stub: `gh issue view N --json body --jq .body` prints $GH_BODY_FILE; `gh issue edit N --body-file F` copies F there.
+# stub: `gh issue view N --json body --jq .body` prints $GH_BODY_FILE; `gh issue edit N --body-file F` copies F there;
+# `gh pr list …` prints nothing for its first two calls, then a PR number (counter in $GH_PR_CTR).
 case "$1 $2" in
   "issue view") cat "$GH_BODY_FILE" ;;
   "issue edit") if [ -n "${GH_FAIL:-}" ]; then echo "boom" >&2; exit 1; fi; shift 3; cp "$2" "$GH_BODY_FILE" ;;
+  "pr list") n=$(cat "$GH_PR_CTR"); echo $((n + 1)) > "$GH_PR_CTR"; if [ "$n" -ge 2 ]; then echo 57; fi ;;
   *) exit 2 ;;
 esac
 GH
 chmod +x "$WORK/bin/gh"
-export PATH="$WORK/bin:$PATH" GH_BODY_FILE="$WORK/gh-body.txt"
+export PATH="$WORK/bin:$PATH" GH_BODY_FILE="$WORK/gh-body.txt" GH_PR_CTR="$WORK/pr-ctr"
 echo "amend / add-criterion (issue #13)"
 # Plan state here: Phase 1 C1 [x], C2 [x] (wrapped), C3 [ ]; Phase 6A C1 [x]; three [x] in all.
 check "the plan carries no (C<k>) labels — a label regex over the plan is the 2026-09-14 failure" $(grep -q '(C2)' .agents/plans/demo-plan.md && echo 1 || echo 0) ""
@@ -485,16 +487,16 @@ echo "wait"
 printf '0' > "$WORK/ctr"
 out="$(bash "$RPS" wait "n=\$(cat '$WORK/ctr'); echo \$((n+1)) > '$WORK/ctr'; if [ \$n -ge 2 ]; then echo succeeded; else echo pending; fi" 'succeeded' 10 1 2>"$WORK/err.txt")"; rc=$?
 check "wait polls until the state matches and exits 0" $rc "$(cat "$WORK/err.txt")"
-check "wait prints the final state only, once" $(printf '%s\n' "$out" | grep -Eqx 'succeeded \(after [0-9]+s, 3 poll\(s\)\)' && [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] && echo 0 || echo 1) "$out"
+eq "wait prints the matching line bare, once" "succeeded" "$out"
 out="$(bash "$RPS" wait 'echo pending' 'succeeded' 2 1 2>"$WORK/err.txt")"; rc=$?
 check "wait times out with exit 1" $([ $rc -eq 1 ] && echo 0 || echo 1) "rc=$rc $(cat "$WORK/err.txt")"
 check "wait's timeout line names the last state" $(printf '%s\n' "$out" | grep -Eqx 'timeout after [0-9]+s \([0-9]+ poll\(s\)\) — last state: pending' && echo 0 || echo 1) "$out"
 out="$(bash "$RPS" wait 'echo failed' 'succeeded|failed' 5 1)"; rc=$?
-check "wait ends on any named terminal state (alternation)" $([ $rc -eq 0 ] && printf '%s' "$out" | grep -q '^failed (after' && echo 0 || echo 1) "rc=$rc $out"
+check "wait ends on any named terminal state (alternation)" $([ $rc -eq 0 ] && [ "$out" = failed ] && echo 0 || echo 1) "rc=$rc $out"
 out="$(bash "$RPS" wait "printf 'InService\r\n'" 'InService' 5 1)"; rc=$?
-check "wait matches a CRLF-terminated state" $([ $rc -eq 0 ] && printf '%s' "$out" | grep -q '^InService (after' && echo 0 || echo 1) "rc=$rc $out"
+check "wait matches a CRLF-terminated state" $([ $rc -eq 0 ] && [ "$out" = InService ] && echo 0 || echo 1) "rc=$rc $out"
 out="$(bash "$RPS" wait "printf 'a\nsucceeded\n\n'" 'succeeded' 5 1)"; rc=$?
-check "wait matches any output line, ignoring trailing blank lines" $([ $rc -eq 0 ] && echo 0 || echo 1) "rc=$rc $out"
+check "wait matches any output line, ignoring trailing blank lines" $([ $rc -eq 0 ] && [ "$out" = succeeded ] && echo 0 || echo 1) "rc=$rc $out"
 out="$(bash "$RPS" wait 'echo boom >&2; exit 3' 'succeeded' 1 1)"; rc=$?
 check "wait reports a failing command as a state, not a crash" $([ $rc -eq 1 ] && printf '%s' "$out" | grep -Fq 'last state: (exit 3: boom)' && echo 0 || echo 1) "rc=$rc $out"
 out="$(bash "$RPS" wait 'exit 3' '\(exit 3: \)' 5 1)"; rc=$?
@@ -505,6 +507,10 @@ bash "$RPS" wait 'echo x' 'x' 5 0 2>"$WORK/err.txt"; rc=$?
 check "wait rejects a zero interval" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
 bash "$RPS" wait 'echo x' 2>"$WORK/err.txt"; rc=$?
 check "wait requires a timeout" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
+printf '0' > "$GH_PR_CTR"   # the command is completion-templates.md's own Step 5d call, so its quoting is under test too
+pr_cmd="$(sed -n 's|.*rp\.sh" wait "\(gh pr list[^"]*\)".*|\1|p' "$SKILL/references/completion-templates.md" | sed 's|<branch_name>|plan/demo|')"
+out="$(bash "$RPS" wait "${pr_cmd:?Step 5d wait call not found}" '[0-9]+' 10 1 2>"$WORK/err.txt")"; rc=$?
+check "wait on the declared-PR poll captures the number bare after two empty answers" $([ $rc -eq 0 ] && [ "$out" = 57 ] && [ "$(cat "$GH_PR_CTR")" = 3 ] && echo 0 || echo 1) "rc=$rc out=$out polls=$(cat "$GH_PR_CTR") $(cat "$WORK/err.txt")"
 check "wait leaves no stderr scratch file behind" $(! ls "$SCRATCH"/.wait-stderr.* >/dev/null 2>&1 && echo 0 || echo 1) "$(ls "$SCRATCH"/.wait-stderr.* 2>/dev/null)"
 
 echo "sync / drift / pull (stubbed gh)"
