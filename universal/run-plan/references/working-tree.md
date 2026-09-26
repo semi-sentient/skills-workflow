@@ -1,6 +1,6 @@
 # Dirty-tree triage (SKILL.md Step 1e.2a → 1e.4)
 
-Read this when SKILL.md Step 1e.2a routes here: dirt remains that neither the keep-dirty reload nor the interrupted-phase test explained. A clean-tree run never needs it.
+Read this when SKILL.md Step 1e.2 (a dirty tree with no prior record and no checked criterion) or branch-and-resume.md's Step 1e.2a routes here: dirt remains that neither the keep-dirty reload nor the interrupted-phase test explained. A clean-tree run never needs it.
 
 Uncommitted changes at run start are not all the same thing. Some are the work's **input**: domain docs, ADRs, a design note — produced by the planning that informs the plan, reaching the run uncommitted by construction. They belong in their own commit ahead of Phase 1, because folding them into a phase commit misattributes them. Everything else must simply be left alone. The orchestrator cannot tell which is which by looking — the same path is an input in one repo and drift in the next — so it asks.
 
@@ -52,11 +52,15 @@ Present the numbered list exactly once and keep those numbers fixed for the whol
 
 **Named paths** → `<precommit_pathspec>`. Do not stage them here; Step 1e.4 commits them once the branch is settled.
 
-**Everything else** → keep-dirty, per branch-and-resume.md's Keep-dirty paths rule. Tell the user one consequence, because it lasts the whole run and is not obvious: these paths are excluded from every phase commit, so if a phase modifies one, that work is left uncommitted in the file alongside their own edits and never reaches the PR.
+**Everything else** → keep-dirty, per Keep-dirty paths below. Tell the user one consequence, because it lasts the whole run and is not obvious: these paths are excluded from every phase commit, so if a phase modifies one, that work is left uncommitted in the file alongside their own edits and never reaches the PR.
 
 **If a keep-dirty path is already staged** (porcelain column 1 non-blank and not `?`), `':(exclude)'` cannot evict it from the index, so run `git restore --staged -- <path>` (both paths of a rename) and say so: `Unstaged <path> so it stays out of phase commits — its contents are unchanged.` This never alters file content. If the path was only partially staged, add: `a partial staging selection was reset.`
 
 **Write the record durably.** Update `<scratch_dir>/tree-state.md` now: one `keep-dirty: <path>` line per keep-dirty path, one `input: <path>` line per named input — replace existing lines rather than duplicating, paths unquoted, a rename contributing two lines (one per path). SKILL.md Step 1e.2 reloads this file on every later run, and `rp.sh stage` / `rp.sh delta` read its `keep-dirty:` lines at every call — the file is the authority; nothing in working memory is.
+
+## Keep-dirty paths
+
+Files that must stay modified in the working tree but never be committed (a common shape: running a plan while iterating on the harness or steering docs themselves, or carrying local-only config edits). Step 1e.2a's triage is what records them in `tree-state.md` as `keep-dirty: <path>` lines. Four consequences for the rest of the run: (1) their `git status` entries are expected dirt — disregard them in every dirty-tree evaluation in Step 1e.2, and never revert or delete them in branch-and-resume.md's interrupted-phase discard path; (2) every staging in this skill is `rp.sh stage`, and every post-verdict delta is `rp.sh delta` / `rp.sh baselines` — each reads the `keep-dirty:` entries from `tree-state.md` at the moment it runs and passes each as its own `:(exclude)` argument, so these paths can never reach a phase commit or a reviewer's staged diff, and a compacted context cannot lose them (the file is the authority, never memory); (3) SKILL.md Step 3's write-scope check uses its snapshot-and-compare form, since the tree is legitimately dirty from run start; (4) any agent brief whose File Manifest includes a keep-dirty path must say the file carries the user's uncommitted edits — edit surgically, never rewrite wholesale (the `KEEP_DIRTY_NOTE` in `run-conventions.md` names the paths; the brief's `DELTAS` slot carries the per-file note).
 
 ## Checkout with declared dirt (SKILL.md Step 1e.3)
 

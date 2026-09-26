@@ -1,0 +1,10 @@
+{
+  "skill": "run-plan",
+  "mode": "dialogue",
+  "companions": ["commit"],
+  "description": "run-plan's dirty-tree fast path (issue #21): a first run whose only dirt is the operator's own uncommitted edits reads working-tree.md alone at Step 1e.2 — never branch-and-resume.md — records both paths as keep-dirty unquoted, leaves them untouched, and keeps the bootstrap stretch (first turn → end, just past the Step 2 gate) under 17K. Proves the routing, not live token numbers.",
+  "args": ".agents/plans/shift-board-plan.md --no-github",
+  "max_turns": 4,
+  "call_timeout_s": 1200,
+  "timeout_s": 2400
+}

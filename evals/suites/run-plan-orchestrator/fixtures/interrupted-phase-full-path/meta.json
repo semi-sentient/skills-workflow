@@ -1,0 +1,10 @@
+{
+  "skill": "run-plan",
+  "mode": "dialogue",
+  "companions": ["commit"],
+  "description": "run-plan's full Step 1e.2 path still fires beside the #21 fast path: a dirty tree whose plan carries ticks that outran their commit loads branch-and-resume.md, un-checks the phantom ticks, and lists the partial work in the discard / keep / abort prompt; on abort nothing is reverted, deleted, or committed",
+  "args": ".agents/plans/shift-board-plan.md --no-github",
+  "max_turns": 4,
+  "call_timeout_s": 1200,
+  "timeout_s": 2400
+}
