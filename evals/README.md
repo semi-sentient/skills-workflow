@@ -322,7 +322,7 @@ never prints, and an uncountable per-station claim with no station set defined �
 every one a defensible flag. The Criteria verifiability item catches exactly the
 class of defect its own eval author kept writing.
 
-### `run-plan-orchestrator` — 3 dialogue fixtures, ~135 assertions, ~$40, ~2h
+### `run-plan-orchestrator` — 5 dialogue fixtures, ~170 assertions, ~$43, ~2h
 
 The one suite that runs `run-plan` itself. **`two-phase-node`**: a two-phase Node plan (the rate-band
 module, then a board renderer that must reuse it) in a fresh local-only repo; the
@@ -445,6 +445,29 @@ fixes: a heredoc memo that *mentions* `rp.sh add-criterion` is not a call (`_exe
 heredoc bodies before any command regex), and "ticked labels unchanged" is graded as each
 original criterion keeping its position and identifier, with any reworded text carrying a
 suffix from the table — not as byte identity.
+
+**`keep-dirty-fast-path`** and **`interrupted-phase-full-path`** are the fourth and fifth
+fixtures, for issue #21. Both reuse `two-phase-node`'s repo (their `setup.sh` runs its
+`setup.sh`, then adds the dirt) and stop at or before Step 2, so each is a few turns. The
+fast path is a first run, with no `tree-state.md` and no ticks. Its only dirt is the operator's own edits:
+a modified `AGENTS.md` and an untracked `notes/design draft.md`. The scripted user answers
+`none` to the triage. Graded: `working-tree.md` read, `branch-and-resume.md` and
+`human-gate.md` never read, both paths recorded unquoted as `keep-dirty:` and left
+untouched, no commit, and the bootstrap stretch (first turn → end) under 17K. Both the
+reference-load assertion and the ceiling tell the old routing from the new, but this tiny
+repo cannot reproduce live bootstrap numbers — only the mechanism. The full-path fixture guards the other direction: Phase 1's six criteria
+are ticked in the working tree, but no commit on `plan/shift-board` carries them. There is
+partial `src/bands.js` and no `tree-state.md`, so only the checked criteria can route the run.
+Graded: `branch-and-resume.md` read (before any `working-tree.md`), `rp.sh untick` run and
+the plan back to zero ticks, and the discard / keep / abort prompt listing `src/bands.js`
+before any triage question. After the scripted `abort`: the partial work byte-identical,
+no commit, no reset / stash / revert, and no sub-agent.
+
+First run (2026-09-25, the #21 branch, `--compare main --reps 3`, $12.02 for 12 runs):
+`main` failed "branch-and-resume.md never read" on all 3 reps and the fast path on none. The bootstrap stretch was 19,084 / 19,373 / 19,111 tokens on `main` and 15,373 / 14,729 /
+15,854 on the fast path, about 3.9K (20%) less. The 17K ceiling was set from these runs; the first
+draft's 15K was a guess that one fast-path rep passed. The full-path fixture passed all 12 assertions on
+every rep in both arms, as intended: it guards against a fast-path condition that is too broad, and does not flip.
 
 ### Dialogue fixtures — grading an interview
 
