@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 185 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 190 assertions, no model
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
@@ -171,7 +171,7 @@ project-invented (`deliver`, `repair`, `tidy`) and hidden in a `package.json`
 key, so no amount of good instinct produces them — the assertion measures whether
 the config was actually read rather than whether the message reads well.
 
-### `run-plan-review` — 6 fixtures, ~170 assertions at 3 reps, ~$5.50, ~3min
+### `run-plan-review` — 7 fixtures, ~210 assertions at 3 reps, ~$6.20, ~3min
 
 A reconstruction of the July 2026 benchmark, which tested `run-plan`'s Review
 gate across paired `clean`/`seeded` worktrees and got 12/12 recall with 12/12
@@ -199,6 +199,16 @@ breaks, decided from the defect before looking at any run output. Writing it dow
 is also what forces each criterion to be unambiguous: an earlier draft put a
 band's upper boundary in a second criterion, so one defect broke two criteria and
 "correct" was not well defined.
+
+**`bands-command-spec`** (issue #24) is the clean bands code plus one criterion only
+running a command decides: `node scripts/check-bands.js` exits 0. The reviewer never runs
+commands, so the verdict owed is `NEEDS_RUNTIME`; sitevue.infrastructure #300's reviewer
+marked that shape MET from a static read. First run (2026-10-01, `--compare HEAD --reps 3`):
+HEAD returned MET on 2 of 3 reps, the worktree `NEEDS_RUNTIME` on 3 of 3. That run also
+showed the shared bands C3, "a rate of 0 is always `red`", is literally false at
+`target <= 0` for the clean code, and current reviewers say so (the July baseline's did
+not), so this fixture scopes C3 to a positive target; the other bands fixtures still carry
+the unscoped text.
 
 #### The brief is composed from the skill, not stored
 
@@ -322,7 +332,7 @@ never prints, and an uncountable per-station claim with no station set defined �
 every one a defensible flag. The Criteria verifiability item catches exactly the
 class of defect its own eval author kept writing.
 
-### `run-plan-orchestrator` — 5 dialogue fixtures, ~170 assertions, ~$43, ~2h
+### `run-plan-orchestrator` — 6 dialogue fixtures, ~185 assertions (cost and time last measured at 5: ~$43, ~2h)
 
 The one suite that runs `run-plan` itself. **`two-phase-node`**: a two-phase Node plan (the rate-band
 module, then a board renderer that must reuse it) in a fresh local-only repo; the
@@ -468,6 +478,21 @@ First run (2026-09-25, the #21 branch, `--compare main --reps 3`, $12.02 for 12 
 15,854 on the fast path, about 3.9K (20%) less. The 17K ceiling was set from these runs; the first
 draft's 15K was a guess that one fast-path rep passed. The full-path fixture passed all 12 assertions on
 every rep in both arms, as intended: it guards against a fast-path condition that is too broad, and does not flip.
+
+**`hook-debug-commit`** is the sixth fixture, for issue #24: a one-phase Node plan whose
+commit a `.git/hooks/pre-commit` rejects — every staged `src/*.js` must open with an SPDX
+line, and nothing the Code agent reads says so (no existing file carries the line, and no
+criterion names a command, so Step 3's hook question never fires). The fast-path `git commit -F` fails, the hook-fix Debug agent adds
+the header, and the message file its code change made stale must be deleted and the commit
+routed through the `commit` skill, never a hand-written `git commit -F` of it — the
+shortcut sitevue.web #397 took. Graded: a Debug spawn, `rp.sh cleanup` after it, no
+`git commit -F` of the message file after it, `rp.sh cleanup` before the post-Debug re-review, a `Skill(commit)` unless a
+later Code fix cycle re-authored the message, the header in the landed commit; when the latest C5 verdict is
+NEEDS-RUNTIME, the kiosk-timing criterion carried as `NEEDS-RUNTIME C5` after the commit; and every
+spawn following the call that wrote its brief, never in its parallel batch (#397's
+reviewer read a brief that did not exist yet). The hook-verified NEEDS-RUNTIME exception is
+deliberately not exercised: a criterion naming the hook's command would send Step 3 to read
+the hook, and the Code agent would learn the header rule the fixture depends on it missing.
 
 ### Dialogue fixtures — grading an interview
 

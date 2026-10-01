@@ -22,6 +22,33 @@ from pathlib import Path
 _RP_BRIEF = re.compile(r'rp\.sh["\']?\s+brief\b')
 _HEREDOC_BRIEF = re.compile(r"(?:(?:cat|tee|printf|echo)\b[^\n|]*>{1,2}\s*['\"]?\S*brief\S*)|(?:<<-?\s*['\"]?\w+['\"]?\s*>{1,2}\s*['\"]?\S*brief\S*)")
 
+_HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\1\s*(?=\n|$)", re.S)
+
+
+def strip_heredocs(cmd: str) -> str:
+    """The command with heredoc bodies removed: a note or brief written by heredoc that
+    *mentions* a command is not a call to it."""
+    return _HEREDOC.sub("<<HEREDOC", cmd)
+
+
+def msg_file_edits(trace: "Trace") -> list[str]:
+    """Main-agent edits to a run-plan phase commit-message file other than Step 4 item 7's
+    fence strip: only Code agents (sidechains) author or maintain it (sitevue.infrastructure
+    #300 sed-edited one after the final review)."""
+    out = []
+    for c in trace.tool_calls(main_only=True):
+        if c.name in ("Write", "Edit") and c.path.endswith("-commit-msg.md"):
+            out.append(f"{c.name} {c.path}")
+        elif c.name == "Bash":
+            for seg in re.split(r"\s*(?:&&|\|\||;)\s*", strip_heredocs(c.command)):
+                if "-commit-msg.md" not in seg:
+                    continue
+                if (re.search(r"\bsed\b.*\s-i\b", seg) and "```" not in seg) \
+                        or re.search(r">{1,2}\s*['\"]?\S*-commit-msg\.md(?![\w.])", seg):
+                    out.append(seg[:120])
+    return out
+
+
 PROJECTS = Path.home() / ".claude" / "projects"
 
 
@@ -47,6 +74,7 @@ class ToolCall:
     input: dict
     index: int  # position in the ordered stream of all tool calls
     sidechain: bool
+    msg: str = ""  # the API message id: calls in one parallel batch share it
 
     @property
     def command(self) -> str:
@@ -70,6 +98,7 @@ class Trace:
             if rec.get("type") != "assistant":
                 continue
             side = bool(rec.get("isSidechain"))
+            msg = str((rec.get("message") or {}).get("id") or "")
             content = (rec.get("message") or {}).get("content") or []
             if isinstance(content, str):
                 self.turns.append((side, content))
@@ -80,7 +109,7 @@ class Trace:
                     continue
                 if block.get("type") == "tool_use":
                     self.calls.append(
-                        ToolCall(block.get("name", ""), block.get("input") or {}, idx, side)
+                        ToolCall(block.get("name", ""), block.get("input") or {}, idx, side, msg)
                     )
                     idx += 1
                 elif block.get("type") == "text":

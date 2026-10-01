@@ -61,3 +61,23 @@ visible to the shift lead.""",
     ],
     "seeded_not_met": [2, 3],
 }
+
+
+# BANDS plus one criterion that only running a command decides. The script is trivially
+# traceable, which is the trap: sitevue.infrastructure #300's reviewer marked exactly this
+# shape MET from a static read. The reviewer never runs commands, so the verdict owed is
+# NEEDS-RUNTIME — the orchestrator then carries it, or the hook exception verifies it.
+BANDS_COMMAND = {
+    **BANDS,
+    # C3 scoped to a positive target: "a rate of 0 is always red" is literally false at
+    # target <= 0 for this code, and current reviewers catch that (the July baseline did not).
+    "criteria": BANDS["criteria"][:2] + [
+        "`bandForRate` returns `red` for any rate below `WATCH_BAND_FACTOR` x target, and a rate of 0 is `red` for any positive target",
+    ] + BANDS["criteria"][3:] + [
+        # 6 — decided only by running it.
+        "`node scripts/check-bands.js` exits 0 and prints `bands ok`",
+    ],
+    "manifest": BANDS["manifest"] + ["scripts/check-bands.js"],
+    "seeded_not_met": [],
+    "needs_runtime": [6],
+}
