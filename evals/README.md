@@ -480,19 +480,31 @@ draft's 15K was a guess that one fast-path rep passed. The full-path fixture pas
 every rep in both arms, as intended: it guards against a fast-path condition that is too broad, and does not flip.
 
 **`hook-debug-commit`** is the sixth fixture, for issue #24: a one-phase Node plan whose
-commit a `.git/hooks/pre-commit` rejects — every staged `src/*.js` must open with an SPDX
-line, and nothing the Code agent reads says so (no existing file carries the line, and no
-criterion names a command, so Step 3's hook question never fires). The fast-path `git commit -F` fails, the hook-fix Debug agent adds
-the header, and the message file its code change made stale must be deleted and the commit
-routed through the `commit` skill, never a hand-written `git commit -F` of it — the
-shortcut sitevue.web #397 took. Graded: a Debug spawn, `rp.sh cleanup` after it, no
-`git commit -F` of the message file after it, `rp.sh cleanup` before the post-Debug re-review, a `Skill(commit)` unless a
-later Code fix cycle re-authored the message, the header in the landed commit; when the latest C5 verdict is
-NEEDS-RUNTIME, the kiosk-timing criterion carried as `NEEDS-RUNTIME C5` after the commit; and every
-spawn following the call that wrote its brief, never in its parallel batch (#397's
-reviewer read a brief that did not exist yet). The hook-verified NEEDS-RUNTIME exception is
-deliberately not exercised: a criterion naming the hook's command would send Step 3 to read
-the hook, and the Code agent would learn the header rule the fixture depends on it missing.
+first commit a `.git/hooks/pre-commit` always rejects. Every staged `src/*.js` must open with
+`// plan-stamp: <hash>`, the hash of the plan file as staged in that same commit. Research may
+read the hook, but the hash changes when Step 4 item 6 ticks the plan just before the commit, so
+an agent can pre-stamp only by predicting those ticks; the rejection prints the exact line required. The
+fast-path `git commit -F` fails, the hook-fix Debug agent adds the line, and the message file
+its change made stale must be deleted and the commit routed through the `commit` skill, never
+a hand-written `git commit -F` of it — the shortcut sitevue.web #397 took. Graded: a Debug
+spawn, no `git commit -F` of the message file after it, `rp.sh cleanup` before the post-Debug
+re-review, a fresh Review before the commit, a `Skill(commit)` unless a later Code fix cycle
+re-authored the message, the stamp in the landed commit, no orchestrator edit of a message file,
+no `--no-verify`; when the latest C5 verdict is NEEDS-RUNTIME, the kiosk-timing criterion
+carried as `NEEDS-RUNTIME C5` after the commit; and every spawn following the call that wrote
+its brief, never in its parallel batch (#397's reviewer read a brief that did not exist yet).
+The §3 and §4 checks run whether or not the rejection was forced.
+
+First run (2026-10-01, `--reps 1`, $4.69) used an earlier hook that required a fixed SPDX
+header: Step 3's new hook question sent research to read it, the Code agent added the header,
+and nothing was rejected. That rep still proved the carry: C5 came back NEEDS-RUNTIME and was
+carried after the commit. The plan-stamp hook replaces the readable rule. Second run (same day, plan-stamp hook, $12.15):
+14/14 — the rejection was forced and the whole §1 route ran (Debug → `rp.sh cleanup` → scoped
+re-review → `Skill(commit)`, no `-F` of the stale file). The carry went unexercised: in the Step 3
+batch the orchestrator offered C5 "as written, as a human gate" and, on `proceed as written`,
+rewrote it to human form, so the reviewer returned HUMAN-GATE and the run ended `partial` at the
+gate. The hook-verified NEEDS-RUNTIME exception is not exercised here; it would need a criterion
+that is the hook's own command.
 
 ### Dialogue fixtures — grading an interview
 

@@ -79,8 +79,8 @@ plus the declared-path validation in a production repo.
 | Step 4 item 10 — pre-authorized cleanup folded into a later phase, named in both that phase's briefs | — | **cold** (branch added 2026-08-16; the unsanctioned form read as scope creep in run #285) |
 | Step 4.7 — fast-path fence strip | — | **cold** (guard added 2026-08-07; the unguarded failure it prevents occurred in production) |
 | Step 4.7 — fast path = message file exists; a fix-cycle agent's "left" keeps it (comment-only reuse and its re-check removed) | production run | replaced 2026-09-28 (#24: sitevue.web #397 committed a "left" file after code-changing corrective passes, ×2 — now the rule) |
-| Step 4 item 4 — Debug code fix → `rp.sh cleanup <n>` deletes the message file; the commit takes the fallback | fixture `hook-debug-commit` | **cold** live (branch added 2026-09-28, #24) |
-| Step 4 item 7 — NEEDS-RUNTIME carried via `rp.sh carry` to the caveats and Test plan | fixture `hook-debug-commit` | **cold** live (branch added 2026-09-28; #397 carried none of 8) |
+| Step 4 item 4 — Debug code fix → `rp.sh cleanup <n>` deletes the message file; the commit takes the fallback | fixture `hook-debug-commit` | exercised 2026-10-01 (fixture rep 2: hook → Debug → cleanup → scoped re-review → `Skill(commit)`) |
+| Step 4 item 7 — NEEDS-RUNTIME carried via `rp.sh carry` to the caveats and Test plan | fixture `hook-debug-commit` | exercised 2026-10-01 (fixture rep 1: C5 NEEDS-RUNTIME carried after the commit; #397 carried none of 8) |
 | Step 4 item 5 — NEEDS-RUNTIME hook-verified exception (Step 3 found the hook runs the command and is active in this clone, commit landed) | — | **cold** (branch added 2026-09-28, #24) |
 | Review brief — a command-decided criterion is NEEDS-RUNTIME, never a static-trace MET | fixture `run-plan-review/bands-command-spec` | exercised 2026-10-01 (HEAD 1/3 → worktree 3/3; #300 Phase 2 C6 was the live miss) |
 | Step 4 item 7 — the orchestrator never edits a phase message file (fence strip aside) | assertion in `two-phase-node`, `hook-debug-commit` | **cold** — guards only; no fixture forces a finding against the message (#300 Phase 3 was the live miss) |
@@ -108,7 +108,7 @@ plus the declared-path validation in a production repo.
 | Step 4 opening — subsumed phase via the user's own between-runs commit (no sha on record) | — | **cold** (branch added 2026-08-19) |
 | Step 5e — promote-as-is resolves the finding for the deletion gate | — | **cold** (branch added 2026-08-19) |
 | Step 5e — user-requested `--draft` with no unresolved finding still deletes | — | **cold** (branch added 2026-08-19) |
-| Step 4.7 — pre-commit hook failure → Debug | fixture `hook-debug-commit` | **cold** live (fixture added 2026-09-30, #24) |
+| Step 4.7 — pre-commit hook failure → Debug | fixture `hook-debug-commit` | exercised 2026-10-01 (fixture rep 2) |
 | Step 5d — declared: poll + `gh pr edit` | production run | exercised |
 | Step 5d — declared: poll timeout, report-and-wait | — | **cold** |
 | Step 5d — silent: `gh pr create` | burn-in full run | exercised |

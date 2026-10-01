@@ -10,7 +10,6 @@ from harness.trace import _HEREDOC_BRIEF, _RP_BRIEF, msg_file_edits, strip_hered
 
 PLAN = ".agents/plans/shift-bands-plan.md"
 SCRATCH = ".agents/scratch/run-plan/shift-bands"
-SPDX = "// SPDX-License-Identifier: MIT"
 
 # `-C <dir>` takes an argument; the `[^-\s]` keeps the repetition unambiguous (no ReDoS).
 _COMMIT = re.compile(r"\bgit\s+(?:(?:-[cC]\s+[^-\s]\S*|-\S+)\s+)*commit\b")
@@ -34,8 +33,9 @@ def check(ctx, expect):
                 f"stop: {dlg.stop_reason if dlg else None}")
     expect.equals("work branch created", ctx.sh("git branch --show-current"), "plan/shift-bands")
     expect.equals("one phase commit on the branch", ctx.sh("git rev-list --count main..HEAD").strip(), "1")
-    expect.equals("the committed bands.js carries the header the hook requires",
-                  ctx.sh("git show HEAD:src/bands.js 2>/dev/null | head -n 1"), SPDX)
+    stamp = "// plan-stamp: " + ctx.sh(f"git show HEAD:{PLAN} | git hash-object --stdin | cut -c1-8")
+    expect.equals("the committed bands.js carries the stamp the hook requires",
+                  ctx.sh("git show HEAD:src/bands.js 2>/dev/null | head -n 1"), stamp)
     expect.that("no --no-verify", not any("--no-verify" in _exec(c) for c in main_bash), "")
     edits = msg_file_edits(tr)
     expect.that("orchestrator never edited a commit-message file (fence strip aside)", not edits, f"{edits[:2]}")
@@ -47,43 +47,41 @@ def check(ctx, expect):
     first_commit = next((c.index for c in bash if _COMMIT.search(_exec(c.command))), None)
     debug_idx = [c.index for c in agents if re.search(r"\bDebug\b", str(c.input.get("prompt", "")))
                  and first_commit is not None and c.index > first_commit]
-    # A rep where an agent learned the header rule (research read the hook) never rejects:
-    # it fails here, labelled as the fixture's precondition, not as orchestrator conduct.
-    expect.info("hook never rejected (unforced rep)", first_commit is not None and not debug_idx
-                and ctx.sh("git show HEAD:src/bands.js 2>/dev/null | head -n 1") == SPDX)
+    # The stamp hashes the plan as ticked at commit time, so the first attempt cannot pass;
+    # a failure here means the run never reached a commit, or fixed the rejection without Debug.
     expect.that("fixture precondition: the hook rejected a commit and a Debug agent was spawned for it",
                 bool(debug_idx), f"{len(agents)} spawns, first commit at {first_commit}")
-    if not debug_idx:
-        return
-    d = debug_idx[0]
-    expect.info("git commit attempts before the Debug spawn", sum(1 for c in bash if c.index < d and _COMMIT.search(_exec(c.command))))
-    # A later Code fix cycle (a corrective pass the post-Debug re-review drew) legitimately
-    # re-authors the message file, after which the fast path is correct again: the window
-    # under test closes at the next Code spawn.
-    end = next((c.index for c in agents if c.index > d and re.search(r"\bCode agent for\b|brief-code", str(c.input.get("prompt", "")))), float("inf"))
-    expect.info("a Code fix cycle followed the Debug fix (window closes there)", end != float("inf"))
-    after = [c for c in bash if d < c.index < end]
-    skills = [c.index for c in tr.tool_calls("Skill", main_only=True)
-              if d < c.index < end and str(c.input.get("skill", "")).split(":")[-1] == "commit"]
-    cleanups = [c.index for c in after if re.search(r"rp\.sh['\"]?\s+cleanup\b", _exec(c.command))]
-    # Only a Code agent (a sidechain, which closes the window) may re-author the file; an
-    # orchestrator write of it before a -F is a hand-written commit, so no exemption here.
-    stale = [c.command for c in after if _COMMIT.search(_exec(c.command)) and _STALE_F.search(_exec(c.command))]
-    expect.that("no git commit -F of the message file after the Debug fix", not stale, f"{stale[:2]}")
-    # Step 4 item 4's cleanup is "that turn": before the post-Debug re-review, so neither a retry's
-    # default-revert cleanup nor item 7's post-commit one can stand in for it
-    review_after = next((c.index for c in agents if c.index > d and re.search(r"\bReview\b", str(c.input.get("prompt", "")))), end)
-    first_post = min([k for k in skills] + [c.index for c in after if _COMMIT.search(_exec(c.command))], default=float("inf"))
-    expect.that("a fresh Review followed the Debug fix before the commit (Step 4 item 5's invariant)",
-                review_after != end and review_after < first_post, f"re-review at {review_after}, commit at {first_post}")
-    expect.that("rp.sh cleanup ran after the Debug fix, before the re-review",
-                any(k < review_after for k in cleanups), f"cleanups {cleanups[:3]}, re-review at {review_after}")
-    if end == float("inf"):
-        expect.that("the commit skill ran after the Debug fix", bool(skills), "")
-    else:  # the later Code agent re-authored the file; the fast path is then correct
-        expect.info("commit skill calls between the Debug fix and the next Code spawn", len(skills))
-    expect.info("git commit -F through a variable after the Debug fix (unprovable, inspect by hand)",
-                [c.command[:120] for c in after if _COMMIT.search(_exec(c.command)) and re.search(r"\s-[a-zA-Z]*F\s*[\"']?\$", c.command)])
+    # Without the forced rejection the §1 checks have nothing to grade; §3 and §4 still do.
+    d = debug_idx[0] if debug_idx else -1
+    if debug_idx:
+        expect.info("git commit attempts before the Debug spawn", sum(1 for c in bash if c.index < d and _COMMIT.search(_exec(c.command))))
+        # A later Code fix cycle (a corrective pass the post-Debug re-review drew) legitimately
+        # re-authors the message file, after which the fast path is correct again: the window
+        # under test closes at the next Code spawn.
+        end = next((c.index for c in agents if c.index > d and re.search(r"\bCode agent for\b|brief-code", str(c.input.get("prompt", "")))), float("inf"))
+        expect.info("a Code fix cycle followed the Debug fix (window closes there)", end != float("inf"))
+        after = [c for c in bash if d < c.index < end]
+        skills = [c.index for c in tr.tool_calls("Skill", main_only=True)
+                  if d < c.index < end and str(c.input.get("skill", "")).split(":")[-1] == "commit"]
+        cleanups = [c.index for c in after if re.search(r"rp\.sh['\"]?\s+cleanup\b", _exec(c.command))]
+        # Only a Code agent (a sidechain, which closes the window) may re-author the file; an
+        # orchestrator write of it before a -F is a hand-written commit, so no exemption here.
+        stale = [c.command for c in after if _COMMIT.search(_exec(c.command)) and _STALE_F.search(_exec(c.command))]
+        expect.that("no git commit -F of the message file after the Debug fix", not stale, f"{stale[:2]}")
+        # Step 4 item 4's cleanup is "that turn": before the post-Debug re-review, so neither a retry's
+        # default-revert cleanup nor item 7's post-commit one can stand in for it
+        review_after = next((c.index for c in agents if c.index > d and re.search(r"\bReview\b", str(c.input.get("prompt", "")))), end)
+        first_post = min([k for k in skills] + [c.index for c in after if _COMMIT.search(_exec(c.command))], default=float("inf"))
+        expect.that("a fresh Review followed the Debug fix before the commit (Step 4 item 5's invariant)",
+                    review_after != end and review_after < first_post, f"re-review at {review_after}, commit at {first_post}")
+        expect.that("rp.sh cleanup ran after the Debug fix, before the re-review",
+                    any(k < review_after for k in cleanups), f"cleanups {cleanups[:3]}, re-review at {review_after}")
+        if end == float("inf"):
+            expect.that("the commit skill ran after the Debug fix", bool(skills), "")
+        else:  # the later Code agent re-authored the file; the fast path is then correct
+            expect.info("commit skill calls between the Debug fix and the next Code spawn", len(skills))
+        expect.info("git commit -F through a variable after the Debug fix (unprovable, inspect by hand)",
+                    [c.command[:120] for c in after if _COMMIT.search(_exec(c.command)) and re.search(r"\s-[a-zA-Z]*F\s*[\"']?\$", c.command)])
 
     # --- issue §3: NEEDS-RUNTIME is carried through rp.sh carry — when the last review said so
     carried = ctx.read(f"{SCRATCH}/carried-findings.md") if ctx.exists(f"{SCRATCH}/carried-findings.md") else ""
@@ -96,10 +94,11 @@ def check(ctx, expect):
     if verdict and re.fullmatch(r"NEEDS[-_ ]RUNTIME", verdict.group(1)):
         expect.that("the timing criterion was carried as NEEDS-RUNTIME", bool(re.search(r"NEEDS-RUNTIME C5\b", carried)),
                     carried[:200] or "no carried-findings.md")
+        # after the commit that landed: past the hook-fix Debug when one ran
         landed = min([c.index for c in tr.tool_calls("Skill", main_only=True)
                       if c.index > d and str(c.input.get("skill", "")).split(":")[-1] == "commit"]
                      + [c.index for c in bash if c.index > d and _COMMIT.search(_exec(c.command))], default=None)
-        expect.that("the C5 carry ran after the post-Debug commit (item 7 timing, not at a tick)",
+        expect.that("the C5 carry ran after the phase commit (item 7 timing, not at a tick)",
                     landed is not None and any(c.index >= landed and re.search(r"rp\.sh['\"]?\s+carry\b", _exec(c.command))
                                                and ("NEEDS-RUNTIME C5" in c.command or "@" in c.command) for c in bash), f"commit at {landed}")
 

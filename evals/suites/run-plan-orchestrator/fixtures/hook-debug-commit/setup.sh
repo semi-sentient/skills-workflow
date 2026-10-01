@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# A one-phase Node plan whose commit a pre-commit hook rejects: every staged src/*.js
-# must open with an SPDX line, and nothing the Code agent reads says so (AGENTS.md is
-# silent, no existing file carries the line, and no criterion names a command, so Step 3
-# has no reason to read the hook).
-# The fast-path `git commit -F` fails, a hook-fix Debug agent adds the header — a code
-# change after the message file was authored — and the commit must then go through the
-# commit skill. C5 is a timing criterion no read-only reviewer can verify: NEEDS-RUNTIME,
+# A one-phase Node plan whose first commit a pre-commit hook always rejects: every staged
+# src/*.js must open with `// plan-stamp: <hash>`, the hash of the plan file as staged in that
+# same commit. Research may read the hook, but the hash changes when Step 4 item 6 ticks the
+# plan just before the commit, so an agent can pre-stamp only by predicting those ticks.
+# The fast-path `git commit -F` fails with the exact line required, a hook-fix Debug agent adds
+# it (a code change after the message file was authored), and the commit must then go through
+# the commit skill. C5 is a timing criterion no read-only reviewer can verify: NEEDS-RUNTIME,
 # carried with rp.sh carry.
 set -euo pipefail
 git init -q -b main
@@ -86,10 +86,15 @@ git commit -q -m "chore: Scaffold shift bands"
 
 cat > .git/hooks/pre-commit <<'HOOK'
 #!/bin/sh
+# Every staged src/*.js opens with a stamp of the plan file as staged in this same commit.
+files=$(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.js')
+[ -n "$files" ] || exit 0
+stamp=$(git show :.agents/plans/shift-bands-plan.md | git hash-object --stdin | cut -c1-8)
+want="// plan-stamp: $stamp"
 status=0
-for f in $(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.js'); do
-  if [ "$(head -n 1 "$f")" != "// SPDX-License-Identifier: MIT" ]; then
-    echo "pre-commit: $f: the first line must be '// SPDX-License-Identifier: MIT'" >&2
+for f in $files; do
+  if [ "$(git show ":$f" | head -n 1)" != "$want" ]; then
+    echo "pre-commit: $f: the first line must be '$want'" >&2
     status=1
   fi
 done
