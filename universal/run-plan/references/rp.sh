@@ -38,7 +38,9 @@
 #                    group at its max, with the Σ as an aside
 #   carry <phase> <text>
 #                    append one carried finding (`- Phase <phase>: <text>`) to
-#                    carried-findings.md; <text> may be @file; Step 5 reads the file once
+#                    carried-findings.md, skipping a line already there (a `NEEDS-RUNTIME
+#                    C<k> …` line: one for that phase and label); <text> may be @file;
+#                    Step 5 reads the file once
 #   stage            git add -A from the repo root, excluding every keep-dirty path in
 #                    tree-state.md (each exclusion is its own literal pathspec)
 #   delta            names-only unstaged + untracked delta since the last staging, minus
@@ -486,7 +488,15 @@ cmd_carry() {
   local id="${1:?usage: rp.sh carry <phase> <text>}" text
   text="$(arg_val "${2:?carry: missing <text>}")"
   [ -n "$text" ] || die "carry: <text> is empty"
-  printf -- '- Phase %s: %s\n' "$id" "$text" >> "$SCRATCH/carried-findings.md"
+  local line key; line="$(printf -- '- Phase %s: %s' "$id" "$text")"
+  # A reopen re-runs Step 4 item 7 and re-carries the same NEEDS-RUNTIME criterion with a
+  # freshly worded gist: those dedup on the label, everything else on the whole line.
+  case "$text" in
+    NEEDS-RUNTIME\ C[0-9]*\ *) key="- Phase $id: $(printf '%s' "$text" | awk '{ print $1, $2 }')" ;;
+    *) key="" ;;
+  esac
+  [ -f "$SCRATCH/carried-findings.md" ] && K="$key" L="$line" awk '$0 == ENVIRON["L"] || (ENVIRON["K"] != "" && index($0, ENVIRON["K"] " ") == 1) { f = 1 } END { exit !f }' "$SCRATCH/carried-findings.md" && return 0
+  printf '%s\n' "$line" >> "$SCRATCH/carried-findings.md"
 }
 
 # --------------------------------------------------------------------- git side

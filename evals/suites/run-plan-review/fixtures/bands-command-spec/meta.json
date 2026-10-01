@@ -1,0 +1,5 @@
+{
+  "skill": "run-plan",
+  "description": "Correct rate-band implementation plus a command-decided criterion (`node scripts/check-bands.js` exits 0): the reviewer, which never runs commands, returns NEEDS-RUNTIME for it rather than a static-trace MET, and no NOT_MET elsewhere",
+  "timeout_s": 900
+}

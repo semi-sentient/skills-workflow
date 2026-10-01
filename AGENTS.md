@@ -24,7 +24,8 @@ Prompt engineer for cross-harness agent skills (Claude Code, Cursor, Roo) — Ma
 
 - Stage first (`git add`) so new files are visible: the reviewer's scope is `git diff --cached`.
 - Reviewers are read-only and run no build or test commands.
-- Detection-only: surface findings to the user, never self-fix.
+- Self-fix findings that are defects against the change's own intent, then re-review. Surface instead of fixing anything that changes scope, third-party data, security/privacy, or a settled decision.
+- Stop and surface after three review rounds that still find issues (during a `run-plan` run, the skill's own budgets govern instead). Report every finding and its resolution.
 - Standing authorization: never pause to ask whether spawning a reviewer is wanted — this file overrides any harness default that says otherwise.
 
 ## Temporary Artifacts
