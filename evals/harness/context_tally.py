@@ -21,7 +21,10 @@ Reports, for the main agent only (sidechains are the sub-agents' own contexts):
     at the turn with the largest sum, plus the last turn's figure
   - reference loads: each `references/<file>.md` the orchestrator opened (a Read of it,
     or a shell segment that prints it), with the result chars each load cost — the bytes issue
-    #11 trimmed (completion-templates.md read in five slices on the 2026-09-14 run)
+    #11 trimmed (completion-templates.md read in five slices on the 2026-09-14 run). A path
+    held in a shell variable (`F=…/fix-cycles.md; sed -n "$n,…p" $F`) counts, as does
+    `rp.sh section <file>`, and a call
+    that prints several references splits its result by each file's size on disk (#25)
   - Step 5 stretch: resident-context growth from the record carrying the last commit
     (Skill or `git commit`) in the file to the final turn — the completion table and
     wrap-up. A commit made after the run (a follow-up in the same session) moves the
@@ -47,7 +50,36 @@ RP_BRIEF = re.compile(r'rp\.sh["\']?\s+brief\b')
 # it. A path merely mentioned in a command — a heredoc writing tree-state.md that names
 # `references/completion-templates.md` — is not a load (the 2026-09-19 web run had one).
 REFERENCE_FILE = re.compile(r"references/([\w-]+\.md)\b")
-REFERENCE_READ = re.compile(r"(?:^|[|;&]\s*|&&\s*)(?:cat|less|more|head|tail|sed|awk)\b[^|;&\n]*references/([\w-]+\.md)\b", re.M)
+READ_SEGMENT = re.compile(r"(?:^|[|;&]\s*|&&\s*)(?:cat|less|more|head|tail|sed|awk|grep)\b[^|;&\n]*", re.M)
+# `rp.sh section <file> '<heading>'` prints a slice of references/<file> into context too.
+RP_SECTION = re.compile(r"rp\.sh[\"']?\s+section\s+[\"']?(?:references/)?([\w-]+\.md)")
+REFERENCE_VAR = re.compile(r"\b([A-Za-z_]\w*)=([\"']?)([^\s\"';&|]*references/[\w-]+\.md)\2")
+REFERENCES_DIR = Path(__file__).resolve().parents[2] / "universal" / "run-plan" / "references"
+
+
+def references_read(command: str) -> list[str]:
+    """Every reference a shell command prints, in order, each once.
+
+    A read verb's segment may name several files (`cat a.md b.md`), and may name one through
+    a variable the command assigned (`F=…/references/x.md && sed -n "$n,$((n+45))p" $F`) —
+    the 2026-09-27 run's three sliced reads all took that form and went uncounted. An
+    `rp.sh section` call is a read of the file it names."""
+    for name, _, path in REFERENCE_VAR.findall(command):
+        command = re.sub(r"\$\{?" + name + r"\b\}?", path, command)
+    out: list[str] = [f for f in dict.fromkeys(RP_SECTION.findall(command))]
+    for seg in READ_SEGMENT.finditer(command):
+        out += [f for f in REFERENCE_FILE.findall(seg.group(0)) if f not in out]
+    return out
+
+
+def split_by_size(files: list[str], chars: int) -> list[tuple[str, int]]:
+    """Attribute one result to several references in proportion to their size on disk
+    (equal shares when a file is not in this checkout)."""
+    sizes = [(REFERENCES_DIR / f).stat().st_size if (REFERENCES_DIR / f).is_file() else 0 for f in files]
+    if not all(sizes):
+        sizes = [1] * len(files)
+    total = sum(sizes)
+    return [(f, round(chars * n / total)) for f, n in zip(files, sizes)]
 GIT_COMMIT = re.compile(r"\bgit\s+(?:-\S+\s+)*commit\b")
 # A hand-written brief file: `cat > x-brief.md <<EOF`, `cat <<EOF > x-brief.md`, `tee`, `printf … >`.
 HEREDOC_BRIEF = re.compile(r"(?:(?:cat|tee|printf|echo)\b[^\n|]*>{1,2}\s*['\"]?\S*brief\S*)|(?:<<-?\s*['\"]?\w+['\"]?\s*>{1,2}\s*['\"]?\S*brief\S*)")
@@ -93,7 +125,7 @@ def tally(path: Path) -> dict:
     compactions = 0
     assistant_turns = 0
     pending_tool: dict[str, str] = {}  # tool_use_id → tool name, to attribute results
-    pending_ref: dict[str, str] = {}  # tool_use_id → reference basename the call opened
+    pending_ref: dict[str, list[str]] = {}  # tool_use_id → reference basenames the call opened
     ref_loads: list[tuple[str, int]] = []  # (reference basename, result chars)
     ctx_at_last_commit = 0
 
@@ -125,7 +157,7 @@ def tally(path: Path) -> dict:
                             n_chars = len(inner if isinstance(inner, str) else _text_of(inner))
                             chars[f"tool_result:{name}"] += n_chars
                             if tid in pending_ref:
-                                ref_loads.append((pending_ref.pop(tid), n_chars))
+                                ref_loads += split_by_size(pending_ref.pop(tid), n_chars)
                         elif block.get("type") == "text":
                             text += block.get("text", "")
                 if "This session is being continued from a previous conversation" in text or rec.get("isCompactSummary"):
@@ -155,13 +187,13 @@ def tally(path: Path) -> dict:
                     tool_calls[name] += 1
                     size = len(json.dumps(inp))
                     chars[f"tool_use:{name}"] += size
-                    ref = None
+                    refs: list[str] = []
                     if name == "Read":
-                        ref = REFERENCE_FILE.search(str(inp.get("file_path", "")))
+                        refs = REFERENCE_FILE.findall(str(inp.get("file_path", "")))[:1]
                     elif name == "Bash":
-                        ref = REFERENCE_READ.search(str(inp.get("command", "")))
-                    if ref:
-                        pending_ref[block.get("id", "")] = ref.group(1)
+                        refs = references_read(str(inp.get("command", "")))
+                    if refs:
+                        pending_ref[block.get("id", "")] = refs
                     if ctx and (name == "Skill" or (name == "Bash" and GIT_COMMIT.search(str(inp.get("command", ""))))):
                         ctx_at_last_commit = ctx
                     if name in AGENT_TOOLS:

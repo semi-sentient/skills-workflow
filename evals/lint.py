@@ -445,6 +445,50 @@ def check_reference_links(d: SkillDoc) -> None:
             )
 
 
+# `<file>.md → <Section>` sends the reader to one section of a reference. Two such pointers
+# named bold paragraph leads rather than headings, and a live orchestrator's hand-rolled awk
+# ranges returned nothing or the wrong lines (issue #25). `rp.sh section` reads exactly what
+# this rule accepts: a `##`/`###` heading outside a fence, by its name before ` — ` or ` (`.
+POINTER = re.compile(r"(?<![\w`/.<>-])\[?(?:references/)?([\w-]+\.md)(?:\]\([^)]*\))?\**\s*→\s*\**([^\n]*)")
+SECTION_HEADING = re.compile(r"^#{2,3} +(.+?)\s*$")
+
+
+def heading_names(path: Path) -> list[str]:
+    names, fence = [], False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if re.match(r"\s*(```|~~~)", line):
+            fence = not fence
+        elif not fence and (m := SECTION_HEADING.match(line)):
+            names.append(re.split(r" — | \(", m.group(1), maxsplit=1)[0])
+    return names
+
+
+def check_section_pointers(d: SkillDoc) -> None:
+    refs = d.root / "references"
+    files = [d.skill_md] + (sorted(refs.rglob("*.md")) if refs.is_dir() else [])
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        spans = code_spans(text)
+        for m in POINTER.finditer(text):
+            if in_span(m.start(), spans):
+                continue
+            target, rest = refs / m.group(1), m.group(2)
+            try:
+                where = f"{f.relative_to(REPO)}:{line_of(text, m.start())}"
+            except ValueError:
+                where = f"{f}:{line_of(text, m.start())}"
+            if not target.is_file():
+                d.findings.append(Finding("error", "section-pointer", f"`{m.group(1)} →` names a file that is not in references/.", where))
+                continue
+            if not any(rest.startswith(n) and not re.match(r"[\w-]", rest[len(n):len(n) + 1]) for n in heading_names(target)):
+                d.findings.append(Finding(
+                    "error", "section-pointer",
+                    f"`{m.group(1)} → {rest[:50]}` names no `##`/`###` heading in {m.group(1)} — make the "
+                    "section a heading, or point at the heading that holds it (`rp.sh section` reads headings only).",
+                    where,
+                ))
+
+
 def check_registration(d: SkillDoc) -> None:
     """`register-skill.sh` is idempotent, so drift here is always stale state."""
     expected = {p.name for p in d.root.iterdir() if not p.name.startswith(".")}
@@ -548,6 +592,7 @@ RULES = (
     check_restated_rules,
     check_repo_state_assumptions,
     check_reference_links,
+    check_section_pointers,
     check_registration,
     check_flag_docs,
 )

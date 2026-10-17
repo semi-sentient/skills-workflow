@@ -227,6 +227,20 @@ check "reopen: untick then amend leaves the criterion unticked with its suffix" 
 eq "reopen: review-path hands out the next evidence suffix" "$SCRATCH/phase-1-review-2.md" "$(bash "$RPS" review-path 1)"
 rm -f "$SCRATCH/phase-1-review.md"
 bash "$RPS" tick 1 2 >/dev/null 2>&1   # restore the earlier tick count for the tests below
+printf 'Archive the flag docs (amended mid-run — docs moved to the wiki)\n' > "$WORK/crit.txt"
+bash "$RPS" amend 7 3 @"$WORK/crit.txt" >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "amend <n> <k> accepts an @file value" $([ $rc -eq 0 ] && [ "$(bash "$RPS" criteria 7 | tail -1)" = '- [ ] (C3) Archive the flag docs (amended mid-run — docs moved to the wiki)' ] && echo 0 || echo 1) "$(cat "$WORK/err.txt"; bash "$RPS" criteria 7)"
+
+echo "markers (issue #25)"
+eq "markers lists every amendment marker: prose by phase or plan, criteria by label" "plan prose: - **Routes**: keep \`/api/v2\` (accepted as written — HEAD already serves v2)
+phase 1 prose: Set up the module (amended mid-run — it is a package now).
+phase 1 C2: \`bandForRate\` returns green strictly above target (reopened — equality is amber after all)
+phase 1 C4: \`bandForRate\` throws a \`RangeError\` on a non-positive target (added mid-run — found by execution)
+phase 7 C3: Archive the flag docs (amended mid-run — docs moved to the wiki)" "$(bash "$RPS" markers)"
+eq "markers on a plan with none says so" "no amendment markers" "$(bash "$WORK/sce/rp.sh" markers)"
+printf '# Plan: M\n\n## Architectural decisions\n\n- none\n\n## Phase 1: Wrap\n\n### Acceptance criteria\n\n- [ ] first line\n      second line (gate: VPN down; recovery: reconnect; digest d.md)\n- [x] plain (amended after commit — renamed)\n' > "$WORK/markers.md"
+bash "$RP" init "$SKILL" "$WORK/scm" "$WORK/markers.md" >/dev/null 2>&1
+eq "markers joins a wrapped criterion, so a marker on its continuation line keeps the label" $'phase 1 C1: first line second line (gate: VPN down; recovery: reconnect; digest d.md)\nphase 1 C2: plain (amended after commit — renamed)' "$(bash "$WORK/scm/rp.sh" markers)"
 
 echo "ledger / phase-cost"
 bash "$RPS" ledger 1 Research 68217 41 113266 R1 "shared layer"
@@ -252,6 +266,34 @@ eq "…and still prints the cells" "| 68.2K | 151.6K | 78.1K | 297.9K | 0:58:41 
 touch "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
 bash "$RPS" phase-cost 2 2>"$WORK/err.txt" >/dev/null
 check "phase-cost is silent when every evidence file has its Review row" $([ -s "$WORK/err.txt" ] && echo 1 || echo 0) "$(cat "$WORK/err.txt")"
+
+echo "ledger-fill (issue #25)"
+L="$WORK/sce/rp.sh"; LG="$WORK/sce/ledger.md"
+bash "$L" ledger 1 Code n/a n/a n/a "" "first"
+bash "$L" ledger 1 Code n/a n/a n/a "" "retry 1/2"
+bash "$L" ledger 1 Review 5000 5 5000
+cp "$LG" "$WORK/before.md"
+bash "$L" ledger-fill 1 Code 100000 20 300000 2>"$WORK/err.txt"; rc=$?
+check "ledger-fill without a note refuses when the n/a rows carry different notes, naming them (review 3 F4)" $([ $rc -ne 0 ] && grep -q 'different notes' "$WORK/err.txt" && grep -q '"retry 1/2"' "$WORK/err.txt" && cmp -s "$WORK/before.md" "$LG" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+out="$(bash "$L" ledger-fill 1 Code 100000 20 300000 'retry 1/2' 2>"$WORK/err.txt")"; rc=$?
+check "ledger-fill with a note exits 0 and names the row" $([ $rc -eq 0 ] && [ "$out" = "filled ledger row 2: phase 1 Code" ] && echo 0 || echo 1) "out=$out $(cat "$WORK/err.txt")"
+eq "ledger-fill filled the row with that note, keeping group and note" '| 1 | Code | n/a | n/a | n/a |  | first |
+| 1 | Code | 100000 | 20 | 300000 |  | retry 1/2 |
+| 1 | Review | 5000 | 5 | 5000 |  |  |' "$(tail -3 "$LG")"
+bash "$L" ledger-fill 1 Code 90000 18 200000 >/dev/null
+bash "$L" ledger setup Research n/a n/a n/a R1 "inline lookup"; bash "$L" ledger setup Research n/a n/a n/a R1 "shared layer"
+bash "$L" ledger-fill setup Research 7000 7 70000 'shared layer' >/dev/null
+check "ledger-fill by note leaves a permanently n/a row of the same batch alone" $(grep -q '^| setup | Research | n/a | n/a | n/a | R1 | inline lookup |$' "$LG" && grep -q '^| setup | Research | 7000 | 7 | 70000 | R1 | shared layer |$' "$LG" && echo 0 || echo 1) "$(tail -2 "$LG")"
+bash "$L" ledger-fill setup Research 1 1 1 'no such topic' 2>"$WORK/err.txt"; rc=$?
+check "ledger-fill with an unmatched note fails" $([ $rc -ne 0 ] && grep -q 'with note "no such topic"' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+eq "a second fill takes the remaining n/a row" "| 1 | Code | 90000 | 18 | 200000 |  | first |" "$(sed -n 3p "$LG")"
+eq "phase-cost reads the filled figures" "| — | 90K·100K | 5.0K | 195.0K | 0:08:25 |" "$(bash "$L" phase-cost 1)"
+cp "$LG" "$WORK/before.md"
+bash "$L" ledger-fill 1 Review 1 1 1 2>"$WORK/err.txt"; rc=$?
+check "ledger-fill with no n/a row fails with the ledger command to use" $([ $rc -ne 0 ] && grep -q 'no Review row of phase 1 holds an n/a figure' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$L" ledger-fill 1 Code 1 1 2>"$WORK/err.txt"; rc=$?
+check "ledger-fill refuses a short argument list" $([ $rc -ne 0 ] && grep -q 'usage: rp.sh ledger-fill' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and both refusals left the ledger unchanged" $(cmp -s "$WORK/before.md" "$LG" && echo 0 || echo 1) "$(diff "$WORK/before.md" "$LG")"
 
 echo "totals / carry"
 # Phases in ledger order (first appearance), Agent = Mode + Note, subtotal per phase with the
@@ -439,6 +481,30 @@ bash "$RPS" cleanup 2
 check "cleanup removed message file and baselines, kept handoff" $([ ! -e "$SCRATCH/phase-2-commit-msg.md" ] && [ ! -e "$SCRATCH/baseline-z.js" ] && [ ! -e "$SCRATCH/baseline-src__a.js" ] && [ -e "$SCRATCH/phase-2-handoff.md" ] && echo 0 || echo 1) "$(ls "$SCRATCH")"
 bash "$RPS" cleanup 2; check "cleanup with nothing to delete exits 0" $? ""
 
+
+echo "strip-fences (issue #25)"
+M="$WORK/msg.md"
+printf '\n```text\nfeat(x): add the strip\n\nBody with an example:\n\n```sh\nmake strip\n```\n\nRefs #1\n```\n\n' > "$M"
+bash "$RPS" strip-fences "$M" 2>"$WORK/err.txt"; rc=$?
+eq "strip-fences removes only the leading and trailing fences; an inner fence stays" 'feat(x): add the strip
+
+Body with an example:
+
+```sh
+make strip
+```
+
+Refs #1' "$(cat "$M")"
+check "…and reports how many it stripped" $([ $rc -eq 0 ] && grep -q '^2 fence line(s) stripped' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+cp "$M" "$WORK/before.md"; bash "$RPS" strip-fences "$M" 2>/dev/null
+check "strip-fences on an unfenced message changes nothing" $(cmp -s "$WORK/before.md" "$M" && echo 0 || echo 1) "$(diff "$WORK/before.md" "$M")"
+printf 'fix(x): example\n\n```sh\nmake\n```\n' > "$M"; cp "$M" "$WORK/before.md"; bash "$RPS" strip-fences "$M" 2>/dev/null
+check "strip-fences keeps an inner block's closing fence at the end of an unwrapped message (review F8)" $(cmp -s "$WORK/before.md" "$M" && echo 0 || echo 1) "$(cat "$M")"
+printf '```text\nfeat(x): y\n\n```sh\nmake\n```\n```\n' > "$M"; bash "$RPS" strip-fences "$M" 2>/dev/null
+eq "strip-fences strips one closing fence per opening fence, so a final inner block keeps its own (review 2 F2)" $'feat(x): y\n\n```sh\nmake\n```' "$(cat "$M")"
+bash "$RPS" strip-fences "$WORK/no-such-msg.md" 2>"$WORK/err.txt"; rc=$?
+check "strip-fences on a missing file fails" $([ $rc -ne 0 ] && grep -q 'no file' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+
 echo "brief"
 touch "$SCRATCH/run-conventions.md"
 out="$(bash "$RPS" brief brief-code.md phase-1-brief-code.md PHASE_HEADING='Phase 1: Bootstrap' PLAN_FILE="$PWD/.agents/plans/demo-plan.md" CONVENTIONS_PATH="$SCRATCH/run-conventions.md" CONTEXT_POINTERS=$'- `research-a.md`\n- none' DELTAS='None' MANIFEST_MODIFY='- `src/a.js`' MANIFEST_REFERENCE='- `src/b.js` — "quoted" & <special> $chars' SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM='None' FIX_CYCLE='None — first attempt.' COMMIT_MSG_PATH="$SCRATCH/phase-1-commit-msg.md" HANDOFF_PATH="$SCRATCH/phase-1-handoff.md" 2>"$WORK/err.txt")"; rc=$?
@@ -524,6 +590,62 @@ out="$(bash "$RPS" wait "${pr_cmd:?Step 5d wait call not found}" '[0-9]+' 10 1 2
 check "wait on the declared-PR poll captures the number bare after two empty answers" $([ $rc -eq 0 ] && [ "$out" = 57 ] && [ "$(cat "$GH_PR_CTR")" = 3 ] && echo 0 || echo 1) "rc=$rc out=$out polls=$(cat "$GH_PR_CTR") $(cat "$WORK/err.txt")"
 check "wait leaves no stderr scratch file behind" $(! ls "$SCRATCH"/.wait-stderr.* >/dev/null 2>&1 && echo 0 || echo 1) "$(ls "$SCRATCH"/.wait-stderr.* 2>/dev/null)"
 
+echo "section (issue #25)"
+out="$(bash "$RPS" section fix-cycles.md 'Corrective-pass budget')"
+check "section reads a ### section to the next heading (the 2026-09-27 awk range returned nothing)" $([ "$(printf '%s\n' "$out" | head -1)" = '### Corrective-pass budget' ] && [ "$(printf '%s\n' "$out" | grep -c '^#')" = 1 ] && echo 0 || echo 1) "$(printf '%s\n' "$out" | grep '^#')"
+out="$(bash "$RPS" section references/agent-operations.md 'Scoped Re-review Exceptions')"
+check "section matches a heading by its name before ' (' and takes a references/ prefix (the grep hit the intro sentence)" $(printf '%s\n' "$out" | head -1 | grep -q '^## Scoped Re-review Exceptions (SKILL.md' && echo 0 || echo 1) "$(printf '%s\n' "$out" | head -2)"
+# A synthetic skill directory: a fenced heading, a heading named before ' — ', a repeated name.
+FS="$WORK/fs"; mkdir -p "$FS/references/briefs"; cp "$RP" "$FS/references/rp.sh"; cp "$SKILL"/references/briefs/*.md "$FS/references/briefs/"
+cat > "$FS/references/t.md" <<'REF'
+# T
+
+The Alpha section below matters.
+
+## Alpha (see below)
+
+alpha body
+
+### Alpha sub 
+
+sub body
+
+```md
+## Not a heading
+```
+
+## Beta — second
+
+beta body
+
+## Beta — again
+
+more beta
+
+# Appendix
+
+appendix body
+REF
+bash "$RP" init "$FS" "$WORK/scf" "$WORK/markers.md" >/dev/null 2>&1
+F="$WORK/scf/rp.sh"
+eq "section runs to the next same-or-higher heading, past its subsections and a fenced '##' line" '## Alpha (see below)
+
+alpha body
+
+### Alpha sub 
+
+sub body
+
+```md
+## Not a heading
+```' "$(bash "$F" section t.md Alpha)"
+eq "section prints every heading with that name, in order, and stops at an H1" $'## Beta — second\n\nbeta body\n\n## Beta — again\n\nmore beta' "$(bash "$F" section t.md Beta)"
+eq "section matches the full heading text too, trailing space trimmed (review 3 F5)" $'### Alpha sub \n\nsub body\n\n```md\n## Not a heading\n```' "$(bash "$F" section t.md 'Alpha sub')"
+bash "$F" section t.md 'Not a heading' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "section ignores a heading inside a fence and lists the real ones on a miss" $([ $rc -ne 0 ] && grep -q '## Beta — second' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$F" section nope.md Alpha 2>"$WORK/err.txt"; rc=$?
+check "section on a missing reference fails" $([ $rc -ne 0 ] && grep -q 'no references/nope.md' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+
 echo "sync / drift / pull (stubbed gh)"
 grep -v 'gh-sub-issue' .agents/plans/demo-plan.md > "$GH_BODY_FILE"
 eq "drift: identical modulo footer" "identical" "$(bash "$RPS" drift)"
@@ -567,7 +689,7 @@ bash "$RP" init "$SKILL" "$WORK/sc3" "$WORK/nophase.md" abc 2>"$WORK/err.txt"; r
 check "init rejects a non-numeric issue" $([ $rc -ne 0 ] && grep -q 'bare number' "$WORK/err.txt" && echo 0 || echo 1) ""
 bash "$RPS" bogus 2>"$WORK/err.txt"; rc=$?
 check "unknown command fails" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
-check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && echo 0 || echo 1) ""
+check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && bash "$RPS" help | grep -q 'ledger-fill <phase>' && bash "$RPS" help | grep -q 'section <file> <heading>' && bash "$RPS" help | grep -q 'strip-fences <path>' && bash "$RPS" help | grep -q '^  markers' && echo 0 || echo 1) ""
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
