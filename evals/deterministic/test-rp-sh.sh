@@ -110,6 +110,7 @@ check "init copied rp.sh" $([ -f "$SCRATCH/rp.sh" ] && echo 0 || echo 1) ""
 check "init copied templates" $([ -f "$SCRATCH/briefs/brief-code.md" ] && [ -f "$SCRATCH/briefs/run-conventions.md" ] && [ -f "$SCRATCH/briefs/brief-diagnose.md" ] && echo 0 || echo 1) ""
 check "init wrote ledger header" $(grep -q '^| Phase | Mode' "$SCRATCH/ledger.md" && echo 0 || echo 1) ""
 check "init summary names phases" $(printf '%s' "$out" | grep -q '^### Phase 6A' && echo 0 || echo 1) "$out"
+check "init prints the call form: the directory in a variable, not the command (issue #25)" $(printf '%s' "$out" | grep -qF "call helpers as: S='$(cd "$SCRATCH" && pwd -P)'; bash \"\$S/rp.sh\" <command>" && echo 0 || echo 1) "$out"
 check "init warned about the prose checkbox" $(grep -q 'warning: phase 1 has a checkbox line outside' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 check "init did NOT warn about the post-phase stray checkbox" $(grep -q 'stray' "$WORK/err.txt" && echo 1 || echo 0) "$(cat "$WORK/err.txt")"
 RPS="$SCRATCH/rp.sh"
@@ -290,10 +291,24 @@ eq "a second fill takes the remaining n/a row" "| 1 | Code | 90000 | 18 | 200000
 eq "phase-cost reads the filled figures" "| — | 90K·100K | 5.0K | 195.0K | 0:08:25 |" "$(bash "$L" phase-cost 1)"
 cp "$LG" "$WORK/before.md"
 bash "$L" ledger-fill 1 Review 1 1 1 2>"$WORK/err.txt"; rc=$?
-check "ledger-fill with no n/a row fails with the ledger command to use" $([ $rc -ne 0 ] && grep -q 'no Review row of phase 1 holds an n/a figure' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "ledger-fill on an already-filled row lists it and does not offer a new row (2026-10-17 run)" $([ $rc -ne 0 ] && grep -q 'no Review row of phase 1 holds an n/a figure' "$WORK/err.txt" && grep -q 'row 3: 5000 | 5 | 5000 | group "" | note ""' "$WORK/err.txt" && ! grep -q 'rp.sh ledger 1 Review' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$L" ledger-fill setup Research 1 1 1 'no such topic' 2>"$WORK/err.txt"
+check "…and a note miss lists the n/a row under the other note" $(grep -q 'row 4: n/a | n/a | n/a | group "R1" | note "inline lookup"' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$L" ledger-fill 9 Code 1 1 1 2>"$WORK/err.txt"; rc=$?
+check "ledger-fill with no row of that phase and mode gives the ledger command to use" $([ $rc -ne 0 ] && grep -q 'record the return with: rp.sh ledger 9 Code' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 bash "$L" ledger-fill 1 Code 1 1 2>"$WORK/err.txt"; rc=$?
 check "ledger-fill refuses a short argument list" $([ $rc -ne 0 ] && grep -q 'usage: rp.sh ledger-fill' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
-check "…and both refusals left the ledger unchanged" $(cmp -s "$WORK/before.md" "$LG" && echo 0 || echo 1) "$(diff "$WORK/before.md" "$LG")"
+bash "$L" ledger 8 Code n/a n/a n/a 'corrective 1/2' 2>"$WORK/err.txt"; rc=$?
+check "ledger refuses a note in the group slot and names the seventh argument (2026-10-17 run)" $([ $rc -ne 0 ] && grep -q "rp.sh ledger 8 Code n/a n/a n/a '' 'corrective 1/2'" "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$L" ledger 8 Code n/a n/a n/a death 2>"$WORK/err.txt"; rc=$?
+check "…a one-word note in the group slot too (review round 1)" $([ $rc -ne 0 ] && grep -q "'' 'death'" "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$L" ledger 8 Code n/a n/a n/a retry-1 2>/dev/null; rc1=$?; bash "$L" ledger 8 Code n/a n/a n/a 2 2>/dev/null; rc2=$?
+check "…and a hyphenated or digits-only value: a group is letters then a number (review round 2)" $([ $rc1 -ne 0 ] && [ $rc2 -ne 0 ] && echo 0 || echo 1) "rc1=$rc1 rc2=$rc2"
+bash "$L" ledger 8 Code n/a n/a n/a "don't retry" 2>"$WORK/err.txt"
+check "…its suggested command quotes an apostrophe (review round 1)" $(grep -qF "'' 'don'\\''t retry'" "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$L" ledger 8 Code n/a n/a n/a 'corrective 1/2' 'x' 2>"$WORK/err.txt"; rc=$?
+check "…and with a seventh argument it suggests no command that would drop it (review round 1)" $([ $rc -ne 0 ] && grep -q 'one note, as the seventh argument' "$WORK/err.txt" && ! grep -q "rp.sh ledger 8" "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "…and every refusal left the ledger unchanged" $(cmp -s "$WORK/before.md" "$LG" && echo 0 || echo 1) "$(diff "$WORK/before.md" "$LG")"
 
 echo "totals / carry"
 # Phases in ledger order (first appearance), Agent = Mode + Note, subtotal per phase with the

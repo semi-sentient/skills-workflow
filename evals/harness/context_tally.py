@@ -23,7 +23,7 @@ Reports, for the main agent only (sidechains are the sub-agents' own contexts):
     or a shell segment that prints it), with the result chars each load cost — the bytes issue
     #11 trimmed (completion-templates.md read in five slices on the 2026-09-14 run). A path
     held in a shell variable (`F=…/fix-cycles.md; sed -n "$n,…p" $F`) counts, as does
-    `rp.sh section <file>`, and a call
+    `rp.sh section <file>` (directly or through a wrapper such as `R() { bash …/rp.sh "$@"; }`), and a call
     that prints several references splits its result by each file's size on disk (#25)
   - Step 5 stretch: resident-context growth from the record carrying the last commit
     (Skill or `git commit`) in the file to the final turn — the completion table and
@@ -55,6 +55,24 @@ READ_SEGMENT = re.compile(r"(?:^|[|;&]\s*|&&\s*)(?:cat|less|more|head|tail|sed|a
 RP_SECTION = re.compile(r"rp\.sh[\"']?\s+section\s+[\"']?(?:references/)?([\w-]+\.md)")
 REFERENCE_VAR = re.compile(r"\b([A-Za-z_]\w*)=([\"']?)([^\s\"';&|]*references/[\w-]+\.md)\2")
 REFERENCES_DIR = Path(__file__).resolve().parents[2] / "universal" / "run-plan" / "references"
+# A name the command binds to the helper: `R() { bash $S/rp.sh "$@"; }`, `function R { … }`,
+# or `R="bash $S/rp.sh"` (which zsh cannot run, but bash can).
+RP_WRAPPER = re.compile(
+    r"(?:\bfunction\s+([A-Za-z_]\w*)\s*(?:\(\))?\s*\{|\b([A-Za-z_]\w*)\s*\(\)\s*\{)(?:\$\{[^}]*\}|[^}])*\brp\.sh\b"
+    r"|\b([A-Za-z_]\w*)=(?:([\"'])[^\"'\n]*\brp\.sh\4|[^\s\"';&|]*\brp\.sh)(?=[\s;&|)]|$)"
+)
+
+
+def spell_out_rp(command: str) -> str:
+    """The command with every call through a wrapper of rp.sh written as `rp.sh <command>`.
+
+    The 2026-10-17 run called the helper as `R section …` and `R brief …` through a shell
+    function, and its three section reads went uncounted. A function is called by its bare
+    name, a variable only as `$NAME` or `${NAME}`."""
+    for fn, fn2, var, _ in RP_WRAPPER.findall(command):
+        call = (r"(?<![\w$/.-])" + (fn or fn2) + r"\b(?!\s*\(\))") if (fn or fn2) else (r"\$\{" + var + r"\}|\$" + var + r"\b")
+        command = re.sub(r"(?:" + call + r")(?=\s+[a-z][a-z-]*\b)", "rp.sh", command)
+    return command
 
 
 def references_read(command: str) -> list[str]:
@@ -63,7 +81,8 @@ def references_read(command: str) -> list[str]:
     A read verb's segment may name several files (`cat a.md b.md`), and may name one through
     a variable the command assigned (`F=…/references/x.md && sed -n "$n,$((n+45))p" $F`) —
     the 2026-09-27 run's three sliced reads all took that form and went uncounted. An
-    `rp.sh section` call is a read of the file it names."""
+    `rp.sh section` call is a read of the file it names, under whatever wrapper calls it."""
+    command = spell_out_rp(command)
     for name, _, path in REFERENCE_VAR.findall(command):
         command = re.sub(r"\$\{?" + name + r"\b\}?", path, command)
     out: list[str] = [f for f in dict.fromkeys(RP_SECTION.findall(command))]
@@ -91,7 +110,7 @@ def brief_kind(command: str) -> str | None:
     Sizes are the whole tool input (command plus description), the bytes the turn
     costs. A shell write to any path containing "brief" counts — an `@file` value
     named `…brief…` would be a false positive; name such files otherwise."""
-    if RP_BRIEF.search(command):
+    if RP_BRIEF.search(spell_out_rp(command)):
         return "template"
     if HEREDOC_BRIEF.search(command):
         return "heredoc"

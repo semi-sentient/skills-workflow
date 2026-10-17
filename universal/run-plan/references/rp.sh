@@ -26,12 +26,14 @@
 #                    of existing criteria stay stable), print its label, then re-extract
 #                    and, in GH mode, sync; <text> may be @file
 #   ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]
-#                    append one usage row to ledger.md
+#                    append one usage row to ledger.md; [group] is letters then a number
+#                    (R1) — pass '' for none before a note
 #   ledger-fill <phase> <mode> <tokens> <tool_uses> <duration_ms> [note]
 #                    fill the latest row of that phase and mode (and note, when given)
 #                    still holding an n/a figure — usage the host delivered after the
 #                    hand-back; refuses when such rows carry different notes and none was
-#                    given; group and note are kept
+#                    given; group and note are kept; a miss lists that mode's rows (a
+#                    filled row is final)
 #   phase-cost <n>   `| Research | Code | Review | Total | Active time |` cells for phase <n>;
 #                    warns when the phase has more review evidence files than Review rows,
 #                    and when two or more `setup` rows carry no Parallel group
@@ -378,8 +380,16 @@ LEDGER_HEADER='| Phase | Mode | Tokens | Tool uses | duration_ms | Parallel grou
 
 ensure_ledger() { [ -f "$SCRATCH/ledger.md" ] || printf '%s\n' "$LEDGER_HEADER" > "$SCRATCH/ledger.md"; }
 
+# A budget note passed as the sixth argument lands in the group column, where ledger-fill's
+# note selector cannot find it (2026-10-17 run: `ledger 8 Code n/a n/a n/a 'corrective 1/2'`).
 cmd_ledger() {
   [ $# -ge 5 ] || die "usage: rp.sh ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]"
+  if [ -n "${6:-}" ]; then
+    case "$6" in *[!A-Za-z0-9]*|*[!0-9]|[!A-Za-z]*)
+      [ $# -eq 6 ] || die "ledger: \"$6\" is not a group label (letters then a number, such as R1); a row takes one note, as the seventh argument"
+      die "ledger: \"$6\" is not a group label (letters then a number, such as R1) — a note is the seventh argument: rp.sh ledger $1 $2 $3 $4 $5 '' $(sq "$6")" ;;
+    esac
+  fi
   ensure_ledger
   printf '| %s | %s | %s | %s | %s | %s | %s |\n' "$1" "$2" "$3" "$4" "$5" "${6:-}" "${7:-}" >> "$SCRATCH/ledger.md"
 }
@@ -388,15 +398,23 @@ cmd_ledger() {
 # return with n/a figures and is filled here — three live runs patched it with sed instead.
 # A row can stay n/a for good (an inline lookup reports no usage), and one batch's rows share
 # phase and mode, so the note tells them apart: without one, differing notes are a refusal.
+# A miss lists the phase's rows of that mode: told to append a row instead, a run that had
+# already filled (or mis-slotted) one would double-count it, and the 2026-10-17 run patched
+# ledger.md with perl rather than do that.
 cmd_ledger_fill() {
   [ $# -eq 5 ] || [ $# -eq 6 ] || die "usage: rp.sh ledger-fill <phase> <mode> <tokens> <tool_uses> <duration_ms> [note]"
   ensure_ledger
   local row
   row="$(awk -F'|' -v ph="$1" -v mode="$2" -v has="$(( $# == 6 ))" -v sel="${6:-}" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    NR > 2 && trim($2) == ph && trim($3) == mode {
+      rows = rows sprintf("\n    row %d: %s | %s | %s | group \"%s\" | note \"%s\"", NR - 2, trim($4), trim($5), trim($6), trim($7), trim($8))
+    }
     NR > 2 && trim($2) == ph && trim($3) == mode && (trim($4) == "n/a" || trim($5) == "n/a" || trim($6) == "n/a") && (!has || trim($8) == sel) {
       n = NR; if (c++ && trim($8) != note) mixed = 1; note = trim($8); notes = notes "\n    \"" note "\""
     }
-    END { if (mixed) { printf "rp.sh: ledger-fill: phase %s has %s rows with n/a figures under different notes — pass the row'"'"'s note as the sixth argument:%s\n", ph, mode, notes > "/dev/stderr"; print -1; exit } print n + 0 }' "$SCRATCH/ledger.md")"
+    END { if (mixed) { printf "rp.sh: ledger-fill: phase %s has %s rows with n/a figures under different notes — pass the row'"'"'s note as the sixth argument:%s\n", ph, mode, notes > "/dev/stderr"; print -1; exit }
+      if (!n && rows != "") { printf "rp.sh: ledger-fill: no %s row of phase %s%s holds an n/a figure; its %s rows are:%s\n  a filled row is final; an n/a row under another note is filled by passing that note\n", mode, ph, (has ? " with note \"" sel "\"" : ""), mode, rows > "/dev/stderr"; print -1; exit }
+      print n + 0 }' "$SCRATCH/ledger.md")"
   [ "$row" -ge 0 ] || exit 1
   [ "$row" -gt 0 ] || die "ledger-fill: no $2 row of phase $1${6+ with note \"$6\"} holds an n/a figure — record the return with: rp.sh ledger $1 $2 <tokens> <tool_uses> <duration_ms>"
   awk -F'|' -v row="$row" -v t="$3" -v u="$4" -v d="$5" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
@@ -934,6 +952,9 @@ cmd_init() {
   [ -f "$scratch/ledger.md" ] || printf '%s\n' "$LEDGER_HEADER" > "$scratch/ledger.md"
   bash "$scratch/rp.sh" extract 1
   echo "run directory: $scratch"
+  # Three live runs stored the command in a variable (R="bash $S/rp.sh"; $R …): zsh runs
+  # it as one word and exits 127, aborting the && chain behind it.
+  printf 'call helpers as: S=%s; bash "$S/rp.sh" <command> … (a variable holds the directory, never the command)\n' "$(sq "$scratch")"
   sed -n '1p;/^Plan file:/p' "$scratch/plan-index.md"
   grep -E '^### |^Human-form|^Human-gate' "$scratch/plan-index.md"
 }

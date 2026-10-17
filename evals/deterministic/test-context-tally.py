@@ -5,7 +5,8 @@ A synthetic main-agent transcript reproduces the command shapes live runs used t
 run-plan's references, including the three the 2026-09-27 tally missed (issue #25 §5):
 a path held in a shell variable and sliced with `sed -n "$n,$((n+45))p" $F`, a combined
 `cat a.md b.md`, a heredoc that names a reference without reading it, and the
-`rp.sh section` reader that replaces the hand-written slices.
+`rp.sh section` reader that replaces the hand-written slices — called directly or, as the
+2026-10-17 run did, through a shell wrapper.
 
     ./evals/deterministic/test-context-tally.py      # exit 0 = all passed
 """
@@ -18,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "harness"))
-from context_tally import tally  # noqa: E402
+from context_tally import brief_kind, tally  # noqa: E402
 
 REFERENCES_DIR = Path(__file__).resolve().parents[2] / "universal" / "run-plan" / "references"
 
@@ -42,9 +43,22 @@ CALLS = [
 ]
 
 
-def transcript(path: Path) -> None:
+# The 2026-10-17 run called the helper through a wrapper; a bare name that wraps something
+# else is not a read.
+WRAPPED = [
+    ("Bash", {"command": "S=s && R() { bash \"${S}/rp.sh\" \"$@\"; } && R ledger 8 Code n/a n/a n/a && R section fix-cycles.md 'Corrective-pass budget'"}, 3000),
+    ("Bash", {"command": "R=\"bash s/rp.sh\"; ${R} section human-gate.md 'Debug route'"}, 2000),
+    ("Bash", {"command": "function rp { bash s/rp.sh \"$@\"; }; GH_TOKEN=$(gh auth token) rp section ledger.md 'Fields'"}, 1000),
+    ("Bash", {"command": "R='bash s/rp.sh'; $R section agent-operations.md 'Scoped Re-review Exceptions'"}, 1500),
+    ("Bash", {"command": "R() { echo \"$@\"; }; R section working-tree.md 'Step 1'"}, 500),
+    # An env prefix on a direct call binds no wrapper, and a variable is not called by its bare name.
+    ("Bash", {"command": "N=3 bash s/rp.sh extract && R=\"bash s/rp.sh\"; echo $N section completion-templates.md x; R section completion-templates.md y"}, 400),
+]
+
+
+def transcript(path: Path, calls: list = CALLS) -> None:
     with path.open("w", encoding="utf-8") as fh:
-        for i, (tool, inp, n) in enumerate(CALLS):
+        for i, (tool, inp, n) in enumerate(calls):
             tid = f"t{i}"
             fh.write(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": tid, "name": tool, "input": inp}]}}) + "\n")
             fh.write(json.dumps({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": tid, "content": "x" * n}]}}) + "\n")
@@ -78,6 +92,19 @@ def main() -> int:
     check("a heredoc naming a reference is not a read", "completion-templates.md" not in by, by)
     check("eight loads in all", loads["count"] == 8, loads)
     check("totals add up", loads["total_chars"] == sum(c for _, c in by.values()), loads)
+
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "w.jsonl"
+        transcript(p, WRAPPED)
+        wrapped = tally(p)["reference_loads"]
+    wby = {r["file"]: (r["loads"], r["chars"]) for r in wrapped["by_file"]}
+    check("section reads through a function (body using ${S}), $VAR, ${VAR} or `function name` wrapper count (2026-10-17 run)",
+          wby.get("fix-cycles.md") == (1, 3000) and wby.get("human-gate.md") == (1, 2000) and wby.get("ledger.md") == (1, 1000)
+          and wby.get("agent-operations.md") == (1, 1500), wby)
+    check("a function that does not wrap rp.sh, an env-prefixed direct call, and a variable's bare name are not reads",
+          "working-tree.md" not in wby and "completion-templates.md" not in wby, wby)
+    check("an rp.sh brief through a wrapper is a template brief",
+          brief_kind("R() { bash s/rp.sh \"$@\"; } && R brief brief-code.md out.md X=1") == "template")
 
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
