@@ -1,0 +1,10 @@
+{
+  "skill": "run-plan",
+  "mode": "dialogue",
+  "companions": ["commit", "tdd"],
+  "description": "run-plan's commit paths after a Debug fix (issue #24): a pre-commit hook rejects the first phase commit with a plan-stamp no agent has before item 6 ticks the plan, the hook-fix Debug agent changes code, the orchestrator deletes the stale message file with rp.sh cleanup and commits through the commit skill — never a git commit -F after the Debug fix — and a NEEDS-RUNTIME criterion is carried to carried-findings.md; every spawn follows the call that wrote its brief",
+  "args": ".agents/plans/shift-bands-plan.md --no-github",
+  "max_turns": 6,
+  "call_timeout_s": 3600,
+  "timeout_s": 5400
+}

@@ -301,8 +301,19 @@ bash "$RPS" carry 1 'F3 — `src/a.js:12` comment restates the code (documentati
 printf 'F1 — `src/b.js:4` unclamped index (behaviour, budget exhausted)' > "$WORK/cf.txt"
 bash "$RPS" carry 2 @"$WORK/cf.txt"
 eq "carry appends one line per finding to carried-findings.md" $'- Phase 1: F3 — `src/a.js:12` comment restates the code (documentation)\n- Phase 2: F1 — `src/b.js:4` unclamped index (behaviour, budget exhausted)' "$(cat "$SCRATCH/carried-findings.md")"
+bash "$RPS" carry 1 'F3 — `src/a.js:12` comment restates the code (documentation)'
+eq "carry skips a line already in carried-findings.md" 2 "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')"
+bash "$RPS" carry 1 'NEEDS-RUNTIME C5 — kiosk timing under 50 ms'
+bash "$RPS" carry 1 'NEEDS-RUNTIME C5 — 100k stations in 50 ms on the kiosk'
+bash "$RPS" carry 1 'NEEDS-RUNTIME C50 — another criterion'
+eq "carry dedups a NEEDS-RUNTIME criterion on its label, not its gist (C5 once, C50 kept)" 4 "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')"
+bash "$RPS" carry 1 'F3 — `src/a.js:12`'
+eq "carry keeps an ordinary finding that is only a prefix of a carried one" 5 "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')"
+bash "$RPS" carry 1 'F4 — `src/c.js:2` regex /\d+/ misses signs' 2>"$WORK/err.txt"
+bash "$RPS" carry 1 'F4 — `src/c.js:2` regex /\d+/ misses signs' 2>>"$WORK/err.txt"
+check "carry dedups a line holding a backslash, silently" $([ "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')" = 6 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 bash "$RPS" carry 2 '' 2>"$WORK/err.txt"; rc=$?
-check "carry refuses an empty finding" $([ $rc -ne 0 ] && grep -q 'carry' "$WORK/err.txt" && [ "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')" = 2 ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+check "carry refuses an empty finding" $([ $rc -ne 0 ] && grep -q 'carry' "$WORK/err.txt" && [ "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')" = 6 ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 rm -f "$SCRATCH/phase-1-review.md" "$SCRATCH/phase-1-review-2.md" "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
 
 echo "stage / delta / baselines with keep-dirty paths"

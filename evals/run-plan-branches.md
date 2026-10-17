@@ -78,7 +78,13 @@ plus the declared-path validation in a production repo.
 | Retry protocol — second false rewrite of a comment → deletion ordered (criterion-required comment escalates instead) | — | **cold** (branch added 2026-08-16) |
 | Step 4 item 10 — pre-authorized cleanup folded into a later phase, named in both that phase's briefs | — | **cold** (branch added 2026-08-16; the unsanctioned form read as scope creep in run #285) |
 | Step 4.7 — fast-path fence strip | — | **cold** (guard added 2026-08-07; the unguarded failure it prevents occurred in production) |
-| Step 4.7 — fast-path reuse over a verified comment-only delta (message re-checked, recorded) | — | **cold** (branch added 2026-08-19; both 2026-08-16/19 runs deviated toward exactly this behavior — #303 §5, G6 G2) |
+| Step 4.7 — fast path = message file exists; a fix-cycle agent's "left" keeps it (comment-only reuse and its re-check removed) | production run | replaced 2026-09-28 (#24: sitevue.web #397 committed a "left" file after code-changing corrective passes, ×2 — now the rule) |
+| Step 4 item 4 — Debug code fix → `rp.sh cleanup <n>` deletes the message file; the commit takes the fallback | fixture `hook-debug-commit` | exercised 2026-10-01 (fixture rep 2: hook → Debug → cleanup → scoped re-review → `Skill(commit)`) |
+| Step 4 item 7 — NEEDS-RUNTIME carried via `rp.sh carry` to the caveats and Test plan | fixture `hook-debug-commit` | exercised 2026-10-01 (fixture rep 1: C5 NEEDS-RUNTIME carried after the commit; #397 carried none of 8) |
+| Step 4 item 5 — NEEDS-RUNTIME hook-verified exception (Step 3 found the hook runs the command and is active in this clone, commit landed) | — | **cold** (branch added 2026-09-28, #24) |
+| Review brief — a command-decided criterion is NEEDS-RUNTIME, never a static-trace MET | fixture `run-plan-review/bands-command-spec` | exercised 2026-10-01 (HEAD 1/3 → worktree 3/3; #300 Phase 2 C6 was the live miss) |
+| Step 4 item 7 — the orchestrator never edits a phase message file (fence strip aside) | assertion in `two-phase-node`, `hook-debug-commit` | **cold** — guards only; no fixture forces a finding against the message (#300 Phase 3 was the live miss) |
+| Step 5c.5 — fix-first as one Debug agent, round-2 review, commit fallback; decision-conflict split in the options message | — | **cold** (route defined 2026-09-28; #397 improvised it) |
 | Retry protocol — message maintenance: fix-cycle agent updates the message file, Step 4.7 treats it as freshly authored | — | **cold** (branch added 2026-08-19) |
 | Step 4.5 — Review return carries the weak-criteria flag | — | **cold** (branch added 2026-08-19; the hand-briefed form caught 3 weak criteria in #303) |
 | Step 4.5 — zero-hit criterion verified with a positive control | — | **cold** (branch added 2026-08-19; a reviewer invented the control unprompted in #303 after two live false negatives) |
@@ -96,14 +102,13 @@ plus the declared-path validation in a production repo.
 | Retry protocol — Message maintenance absent-file arm (`git diff HEAD` authoring in a fix cycle) | — | **cold** (branch added 2026-08-19) |
 | Error Handling — any post-verdict no-return death forces the full re-review (index unprovable) | — | **cold** (branch added 2026-08-19) |
 | Error Handling — pre-staging fix-agent death: no revert, disclosure line in the re-spawn brief | — | **cold** (branch added 2026-08-19) |
-| Step 4.7 — reuse re-check mismatch → fallback | — | **cold** (branch added 2026-08-19) |
 | Scoped re-review — weak-criteria flag bounded to re-verified criteria (`None (scoped)`) | — | **cold** (branch added 2026-08-19) |
 | Step 4 opening — subsumed-phase criterion fails verification → surfaced to user, not ticked | — | **cold** (branch added 2026-08-19) |
 | Step 4 opening — subsumed phase via a prior run's reloaded `inputs-commit:` sha | — | **cold** (branch added 2026-08-19) |
 | Step 4 opening — subsumed phase via the user's own between-runs commit (no sha on record) | — | **cold** (branch added 2026-08-19) |
 | Step 5e — promote-as-is resolves the finding for the deletion gate | — | **cold** (branch added 2026-08-19) |
 | Step 5e — user-requested `--draft` with no unresolved finding still deletes | — | **cold** (branch added 2026-08-19) |
-| Step 4.7 — pre-commit hook failure → Debug | — | **cold** |
+| Step 4.7 — pre-commit hook failure → Debug | fixture `hook-debug-commit` | exercised 2026-10-01 (fixture rep 2) |
 | Step 5d — declared: poll + `gh pr edit` | production run | exercised |
 | Step 5d — declared: poll timeout, report-and-wait | — | **cold** |
 | Step 5d — silent: `gh pr create` | burn-in full run | exercised |

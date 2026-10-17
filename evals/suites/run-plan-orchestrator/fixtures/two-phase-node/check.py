@@ -5,6 +5,8 @@ the sub-agents legitimately read the plan, the specs, and the diffs.
 """
 import re
 
+from harness.trace import msg_file_edits
+
 PLAN = ".agents/plans/shift-board-plan.md"
 SCRATCH = ".agents/scratch/run-plan/shift-board"
 
@@ -46,6 +48,7 @@ def _reference_reads(reads, bash) -> list[str]:
     return out
 
 
+
 def check(ctx, expect):
     tr = ctx.trace
     dlg = ctx.dialogue
@@ -69,14 +72,21 @@ def check(ctx, expect):
 
     # --- P3: the orchestrator reads the index, not the plan
     plan_reads = [p for p in main_reads if p.endswith(PLAN) or p.endswith("shift-board-plan.md")]
-    # A bulk dump: cat/less/awk/head of the plan, or a `sed -n` range of 20+ lines or
-    # to end-of-file. A short `sed -n '1,4p'` to confirm an amendment edit is not one.
+    # A read of the plan: cat/less/awk of it, a grep/rg naming it by path (first in its
+    # pipeline — `… | grep -v <plan>` filters another command's output), a head of 20+
+    # lines, or a `sed -n` range of 20+ lines or to end-of-file. A short `sed -n '1,4p'` to
+    # confirm an amendment edit is not one.
     def dumps_plan(c: str) -> bool:
+        for cmd in re.split(r"\s*(?:&&|\|\||;)\s*", c):
+            # a `|` inside a quoted pattern (`grep -E 'a|b'`) is not a pipe
+            masked = re.sub(r"'[^']*'|\"[^\"]*\"", lambda q: q.group(0).replace("|", "\0"), cmd)
+            for pos, seg in enumerate(re.split(r"\s*\|\s*", masked)):
+                if "shift-board-plan.md" in seg and (re.search(r"\b(cat|less|awk)\b", seg)
+                                                     or (pos == 0 and re.match(r"\s*(?:grep|rg)\b", seg) and "/shift-board-plan.md" in seg)):
+                    return True
         for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", c):
             if "shift-board-plan.md" not in seg:
                 continue
-            if re.search(r"\b(cat|less|awk)\b", seg):
-                return True
             m = re.search(r"\bhead\b(?:\s+-n?\s*(\d+))?", seg)
             if m and (m.group(1) is None or int(m.group(1)) >= 20):
                 return True
@@ -188,6 +198,8 @@ def check(ctx, expect):
     expect.that("each commit followed a review", all(any(r < k for r in review_idx) for k in commits_all), "")
     expect.that("no review brief carries a status summary", not any("STATUS:" in p for _, p in agent_idx if re.search(r"\bReview\b", p)), "")
     expect.that("no --no-verify", not any("--no-verify" in c for c in main_bash), "")
+    edits = msg_file_edits(tr)
+    expect.that("orchestrator never edited a commit-message file (fence strip aside)", not edits, f"{edits[:2]}")
 
     # --- the yardstick
     ctxs = tr.context_per_turn()

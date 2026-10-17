@@ -6,7 +6,7 @@ This is a **scoped** re-review. A full review of this phase already stands; sinc
 
 ## Scoped Task
 
-Read `{{SPEC_PATH}}` in full — this phase's section of the plan, verbatim, criteria labelled `C1…Cn`. Re-verify: {{TRIGGER_CRITERIA}} — and any criterion that constrains comment or documentation content. Every other criterion stands on the baseline-proven identity of the code (re-verification by proof, not a carried verdict); do not re-judge it.
+Read `{{SPEC_PATH}}` in full — this phase's section of the plan, verbatim, criteria labelled `C1…Cn`. Re-verify: {{TRIGGER_CRITERIA}} — and any criterion that constrains comment or documentation content. Every other criterion stands on the baseline-proven identity of the code (re-verification by proof, not a carried verdict); do not re-judge it. A re-verified criterion decided by running a command — its exit status or its output — is never `MET` from a static trace, since you never run it: it is `NEEDS-RUNTIME`, or `NOT MET` when the diff shows it must fail.
 
 ## Delta
 
