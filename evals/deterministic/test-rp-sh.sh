@@ -309,6 +309,8 @@ check "…its suggested command quotes an apostrophe (review round 1)" $(grep -q
 bash "$L" ledger 8 Code n/a n/a n/a 'corrective 1/2' 'x' 2>"$WORK/err.txt"; rc=$?
 check "…and with a seventh argument it suggests no command that would drop it (review round 1)" $([ $rc -ne 0 ] && grep -q 'one note, as the seventh argument' "$WORK/err.txt" && ! grep -q "rp.sh ledger 8" "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 check "…and every refusal left the ledger unchanged" $(cmp -s "$WORK/before.md" "$LG" && echo 0 || echo 1) "$(diff "$WORK/before.md" "$LG")"
+bash "$L" ledger 7 Code n/a n/a n/a '' 'fix a\b path' && bash "$L" ledger-fill 7 Code 1 2 3 'fix a\b path' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "ledger-fill matches a note holding a backslash (awk -v would expand it)" $([ $rc -eq 0 ] && grep -qF '| 7 | Code | 1 | 2 | 3 |  | fix a\b path |' "$LG" && echo 0 || echo 1) "$(cat "$WORK/err.txt"; tail -1 "$LG")"
 
 echo "totals / carry"
 # Phases in ledger order (first appearance), Agent = Mode + Note, subtotal per phase with the

@@ -405,7 +405,9 @@ cmd_ledger_fill() {
   [ $# -eq 5 ] || [ $# -eq 6 ] || die "usage: rp.sh ledger-fill <phase> <mode> <tokens> <tool_uses> <duration_ms> [note]"
   ensure_ledger
   local row
-  row="$(awk -F'|' -v ph="$1" -v mode="$2" -v has="$(( $# == 6 ))" -v sel="${6:-}" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+  # Text goes in through ENVIRON: awk -v expands backslash escapes, so a note holding `\b` never matched its row.
+  row="$(PH="$1" MODE="$2" SEL="${6:-}" awk -F'|' -v has="$(( $# == 6 ))" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    BEGIN { ph = ENVIRON["PH"]; mode = ENVIRON["MODE"]; sel = ENVIRON["SEL"] }
     NR > 2 && trim($2) == ph && trim($3) == mode {
       rows = rows sprintf("\n    row %d: %s | %s | %s | group \"%s\" | note \"%s\"", NR - 2, trim($4), trim($5), trim($6), trim($7), trim($8))
     }
