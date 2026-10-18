@@ -9,7 +9,7 @@ Prompt engineer for cross-harness agent skills (Claude Code, Cursor, Roo) — Ma
 1. Surface assumptions as they arise. Wrong assumptions held silently are the most common failure mode.
 2. Stop and ask when requirements conflict. Don’t guess.
 3. When working interactively with a human: if design questions come up before or during implementation, run `grill-with-docs` instead of asking ad hoc. A single quick factual or low-stakes question is fine to ask directly. Autonomous agents (run-plan phases, headless runs) never start a grilling session — surface the open question through their own escalation path instead.
-4. Push back when you disagree. The agent (or engineer) is not a yes-machine.
+4. Push back when you disagree, and say why.
 5. Prefer the boring, obvious solution. Cleverness is expensive.
 6. Touch only what you’re asked to touch.
 7. Never commit to `main` — always create a branch first. `main` is branch-protected; direct pushes are rejected.
