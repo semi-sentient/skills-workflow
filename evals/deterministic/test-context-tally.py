@@ -106,6 +106,18 @@ def main() -> int:
     check("an rp.sh brief through a wrapper is a template brief",
           brief_kind("R() { bash s/rp.sh \"$@\"; } && R brief brief-code.md out.md X=1") == "template")
 
+    # The Step 5 stretch starts at the last commit; a fast-path commit is `rp.sh commit`,
+    # called directly or through a wrapper (review F7).
+    for label, cmd in (("directly", "bash s/rp.sh commit 2"), ("through a wrapper", "R() { bash s/rp.sh \"$@\"; }; R commit 2")):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "c.jsonl"
+            with p.open("w", encoding="utf-8") as fh:
+                for i, (c, ctx) in enumerate((("git status", 1000), (cmd, 5000), ("echo done", 9000))):
+                    fh.write(json.dumps({"type": "assistant", "message": {"usage": {"input_tokens": ctx}, "content": [{"type": "tool_use", "id": f"c{i}", "name": "Bash", "input": {"command": c}}]}}) + "\n")
+                    fh.write(json.dumps({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": f"c{i}", "content": "x"}]}}) + "\n")
+            stretch = tally(p)["step5_stretch_tokens"]
+        check(f"an rp.sh commit called {label} starts the Step 5 stretch", stretch == 4000, stretch)
+
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
 

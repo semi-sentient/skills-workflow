@@ -553,6 +553,51 @@ eq "strip-fences strips one closing fence per opening fence, so a final inner bl
 bash "$RPS" strip-fences "$WORK/no-such-msg.md" 2>"$WORK/err.txt"; rc=$?
 check "strip-fences on a missing file fails" $([ $rc -ne 0 ] && grep -q 'no file' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 
+echo "commit (issue #25)"
+# Its own repo and scratch dir, run from elsewhere: the commit lands in REPO_TOP, not the cwd.
+( cd "$WORK" && git init -q cm && cd cm && git config user.email t@example.com && git config user.name t && git config commit.gpgsign false \
+  && printf '# Plan: C\n\n## Architectural decisions\n\n- none\n\n## Phase 1: A\n\n### Acceptance criteria\n\n- [ ] one\n' > plan.md \
+  && echo a > a.txt && git add a.txt && git commit -qm init && bash "$RP" init "$SKILL" "$WORK/scc" "$WORK/cm/plan.md" >/dev/null 2>&1 )
+CM="$WORK/cm"; CS="$WORK/scc"
+printf '#!/bin/sh\nseq 1 30 | sed "s/^/hook line /"\necho "Test Files  3 passed"\n' > "$CM/.git/hooks/pre-commit"; chmod +x "$CM/.git/hooks/pre-commit"
+printf '```\nfeat(x): land it\n\nBody.\n```\n' > "$CS/phase-1-commit-msg.md"; : > "$CS/baseline-a.txt"
+echo b >> "$CM/a.txt"; git -C "$CM" add a.txt
+out="$(cd "$WORK" && bash "$CS/rp.sh" commit 1 2>"$WORK/err.txt")"; rc=$?
+check "commit lands the phase commit in the recorded repo with the fence-stripped message" $([ $rc -eq 0 ] && [ "$(git -C "$CM" log -1 --format=%B)" = $'feat(x): land it\n\nBody.' ] && grep -q '^2 fence line(s) stripped' "$WORK/err.txt" && echo 0 || echo 1) "rc=$rc $(cat "$WORK/err.txt"; git -C "$CM" log -1 --format=%B)"
+check "…prints the new commit and only the hook log's last lines, keeping the full log" $(printf '%s\n' "$out" | grep -q "^$(git -C "$CM" rev-parse --short HEAD) feat(x): land it" && printf '%s\n' "$out" | grep -q 'Test Files  3 passed' && ! printf '%s\n' "$out" | grep -q 'hook line 1$' && [ "$(wc -l < "$CS/commit-1.log" | tr -d ' ')" = 31 ] && echo 0 || echo 1) "$out"
+check "…then runs cleanup: the message file and baselines are gone" $([ ! -e "$CS/phase-1-commit-msg.md" ] && [ ! -e "$CS/baseline-a.txt" ] && echo 0 || echo 1) "$(ls "$CS")"
+printf '#!/bin/sh\necho "lint: 1 error"\nexit 1\n' > "$CM/.git/hooks/pre-commit"
+printf 'feat(x): rejected\n' > "$CS/phase-2-commit-msg.md"; : > "$CS/baseline-b.txt"
+echo c >> "$CM/a.txt"; git -C "$CM" add a.txt; head_before="$(git -C "$CM" rev-parse HEAD)"
+out="$(bash "$CS/rp.sh" commit 2 2>"$WORK/err.txt")"; rc=$?
+check "a hook rejection exits non-zero with the hook's output and keeps the message file and baselines (a piped commit hid this, #447/#449)" $([ $rc -ne 0 ] && [ "$(git -C "$CM" rev-parse HEAD)" = "$head_before" ] && printf '%s\n' "$out" | grep -q 'lint: 1 error' && grep -q 'is kept' "$WORK/err.txt" && [ -f "$CS/phase-2-commit-msg.md" ] && [ -f "$CS/baseline-b.txt" ] && echo 0 || echo 1) "rc=$rc $out $(cat "$WORK/err.txt")"
+bash "$CS/rp.sh" commit 3 2>"$WORK/err.txt"; rc=$?
+check "commit refuses when the message file is absent and names the fallback" $([ $rc -ne 0 ] && grep -q 'Skill(commit)' "$WORK/err.txt" && [ "$(git -C "$CM" rev-parse HEAD)" = "$head_before" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+
+echo "anchor (issue #25)"
+printf '# Plan: A\n\n## Architectural decisions\n\n- keep `v1` routes\n\n## Phase 1: A\n\n```ts\n  // module-level so it stays stable\nconst x = 1\n```\n\n### Acceptance criteria\n\n- [ ] one\n\n## Phase 2: B\n\nkeep the `v1` routes too\n\nuse a.b here\nuse axb here\n' > "$WORK/anchor.md"
+bash "$RP" init "$SKILL" "$WORK/sca" "$WORK/anchor.md" >/dev/null 2>&1
+eq "anchor prints each matching plan line verbatim, with <after> lines below it, under a phase/line header" "--- phase 1, line 10
+  // module-level so it stays stable
+const x = 1
+1 match(es)" "$(bash "$WORK/sca/rp.sh" anchor 'module-level' 1)"
+out="$(bash "$WORK/sca/rp.sh" anchor '`v1` routes')"
+check "anchor names every match and warns that amend --text needs a unique one" $(printf '%s\n' "$out" | grep -qx -- '--- plan, line 5' && printf '%s\n' "$out" | grep -qx -- '--- phase 2, line 20' && printf '%s\n' "$out" | grep -q '^2 match(es) — amend --text needs a unique anchor' && echo 0 || echo 1) "$out"
+eq "anchor matches the fragment literally: a regex metacharacter matches only itself" $'--- phase 2, line 22\nuse a.b here\n1 match(es)' "$(bash "$WORK/sca/rp.sh" anchor 'a.b')"
+bash "$WORK/sca/rp.sh" anchor $'two\nlines' 2>"$WORK/err.txt"; rc=$?
+check "anchor refuses a multi-line fragment" $([ $rc -ne 0 ] && grep -q 'one line' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+out="$(bash "$WORK/sca/rp.sh" anchor 'module-level' 1 | sed '1d;$d')"
+bash "$WORK/sca/rp.sh" amend --text "$out" 'const x = 1' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "anchor's lines are amend --text's <old> as printed: the amend matches them exactly once" $([ $rc -eq 0 ] && ! grep -q 'module-level' "$WORK/anchor.md" && echo 0 || echo 1) "rc=$rc $(cat "$WORK/err.txt")"
+printf '# Plan: R\r\n\r\n## Architectural decisions\r\n\r\n- none\r\n\r\n## Phase 1: A\r\n\r\nfirst line\r\nsecond line\r\n\r\n### Acceptance criteria\r\n\r\n- [ ] one\r\n' > "$WORK/crlf.md"
+bash "$RP" init "$SKILL" "$WORK/scr" "$WORK/crlf.md" >/dev/null 2>&1
+bash "$WORK/scr/rp.sh" amend --text "$(bash "$WORK/scr/rp.sh" anchor 'first line' 1 | sed '1d;$d')" 'one line' >/dev/null 2>"$WORK/err.txt"; rc=$?
+check "on a CRLF plan, a multi-line anchor from anchor still matches amend --text (review F6)" $([ $rc -eq 0 ] && grep -q '^one line$' "$WORK/crlf.md" && ! grep -q 'second line' "$WORK/crlf.md" && echo 0 || echo 1) "rc=$rc $(cat "$WORK/err.txt")"
+bash "$WORK/sca/rp.sh" anchor 'no such text' 2>"$WORK/err.txt"; rc=$?
+check "anchor with no match exits non-zero" $([ $rc -ne 0 ] && grep -q 'no plan line contains' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+bash "$WORK/sca/rp.sh" anchor 'x' two 2>"$WORK/err.txt"; rc=$?
+check "anchor refuses a non-numeric <after>" $([ $rc -ne 0 ] && grep -q 'number of lines' "$WORK/err.txt" && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+
 echo "brief"
 touch "$SCRATCH/run-conventions.md"
 out="$(bash "$RPS" brief brief-code.md phase-1-brief-code.md PHASE_HEADING='Phase 1: Bootstrap' PLAN_FILE="$PWD/.agents/plans/demo-plan.md" CONVENTIONS_PATH="$SCRATCH/run-conventions.md" CONTEXT_POINTERS=$'- `research-a.md`\n- none' DELTAS='None' MANIFEST_MODIFY='- `src/a.js`' MANIFEST_REFERENCE='- `src/b.js` — "quoted" & <special> $chars' SPEC_PATH="$SCRATCH/phase-1-spec.md" HUMAN_FORM='None' FIX_CYCLE='None — first attempt.' COMMIT_MSG_PATH="$SCRATCH/phase-1-commit-msg.md" HANDOFF_PATH="$SCRATCH/phase-1-handoff.md" 2>"$WORK/err.txt")"; rc=$?
@@ -737,7 +782,7 @@ bash "$RP" init "$SKILL" "$WORK/sc3" "$WORK/nophase.md" abc 2>"$WORK/err.txt"; r
 check "init rejects a non-numeric issue" $([ $rc -ne 0 ] && grep -q 'bare number' "$WORK/err.txt" && echo 0 || echo 1) ""
 bash "$RPS" bogus 2>"$WORK/err.txt"; rc=$?
 check "unknown command fails" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
-check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && bash "$RPS" help | grep -q 'ledger-fill <phase>' && bash "$RPS" help | grep -q 'section <file> <heading>' && bash "$RPS" help | grep -q 'strip-fences <path>' && bash "$RPS" help | grep -q '^  markers' && bash "$RPS" help | grep -q '^  summary-inputs' && echo 0 || echo 1) ""
+check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && bash "$RPS" help | grep -q 'ledger-fill <phase>' && bash "$RPS" help | grep -q 'section <file> <heading>' && bash "$RPS" help | grep -q 'strip-fences <path>' && bash "$RPS" help | grep -q '^  markers' && bash "$RPS" help | grep -q '^  summary-inputs' && bash "$RPS" help | grep -q '^  commit <n>' && bash "$RPS" help | grep -q '^  anchor <fragment>' && echo 0 || echo 1) ""
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

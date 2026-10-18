@@ -42,7 +42,7 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 231 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 244 assertions, no model
 ./evals/deterministic/test-context-tally.py  # context_tally.py's reference-load count
 ./evals/deterministic/test-lint-pointers.sh  # lint.py's section-pointer rule
 ```

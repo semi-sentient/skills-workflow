@@ -56,7 +56,7 @@ At Step 5 the table switches shape: one row per **sub-agent**, grouped under its
 bash <scratch_dir>/rp.sh summary-inputs 1='✓ Complete' 2='✓ Complete (↻ retry 1/2)' pre-PR='✓'
 ```
 
-One `<phase>=<Status>` pair per phase, the tracker's Status cell with its flags; a phase without a pair gets a bare *subtotal*. Phases appear in ledger order (spawn order); **Agent** is the Mode plus the Note in parentheses (`Code (retry 1/2)`, `Research (api client)`); subtotal and Totals Active time follow the parallel-group rule (max, with the Σ as a labelled aside); `n/a` cells stay `n/a` and never enter a sum. The same table is re-pasted verbatim into the PR body's collapsed "Run cost" section.
+One `<phase>=<Status>` pair per phase, the tracker's Status cell with its flags; a phase without a pair gets a bare *subtotal*. Phases appear in ledger order (spawn order); **Agent** is the Mode plus the Note in parentheses (`Code (retry 1/2)`, `Research (api client)`); subtotal and Totals Active time follow the parallel-group rule (max, with the Σ as a labelled aside); `n/a` cells stay `n/a` and never enter a sum. The PR body's collapsed "Run cost" section pastes the table verbatim; the final summary gives only its Totals, unless no PR body is submitted (completion-templates.md).
 
 | Phase | Agent | Tokens | Tool uses | Active time |
 | ----- | ----- | -----: | --------: | ----------: |
@@ -70,4 +70,4 @@ One `<phase>=<Status>` pair per phase, the tracker's Status cell with its flags;
 | 2 | *subtotal* — ✓ Complete (↻ retry 1/2) | 711.0K | — | 2:05:56 |
 | — | **Totals** — 6 sub-agents | **1074.8K** | — | **2:17:13 (Σ 2:27:14, 1 parallel group)** |
 
-**Carried findings** (Step 4 item 10's report route) are the other Step 5 input the ledger's neighbour file holds: `rp.sh carry <phase> '<file:line — one line>'` appends to `<scratch_dir>/carried-findings.md`, and Step 5's `rp.sh summary-inputs` prints that file once — for the final summary's caveats and the PR's Review notes (its `NEEDS-RUNTIME C<k>` lines, which Step 4 item 7 carries, are caveats and Test-plan entries instead); absent means nothing was carried — instead of the orchestrator carrying each finding in its own context across phases.
+**Carried findings** (Step 4 item 10's report route) are the other Step 5 input the ledger's neighbour file holds: `rp.sh carry <phase> '<file:line — one line>'` appends to `<scratch_dir>/carried-findings.md`, and Step 5's `rp.sh summary-inputs` prints that file once — for the PR's Review notes (its `NEEDS-RUNTIME C<k>` lines, which Step 4 item 7 carries, are Test-plan entries instead, and the final summary points to them); absent means nothing was carried — instead of the orchestrator carrying each finding in its own context across phases.

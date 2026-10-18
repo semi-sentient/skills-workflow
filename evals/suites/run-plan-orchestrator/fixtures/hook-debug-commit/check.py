@@ -12,7 +12,9 @@ PLAN = ".agents/plans/shift-bands-plan.md"
 SCRATCH = ".agents/scratch/run-plan/shift-bands"
 
 # `-C <dir>` takes an argument; the `[^-\s]` keeps the repetition unambiguous (no ReDoS).
-_COMMIT = re.compile(r"\bgit\s+(?:(?:-[cC]\s+[^-\s]\S*|-\S+)\s+)*commit\b")
+_COMMIT = re.compile(r"\bgit\s+(?:(?:-[cC]\s+[^-\s]\S*|-\S+)\s+)*commit\b|rp\.sh['\"]?\s+commit\b")
+# `rp.sh commit` is the fast path itself: after a Debug fix it is as stale as a -F of the file.
+_RP_COMMIT = re.compile(r"rp\.sh['\"]?\s+commit\b")
 # Only the phase message file: the commit skill may itself pass a message with -F.
 _STALE_F = re.compile(r"(?:\s-[a-zA-Z]*F\s*|\s--file[=\s])\S*phase-[\w-]+-commit-msg\.md")
 _BRIEF_FILE = re.compile(r"([\w.-]*brief[\w.-]*\.md)")
@@ -66,7 +68,7 @@ def check(ctx, expect):
         cleanups = [c.index for c in after if re.search(r"rp\.sh['\"]?\s+cleanup\b", _exec(c.command))]
         # Only a Code agent (a sidechain, which closes the window) may re-author the file; an
         # orchestrator write of it before a -F is a hand-written commit, so no exemption here.
-        stale = [c.command for c in after if _COMMIT.search(_exec(c.command)) and _STALE_F.search(_exec(c.command))]
+        stale = [c.command for c in after if _COMMIT.search(_exec(c.command)) and (_STALE_F.search(_exec(c.command)) or _RP_COMMIT.search(_exec(c.command)))]
         expect.that("no git commit -F of the message file after the Debug fix", not stale, f"{stale[:2]}")
         # Step 4 item 4's cleanup is "that turn": before the post-Debug re-review, so neither a retry's
         # default-revert cleanup nor item 7's post-commit one can stand in for it
