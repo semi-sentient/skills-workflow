@@ -373,6 +373,37 @@ bash "$RPS" carry 1 'F4 — `src/c.js:2` regex /\d+/ misses signs' 2>>"$WORK/err
 check "carry dedups a line holding a backslash, silently" $([ "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')" = 6 ] && [ ! -s "$WORK/err.txt" ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
 bash "$RPS" carry 2 '' 2>"$WORK/err.txt"; rc=$?
 check "carry refuses an empty finding" $([ $rc -ne 0 ] && grep -q 'carry' "$WORK/err.txt" && [ "$(wc -l < "$SCRATCH/carried-findings.md" | tr -d ' ')" = 6 ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+
+echo "summary-inputs (issue #25 §7)"
+out="$(bash "$RPS" summary-inputs 1='✓ Complete' 2>"$WORK/err.txt")"; rc=$?
+expected="### Completion table
+
+$(bash "$RPS" totals 1='✓ Complete' 2>/dev/null)
+
+### Amendment markers
+
+$(bash "$RPS" markers | sed 's/^/- /')
+
+### NEEDS-RUNTIME criteria (caveats and Test-plan entries)
+
+- Phase 1: NEEDS-RUNTIME C5 — kiosk timing under 50 ms
+- Phase 1: NEEDS-RUNTIME C50 — another criterion
+
+### Other carried findings (Review notes)
+
+- Phase 1: F3 — \`src/a.js:12\` comment restates the code (documentation)
+- Phase 2: F1 — \`src/b.js:4\` unclamped index (behaviour, budget exhausted)
+- Phase 1: F3 — \`src/a.js:12\`
+- Phase 1: F4 — \`src/c.js:2\` regex /\\d+/ misses signs"
+eq "summary-inputs prints the totals table, the markers as a list, then the carried findings, NEEDS-RUNTIME lines first" "$expected" "$out"
+check "summary-inputs exits 0" $([ $rc -eq 0 ] && echo 0 || echo 1) "$(cat "$WORK/err.txt")"
+out="$(bash "$WORK/sce/rp.sh" summary-inputs 2>/dev/null)"
+check "summary-inputs prints none for each empty section (no markers, no carried-findings.md)" $([ "$(printf '%s\n' "$out" | grep -c '^none$')" = 3 ] && echo 0 || echo 1) "$out"
+bash "$WORK/sce/rp.sh" carry 1 'NEEDS-RUNTIME C2 — kiosk timing'
+out="$(bash "$WORK/sce/rp.sh" summary-inputs 2>/dev/null)"
+check "summary-inputs splits a file holding only NEEDS-RUNTIME lines: that section lists it, the other prints none" $(printf '%s\n' "$out" | sed -n '/^### NEEDS-RUNTIME/,/^### Other/p' | grep -qxF -- '- Phase 1: NEEDS-RUNTIME C2 — kiosk timing' && [ "$(printf '%s\n' "$out" | sed -n '/^### Other/,$p' | grep -cv '^###\|^$')" = 1 ] && [ "$(printf '%s\n' "$out" | tail -1)" = none ] && echo 0 || echo 1) "$out"
+out="$(bash "$RPS" summary-inputs 'not-a-pair' 2>"$WORK/err.txt")"; rc=$?
+check "summary-inputs refuses a bad totals argument and prints nothing" $([ $rc -ne 0 ] && [ -z "$out" ] && grep -q 'expected <phase>=<status>' "$WORK/err.txt" && echo 0 || echo 1) "$out $(cat "$WORK/err.txt")"
 rm -f "$SCRATCH/phase-1-review.md" "$SCRATCH/phase-1-review-2.md" "$SCRATCH/phase-2-review.md" "$SCRATCH/phase-2-review-2.md"
 
 echo "stage / delta / baselines with keep-dirty paths"
@@ -706,7 +737,7 @@ bash "$RP" init "$SKILL" "$WORK/sc3" "$WORK/nophase.md" abc 2>"$WORK/err.txt"; r
 check "init rejects a non-numeric issue" $([ $rc -ne 0 ] && grep -q 'bare number' "$WORK/err.txt" && echo 0 || echo 1) ""
 bash "$RPS" bogus 2>"$WORK/err.txt"; rc=$?
 check "unknown command fails" $([ $rc -ne 0 ] && echo 0 || echo 1) ""
-check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && bash "$RPS" help | grep -q 'ledger-fill <phase>' && bash "$RPS" help | grep -q 'section <file> <heading>' && bash "$RPS" help | grep -q 'strip-fences <path>' && bash "$RPS" help | grep -q '^  markers' && echo 0 || echo 1) ""
+check "help prints the command list" $(bash "$RPS" help | grep -q 'review-path <n>' && bash "$RPS" help | grep -q 'evidence <path>' && bash "$RPS" help | grep -q 'wait <command>' && bash "$RPS" help | grep -q 'amend <n> <k>' && bash "$RPS" help | grep -q 'add-criterion <n>' && bash "$RPS" help | grep -q 'ledger-fill <phase>' && bash "$RPS" help | grep -q 'section <file> <heading>' && bash "$RPS" help | grep -q 'strip-fences <path>' && bash "$RPS" help | grep -q '^  markers' && bash "$RPS" help | grep -q '^  summary-inputs' && echo 0 || echo 1) ""
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

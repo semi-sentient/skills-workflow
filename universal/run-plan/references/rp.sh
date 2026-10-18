@@ -47,10 +47,14 @@
 #                    append one carried finding (`- Phase <phase>: <text>`) to
 #                    carried-findings.md, skipping a line already there (a `NEEDS-RUNTIME
 #                    C<k> …` line: one for that phase and label); <text> may be @file;
-#                    Step 5 reads the file once
+#                    summary-inputs prints the file at Step 5
 #   markers          every amendment marker in the plan file, one per line: a criterion
 #                    by its label (`phase <n> C<k>: <text>`), prose by its phase or
 #                    `plan`; prints `no amendment markers` when there are none
+#   summary-inputs [<phase>=<status> …]
+#                    the Step 5 final summary's inputs, for pasting whole: the totals
+#                    table (same arguments), the markers, the NEEDS-RUNTIME lines of
+#                    carried-findings.md, then its other lines; `none` for an empty section
 #   section <file> <heading>
 #                    print one section of references/<file>: from the `##`/`###` heading
 #                    whose text, or whose name before ` — ` / ` (`, is <heading>, to the
@@ -571,6 +575,20 @@ cmd_markers() {
     END { flush(); if (!n) print "no amendment markers" }'
 }
 
+# Step 5's final summary pastes this one output whole. Live runs that called totals,
+# markers and carried-findings.md separately dropped one or more of them from the summary.
+cmd_summary_inputs() {
+  local table marks
+  table="$(cmd_totals "$@")" || exit 1
+  marks="$(cmd_markers)" || exit 1
+  printf '### Completion table\n\n%s\n\n### Amendment markers\n\n' "$table"
+  if [ "$marks" = "no amendment markers" ]; then echo "none"; else printf '%s\n' "$marks" | sed 's/^/- /'; fi
+  printf '\n### NEEDS-RUNTIME criteria (caveats and Test-plan entries)\n\n'
+  grep '^- Phase [^:]*: NEEDS-RUNTIME ' "$SCRATCH/carried-findings.md" 2>/dev/null || echo "none"
+  printf '\n### Other carried findings (Review notes)\n\n'
+  grep -v '^- Phase [^:]*: NEEDS-RUNTIME ' "$SCRATCH/carried-findings.md" 2>/dev/null || echo "none"
+}
+
 # --------------------------------------------------------------------- git side
 
 # The repository is the one `init` ran in, recorded in run.env — never the caller's
@@ -979,6 +997,7 @@ case "$cmd" in
   totals)      cmd_totals "$@" ;;
   carry)       cmd_carry "$@" ;;
   markers)     cmd_markers ;;
+  summary-inputs) cmd_summary_inputs "$@" ;;
   section)     cmd_section "$@" ;;
   strip-fences) cmd_strip_fences "$@" ;;
   stage)       cmd_stage ;;

@@ -159,7 +159,7 @@ def check(ctx, expect):
     expect.that("orchestrator never Read the plan file", not plan_reads, f"{plan_reads}")
     expect.that("rp.sh init/stage/ledger/brief ran", {"init", "stage", "ledger", "brief"} <= used, f"used={sorted(used)}")
     # --- #11: the completion table comes from rp.sh totals, never from the ledger file
-    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    expect.that("rp.sh totals or summary-inputs rendered the completion table", bool({"totals", "summary-inputs"} & used), f"used={sorted(used)}")
     ledger_dumps = [c for c in shell if any(re.search(r"scratch/run-plan/[^/\s]+/ledger\.md", seg) and re.search(r"\b(cat|less|head|tail|sed|awk|more)\b", seg)
                                              for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", c))]
     expect.that("orchestrator never dumped the scratch ledger.md", not ledger_dumps, f"{ledger_dumps[:3]}")

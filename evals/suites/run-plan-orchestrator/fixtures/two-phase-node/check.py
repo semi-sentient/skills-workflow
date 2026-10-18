@@ -141,13 +141,13 @@ def check(ctx, expect):
     expect.that("rp.sh tick ran (no hand-ticking via Edit)", "tick" in used and not tick_edits,
                 f"used={sorted(used)} hand-ticks={len(tick_edits)}")
     unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "amend", "add-criterion", "ledger", "phase-cost", "stage",
-                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "help"})
+                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "summary-inputs", "help"})
     expect.info("rp.sh commands that do not exist (guessed)", unknown)
     expect.that("rp.sh ledger ran", "ledger" in used, f"used={sorted(used)}")
     expect.that("rp.sh brief composed the briefs", "brief" in used, f"used={sorted(used)}")
     expect.that("rp.sh review-path resolved evidence paths", "review-path" in used, f"used={sorted(used)}")
     # --- #11: the completion table comes from rp.sh totals, never from the ledger file
-    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    expect.that("rp.sh totals or summary-inputs rendered the completion table", bool({"totals", "summary-inputs"} & used), f"used={sorted(used)}")
     ledger_dumps = [c for c in main_bash if _dumps_file(c, r"scratch/run-plan/[^/\s]+/ledger\.md")]
     expect.that("orchestrator never dumped the scratch ledger.md (no cat/sed/head of it)", not ledger_dumps, f"{ledger_dumps[:3]}")
     ct_reads = [p for p in main_reads if p.endswith("completion-templates.md")] + [c for c in main_bash if "completion-templates.md" in c]
