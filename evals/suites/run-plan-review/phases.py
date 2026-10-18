@@ -66,7 +66,7 @@ visible to the shift lead.""",
 # BANDS plus one criterion that only running a command decides. The script is trivially
 # traceable, which is the trap: sitevue.infrastructure #300's reviewer marked exactly this
 # shape MET from a static read. The reviewer never runs commands, so the verdict owed is
-# NEEDS-RUNTIME — the orchestrator then carries it, or the hook exception verifies it.
+# NEEDS-RUNTIME — the orchestrator then carries it.
 BANDS_COMMAND = {
     **BANDS,
     # C3 scoped to a positive target: "a rate of 0 is always red" is literally false at

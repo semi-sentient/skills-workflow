@@ -26,7 +26,14 @@
 #                    of existing criteria stay stable), print its label, then re-extract
 #                    and, in GH mode, sync; <text> may be @file
 #   ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]
-#                    append one usage row to ledger.md
+#                    append one usage row to ledger.md; [group] is letters then a number
+#                    (R1) — pass '' for none before a note
+#   ledger-fill <phase> <mode> <tokens> <tool_uses> <duration_ms> [note]
+#                    fill the latest row of that phase and mode (and note, when given)
+#                    still holding an n/a figure — usage the host delivered after the
+#                    hand-back; refuses when such rows carry different notes and none was
+#                    given; group and note are kept; a miss lists that mode's rows (a
+#                    filled row is final)
 #   phase-cost <n>   `| Research | Code | Review | Total | Active time |` cells for phase <n>;
 #                    warns when the phase has more review evidence files than Review rows,
 #                    and when two or more `setup` rows carry no Parallel group
@@ -41,6 +48,16 @@
 #                    carried-findings.md, skipping a line already there (a `NEEDS-RUNTIME
 #                    C<k> …` line: one for that phase and label); <text> may be @file;
 #                    Step 5 reads the file once
+#   markers          every amendment marker in the plan file, one per line: a criterion
+#                    by its label (`phase <n> C<k>: <text>`), prose by its phase or
+#                    `plan`; prints `no amendment markers` when there are none
+#   section <file> <heading>
+#                    print one section of references/<file>: from the `##`/`###` heading
+#                    whose text, or whose name before ` — ` / ` (`, is <heading>, to the
+#                    next heading of the same or a higher level (every match, in order)
+#   strip-fences <path>
+#                    remove a wrapping fence from <path> in place: fence lines before the first
+#                    content line, and as many after the last; inner fences stay
 #   stage            git add -A from the repo root, excluding every keep-dirty path in
 #                    tree-state.md (each exclusion is its own literal pathspec)
 #   delta            names-only unstaged + untracked delta since the last staging, minus
@@ -363,10 +380,50 @@ LEDGER_HEADER='| Phase | Mode | Tokens | Tool uses | duration_ms | Parallel grou
 
 ensure_ledger() { [ -f "$SCRATCH/ledger.md" ] || printf '%s\n' "$LEDGER_HEADER" > "$SCRATCH/ledger.md"; }
 
+# A budget note passed as the sixth argument lands in the group column, where ledger-fill's
+# note selector cannot find it (2026-10-17 run: `ledger 8 Code n/a n/a n/a 'corrective 1/2'`).
 cmd_ledger() {
   [ $# -ge 5 ] || die "usage: rp.sh ledger <phase> <mode> <tokens> <tool_uses> <duration_ms> [group] [note]"
+  if [ -n "${6:-}" ]; then
+    case "$6" in *[!A-Za-z0-9]*|*[!0-9]|[!A-Za-z]*)
+      [ $# -eq 6 ] || die "ledger: \"$6\" is not a group label (letters then a number, such as R1); a row takes one note, as the seventh argument"
+      die "ledger: \"$6\" is not a group label (letters then a number, such as R1) — a note is the seventh argument: rp.sh ledger $1 $2 $3 $4 $5 '' $(sq "$6")" ;;
+    esac
+  fi
   ensure_ledger
   printf '| %s | %s | %s | %s | %s | %s | %s |\n' "$1" "$2" "$3" "$4" "$5" "${6:-}" "${7:-}" >> "$SCRATCH/ledger.md"
+}
+
+# The host can hand a sub-agent back before its usage arrives. The row goes in at the
+# return with n/a figures and is filled here — three live runs patched it with sed instead.
+# A row can stay n/a for good (an inline lookup reports no usage), and one batch's rows share
+# phase and mode, so the note tells them apart: without one, differing notes are a refusal.
+# A miss lists the phase's rows of that mode: told to append a row instead, a run that had
+# already filled (or mis-slotted) one would double-count it, and the 2026-10-17 run patched
+# ledger.md with perl rather than do that.
+cmd_ledger_fill() {
+  [ $# -eq 5 ] || [ $# -eq 6 ] || die "usage: rp.sh ledger-fill <phase> <mode> <tokens> <tool_uses> <duration_ms> [note]"
+  ensure_ledger
+  local row
+  # Text goes in through ENVIRON: awk -v expands backslash escapes, so a note holding `\b` never matched its row.
+  row="$(PH="$1" MODE="$2" SEL="${6:-}" awk -F'|' -v has="$(( $# == 6 ))" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    BEGIN { ph = ENVIRON["PH"]; mode = ENVIRON["MODE"]; sel = ENVIRON["SEL"] }
+    NR > 2 && trim($2) == ph && trim($3) == mode {
+      rows = rows sprintf("\n    row %d: %s | %s | %s | group \"%s\" | note \"%s\"", NR - 2, trim($4), trim($5), trim($6), trim($7), trim($8))
+    }
+    NR > 2 && trim($2) == ph && trim($3) == mode && (trim($4) == "n/a" || trim($5) == "n/a" || trim($6) == "n/a") && (!has || trim($8) == sel) {
+      n = NR; if (c++ && trim($8) != note) mixed = 1; note = trim($8); notes = notes "\n    \"" note "\""
+    }
+    END { if (mixed) { printf "rp.sh: ledger-fill: phase %s has %s rows with n/a figures under different notes — pass the row'"'"'s note as the sixth argument:%s\n", ph, mode, notes > "/dev/stderr"; print -1; exit }
+      if (!n && rows != "") { printf "rp.sh: ledger-fill: no %s row of phase %s%s holds an n/a figure; its %s rows are:%s\n  a filled row is final; an n/a row under another note is filled by passing that note\n", mode, ph, (has ? " with note \"" sel "\"" : ""), mode, rows > "/dev/stderr"; print -1; exit }
+      print n + 0 }' "$SCRATCH/ledger.md")"
+  [ "$row" -ge 0 ] || exit 1
+  [ "$row" -gt 0 ] || die "ledger-fill: no $2 row of phase $1${6+ with note \"$6\"} holds an n/a figure — record the return with: rp.sh ledger $1 $2 <tokens> <tool_uses> <duration_ms>"
+  awk -F'|' -v row="$row" -v t="$3" -v u="$4" -v d="$5" 'function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    NR == row { printf "| %s | %s | %s | %s | %s | %s | %s |\n", trim($2), trim($3), t, u, d, trim($7), trim($8); next }
+    { print }' "$SCRATCH/ledger.md" > "$SCRATCH/ledger.md.rp-tmp"
+  mv "$SCRATCH/ledger.md.rp-tmp" "$SCRATCH/ledger.md"
+  echo "filled ledger row $((row - 2)): phase $1 $2"
 }
 
 # Per-agent figures stay per-agent (dot-separated in spawn order); only Total sums.
@@ -497,6 +554,21 @@ cmd_carry() {
   esac
   [ -f "$SCRATCH/carried-findings.md" ] && K="$key" L="$line" awk '$0 == ENVIRON["L"] || (ENVIRON["K"] != "" && index($0, ENVIRON["K"] " ") == 1) { f = 1 } END { exit !f }' "$SCRATCH/carried-findings.md" && return 0
   printf '%s\n' "$line" >> "$SCRATCH/carried-findings.md"
+}
+
+# Step 5 lists every amendment marker the run wrote (fix-cycles.md's suffix table). The
+# only other source is the plan file, which the orchestrator never reads. A wrapped
+# criterion is joined first, so a marker on a continuation line keeps its label.
+cmd_markers() {
+  load_env
+  annotate | awk -F"$SEP" "$AWK_PHASE_LIB"'
+    function marked(s) { return s ~ /\((accepted as written|amended mid-run|amended after commit|added mid-run|reopened) |\(gate: / }
+    function flush() { if (buf != "" && marked(buf)) { print "phase " bph " C" bk ": " buf; n++ } buf = "" }
+    $2 == "cont" { t = $4; sub(/^[[:space:]]+/, "", t); buf = buf " " t; next }
+    { flush() }
+    $2 == "crit" { bph = $1; bk = $3; buf = crit_text($4); next }
+    marked($4) { print ($1 == "-" ? "plan" : "phase " $1) " prose: " $4; n++ }
+    END { flush(); if (!n) print "no amendment markers" }'
 }
 
 # --------------------------------------------------------------------- git side
@@ -648,6 +720,27 @@ cmd_cleanup() {
   find "$SCRATCH" -maxdepth 1 -name 'baseline-*' -delete
 }
 
+# A Code agent sometimes wraps its message file in a fence, which `git commit -F` would make
+# the subject. `sed '/^```/d'` was the improvised strip; it also deletes a fence inside the body.
+cmd_strip_fences() {
+  local path="${1:?usage: rp.sh strip-fences <path>}"
+  [ -f "$path" ] || die "strip-fences: no file $path"
+  awk '
+    function fence(s) { return s ~ /^[[:space:]]*(```|~~~)/ }
+    function blank(s) { return s ~ /^[[:space:]]*$/ }
+    { sub(/\r$/, ""); l[NR] = $0 }
+    END {
+      for (a = 1; a <= NR && (blank(l[a]) || fence(l[a])); a++) if (fence(l[a])) lead++
+      # A wrapper closes once per opening fence; any other final fence closes a code block
+      # inside the body and stays.
+      for (b = NR; b >= a && (blank(l[b]) || (trail < lead && fence(l[b]))); b--) if (fence(l[b])) trail++
+      n = lead + trail
+      for (i = a; i <= b; i++) print l[i]
+      printf "%d fence line(s) stripped\n", n > "/dev/stderr"
+    }' "$path" > "$path.rp-tmp" || { rm -f "$path.rp-tmp"; exit 1; }
+  mv "$path.rp-tmp" "$path"
+}
+
 # ----------------------------------------------------------------------- GitHub
 
 strip_footer() { tr -d '\r' < "$1" | grep -vE '^<!-- gh-(sub-)?issue: [0-9]+ -->[[:space:]]*$' | trim_tail; }
@@ -720,6 +813,33 @@ cmd_wait() {
   done
   printf 'timeout after %ss (%s poll(s)) — last state: %s\n' "$SECONDS" "$polls" "$state"
   return 1
+}
+
+# ------------------------------------------------------------------- references
+
+# A `<file>.md → <Section>` pointer, read without a hand-written range: hand-rolled awk
+# ranges missed bold-lead sections, closed on their own first line, and grepped the intro
+# sentence instead of the heading (#25 §1). evals/lint.py holds every pointer to a heading
+# this matches: the full heading text, or its name before ` — ` or ` (`.
+cmd_section() {
+  load_env
+  local f="${1:?usage: rp.sh section <file> <heading>}" h="${2:?section: missing <heading>}"
+  f="${f#references/}"
+  [ -f "$SKILL_DIR/references/$f" ] || die "section: no references/$f in $SKILL_DIR"
+  H="$h" awk '
+    function level(s) { match(s, /^#+/); return RLENGTH }
+    function name(t,   p) { p = index(t, " — "); if (p) t = substr(t, 1, p - 1); p = index(t, " ("); if (p) t = substr(t, 1, p - 1); return t }
+    /^[[:space:]]*(```|~~~)/ { fence = !fence }
+    { sub(/\r$/, "") }
+    !fence && /^#+ / {
+      lv = level($0); t = $0; sub(/^#+ +/, "", t); sub(/[[:space:]]+$/, "", t)
+      if (on && lv <= on) on = 0
+      if (!on && lv >= 2 && lv <= 3 && (t == ENVIRON["H"] || name(t) == ENVIRON["H"])) { on = lv; hit++ }
+      if (lv >= 2 && lv <= 3) heads = heads "\n  " $0
+    }
+    on { print }
+    END { if (!hit) { printf "rp.sh: section: no heading \"%s\" in %s; its headings are:%s\n", ENVIRON["H"], FILENAME, heads > "/dev/stderr"; exit 1 } }
+  ' "$SKILL_DIR/references/$f"
 }
 
 # ----------------------------------------------------------------------- briefs
@@ -834,6 +954,9 @@ cmd_init() {
   [ -f "$scratch/ledger.md" ] || printf '%s\n' "$LEDGER_HEADER" > "$scratch/ledger.md"
   bash "$scratch/rp.sh" extract 1
   echo "run directory: $scratch"
+  # Three live runs stored the command in a variable (R="bash $S/rp.sh"; $R …): zsh runs
+  # it as one word and exits 127, aborting the && chain behind it.
+  printf 'call helpers as: S=%s; bash "$S/rp.sh" <command> … (a variable holds the directory, never the command)\n' "$(sq "$scratch")"
   sed -n '1p;/^Plan file:/p' "$scratch/plan-index.md"
   grep -E '^### |^Human-form|^Human-gate' "$scratch/plan-index.md"
 }
@@ -851,9 +974,13 @@ case "$cmd" in
   amend)       cmd_amend "$@" ;;
   add-criterion) cmd_add_criterion "$@" ;;
   ledger)      cmd_ledger "$@" ;;
+  ledger-fill) cmd_ledger_fill "$@" ;;
   phase-cost)  cmd_phase_cost "$@" ;;
   totals)      cmd_totals "$@" ;;
   carry)       cmd_carry "$@" ;;
+  markers)     cmd_markers ;;
+  section)     cmd_section "$@" ;;
+  strip-fences) cmd_strip_fences "$@" ;;
   stage)       cmd_stage ;;
   delta)       cmd_delta ;;
   baselines)   cmd_baselines ;;

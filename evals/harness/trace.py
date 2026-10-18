@@ -32,9 +32,10 @@ def strip_heredocs(cmd: str) -> str:
 
 
 def msg_file_edits(trace: "Trace") -> list[str]:
-    """Main-agent edits to a run-plan phase commit-message file other than Step 4 item 7's
-    fence strip: only Code agents (sidechains) author or maintain it (sitevue.infrastructure
-    #300 sed-edited one after the final review)."""
+    """Main-agent edits to a run-plan phase commit-message file: only Code agents (sidechains)
+    author or maintain it (sitevue.infrastructure #300 sed-edited one after the final review).
+    Step 4 item 7's fence strip is `rp.sh strip-fences`, which is neither form below; a hand
+    `sed -i '/^```/d'` strip counts, since it also deletes a fence inside the body (#25)."""
     out = []
     for c in trace.tool_calls(main_only=True):
         if c.name in ("Write", "Edit") and c.path.endswith("-commit-msg.md"):
@@ -43,7 +44,7 @@ def msg_file_edits(trace: "Trace") -> list[str]:
             for seg in re.split(r"\s*(?:&&|\|\||;)\s*", strip_heredocs(c.command)):
                 if "-commit-msg.md" not in seg:
                     continue
-                if (re.search(r"\bsed\b.*\s-i\b", seg) and "```" not in seg) \
+                if re.search(r"\bsed\b.*\s-i\b", seg) \
                         or re.search(r">{1,2}\s*['\"]?\S*-commit-msg\.md(?![\w.])", seg):
                     out.append(seg[:120])
     return out

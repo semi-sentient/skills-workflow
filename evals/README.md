@@ -42,7 +42,9 @@ belongs in a `references/` file that names its own loading trigger.
 ### Deterministic shell tests
 
 ```bash
-./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 190 assertions, no model
+./evals/deterministic/test-rp-sh.sh     # run-plan's rp.sh: 226 assertions, no model
+./evals/deterministic/test-context-tally.py  # context_tally.py's reference-load count
+./evals/deterministic/test-lint-pointers.sh  # lint.py's section-pointer rule
 ```
 
 `run-plan` ships a helper script (`references/rp.sh`) that the orchestrator copies
@@ -50,7 +52,8 @@ into its scratch directory and calls for everything the skill text used to descr
 as shell: plan extraction into `plan-index.md` and `phase-<n>-spec.md` files with
 `C<k>` criterion labels, ticking criteria by label, amending a criterion by label or
 prose by unique anchor and appending a criterion (`rp.sh amend` / `add-criterion`,
-issue #13), ledger rows, staging with the
+issue #13), ledger rows and late usage fills, amendment markers, reference sections,
+and commit-message fence strips (issue #25), staging with the
 keep-dirty exclusions, the post-verdict delta and its baselines, evidence-path
 resolution, GH sync/drift/pull, per-phase cleanup, filling brief templates, and the
 one-call bounded wait (`rp.sh wait`). The
@@ -503,8 +506,7 @@ carried after the commit. The plan-stamp hook replaces the readable rule. Second
 re-review → `Skill(commit)`, no `-F` of the stale file). The carry went unexercised: in the Step 3
 batch the orchestrator offered C5 "as written, as a human gate" and, on `proceed as written`,
 rewrote it to human form, so the reviewer returned HUMAN-GATE and the run ended `partial` at the
-gate. The hook-verified NEEDS-RUNTIME exception is not exercised here; it would need a criterion
-that is the hook's own command.
+gate.
 
 ### Dialogue fixtures — grading an interview
 
