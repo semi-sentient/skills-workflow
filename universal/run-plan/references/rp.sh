@@ -47,10 +47,15 @@
 #                    append one carried finding (`- Phase <phase>: <text>`) to
 #                    carried-findings.md, skipping a line already there (a `NEEDS-RUNTIME
 #                    C<k> …` line: one for that phase and label); <text> may be @file;
-#                    Step 5 reads the file once
+#                    summary-inputs prints the file at Step 5
 #   markers          every amendment marker in the plan file, one per line: a criterion
 #                    by its label (`phase <n> C<k>: <text>`), prose by its phase or
 #                    `plan`; prints `no amendment markers` when there are none
+#   summary-inputs [<phase>=<status> …]
+#                    the Step 5 PR body's inputs, pasted whole only when no PR body is
+#                    submitted: the totals table (same arguments), the markers, the
+#                    NEEDS-RUNTIME lines of carried-findings.md, then its other lines;
+#                    `none` for an empty section
 #   section <file> <heading>
 #                    print one section of references/<file>: from the `##`/`###` heading
 #                    whose text, or whose name before ` — ` / ` (`, is <heading>, to the
@@ -58,6 +63,15 @@
 #   strip-fences <path>
 #                    remove a wrapping fence from <path> in place: fence lines before the first
 #                    content line, and as many after the last; inner fences stay
+#   commit <n>       the fast-path phase commit: strip-fences on phase-<n>-commit-msg.md,
+#                    git commit -F it, the hook's output to commit-<n>.log (prints the
+#                    new commit and the log's path), then cleanup <n>; on a
+#                    rejection prints the log's tail, keeps the file, exits git's status;
+#                    refuses when the file is absent (the fallback applies)
+#   anchor <fragment> [<after>]
+#                    every plan line containing <fragment> (literal), each under a
+#                    `--- phase <id>, line <L>` header with the <after> lines below it,
+#                    verbatim, then the match count: copy amend --text's <old> from here
 #   stage            git add -A from the repo root, excluding every keep-dirty path in
 #                    tree-state.md (each exclusion is its own literal pathspec)
 #   delta            names-only unstaged + untracked delta since the last staging, minus
@@ -319,7 +333,8 @@ cmd_amend() {
     [ -n "$old" ] || die "amend --text: <old> is empty"
     case "$old" in *'- ['*) die "amend --text: a checkbox line is a criterion — use rp.sh amend <n> <k> for its text, tick/untick for its state" ;; esac
     case "$new" in *'- ['*) die "amend --text: a checkbox line is a criterion — use rp.sh amend <n> <k> for its text, tick/untick for its state" ;; esac
-    local s; s="$(cat "$PLAN_FILE"; printf x)"; s="${s%x}"   # keep trailing newlines exactly
+    # CR-stripped, as every other plan rewrite leaves it: `anchor` prints lines without their CR.
+    local s; s="$(tr -d '\r' < "$PLAN_FILE"; printf x)"; s="${s%x}"   # keep trailing newlines exactly
     local head="${s%%"$old"*}"
     [ "$head" != "$s" ] || die "amend --text: anchor not found in $PLAN_FILE — quote the plan's own text exactly"
     local tail="${s#*"$old"}"
@@ -571,6 +586,20 @@ cmd_markers() {
     END { flush(); if (!n) print "no amendment markers" }'
 }
 
+# Step 5's PR body takes its sections from this one output. Live runs that called totals,
+# markers and carried-findings.md separately dropped one or more of them.
+cmd_summary_inputs() {
+  local table marks
+  table="$(cmd_totals "$@")" || exit 1
+  marks="$(cmd_markers)" || exit 1
+  printf '### Completion table\n\n%s\n\n### Amendment markers\n\n' "$table"
+  if [ "$marks" = "no amendment markers" ]; then echo "none"; else printf '%s\n' "$marks" | sed 's/^/- /'; fi
+  printf '\n### NEEDS-RUNTIME criteria (caveats and Test-plan entries)\n\n'
+  grep '^- Phase [^:]*: NEEDS-RUNTIME ' "$SCRATCH/carried-findings.md" 2>/dev/null || echo "none"
+  printf '\n### Other carried findings (Review notes)\n\n'
+  grep -v '^- Phase [^:]*: NEEDS-RUNTIME ' "$SCRATCH/carried-findings.md" 2>/dev/null || echo "none"
+}
+
 # --------------------------------------------------------------------- git side
 
 # The repository is the one `init` ran in, recorded in run.env — never the caller's
@@ -739,6 +768,46 @@ cmd_strip_fences() {
       printf "%d fence line(s) stripped\n", n > "/dev/stderr"
     }' "$path" > "$path.rp-tmp" || { rm -f "$path.rp-tmp"; exit 1; }
   mv "$path.rp-tmp" "$path"
+}
+
+# Step 4 item 7's fast path. Live runs piped `git commit` through grep to trim the hook's
+# output and ran cleanup after a `;`, so a rejected commit still deleted the message file.
+cmd_commit() {
+  local id="${1:?usage: rp.sh commit <n>}" msg log top rc=0
+  load_env
+  top="$(repo_top)"
+  msg="$SCRATCH/phase-$id-commit-msg.md"
+  [ -f "$msg" ] || die "commit: no $msg — the fast path does not apply; commit through the fallback, Skill(commit)"
+  cmd_strip_fences "$msg"
+  log="$SCRATCH/commit-$id.log"
+  git -C "$top" commit -q -F "$msg" > "$log" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    tail -n 40 "$log"
+    printf 'rp.sh: commit: git commit exited %s; %s is kept; full hook output in %s\n' "$rc" "$msg" "$log" >&2
+    exit "$rc"
+  fi
+  git -C "$top" log --oneline -1
+  if [ -s "$log" ]; then printf 'hook output: %s line(s) in %s\n' "$(wc -l < "$log" | tr -d ' ')" "$log"; fi
+  cmd_cleanup "$id"
+}
+
+# `amend --text` needs the plan's exact text; without this the orchestrator grepped the
+# plan and re-read spec files to copy it.
+cmd_anchor() {
+  local frag="${1:?usage: rp.sh anchor <fragment> [<after>]}" after="${2:-0}"
+  case "$after" in ''|*[!0-9]*) die "anchor: <after> is a number of lines, got '$after'" ;; esac
+  case "$frag" in *"$NL"*) die "anchor: <fragment> is one line; pass <after> for the lines below it" ;; esac
+  load_env
+  annotate | F="$frag" awk -F"$SEP" -v after="$after" '
+    { ph[NR] = $1; line[NR] = $4 }
+    END {
+      for (i = 1; i <= NR; i++) if (index(line[i], ENVIRON["F"])) {
+        n++; printf "--- %s, line %d\n", (ph[i] == "-" ? "plan" : "phase " ph[i]), i
+        for (j = i; j <= i + after && j <= NR; j++) print line[j]
+      }
+      if (!n) { print "rp.sh: no plan line contains that fragment" > "/dev/stderr"; exit 1 }
+      printf "%d match(es)%s\n", n, (n > 1 ? " — amend --text needs a unique anchor: quote more context" : "")
+    }'
 }
 
 # ----------------------------------------------------------------------- GitHub
@@ -979,8 +1048,11 @@ case "$cmd" in
   totals)      cmd_totals "$@" ;;
   carry)       cmd_carry "$@" ;;
   markers)     cmd_markers ;;
+  summary-inputs) cmd_summary_inputs "$@" ;;
   section)     cmd_section "$@" ;;
   strip-fences) cmd_strip_fences "$@" ;;
+  commit)      cmd_commit "$@" ;;
+  anchor)      cmd_anchor "$@" ;;
   stage)       cmd_stage ;;
   delta)       cmd_delta ;;
   baselines)   cmd_baselines ;;

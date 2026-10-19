@@ -97,11 +97,11 @@ def check(ctx, expect):
     expect.equals("rp.sh add-criterion used once for the Phase 1 criterion", len(add_cmds), 1)
     expect.info("rp.sh amend calls", len(amend_cmds))
     unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "amend", "add-criterion", "ledger", "phase-cost", "stage",
-                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "help"})
+                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "summary-inputs", "commit", "anchor", "help"})
     expect.info("rp.sh commands that do not exist (guessed)", unknown)
     expect.info("rp.sh commands used", sorted(used))
     # --- #11: the completion table comes from rp.sh totals, never from the ledger file
-    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    expect.that("rp.sh totals or summary-inputs rendered the completion table", bool({"totals", "summary-inputs"} & used), f"used={sorted(used)}")
     ledger_dumps = [c for c in shell if any(re.search(r"scratch/run-plan/[^/\s]+/ledger\.md", seg) and re.search(r"\b(cat|less|head|tail|sed|awk|more)\b", seg)
                                              for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", c))]
     expect.that("orchestrator never dumped the scratch ledger.md", not ledger_dumps, f"{ledger_dumps[:3]}")
@@ -152,7 +152,7 @@ def check(ctx, expect):
     # --- the reopened phase: Code spawn, then a FULL review, then its commit
     agent_idx = [(c.index, str(c.input.get("prompt", ""))) for c in tr.agent_calls()]
     add_idx = min((c.index for c in bash_calls if re.search(r"rp\.sh['\"]?\s+add-criterion\b", _exec(c.command))), default=None)
-    commit_idx = sorted([c.index for c in bash_calls if re.search(GIT + r"commit\b", _exec(c.command))] + [c.index for c in tr.tool_calls("Skill", main_only=True)])
+    commit_idx = sorted([c.index for c in bash_calls if re.search("(?:" + GIT + r"commit\b|rp\.sh['\"]?\s+commit\b)", _exec(c.command))] + [c.index for c in tr.tool_calls("Skill", main_only=True)])
     p1_code_after = [i for i, p in agent_idx if add_idx is not None and i > add_idx and re.search(r"\bCode\b", p) and re.search(r"Phase 1\b", p)]
     p1_review_after = [i for i, p in agent_idx if add_idx is not None and i > add_idx and re.search(r"\bReview\b", p) and re.search(r"Phase 1\b", p)]
     full_brief_after = [c for c in bash_calls if add_idx is not None and c.index > add_idx and re.search(r"rp\.sh['\"]?\s+brief\s+brief-review\.md\s+\S*phase-1-brief-review", c.command)]
@@ -231,7 +231,7 @@ def check(ctx, expect):
                 add_rec = ri
             if add_rec is not None and p1_review_rec is None and name in ("Task", "Agent") and re.search(r"\bReview\b", str(inp.get("prompt", ""))) and re.search(r"Phase 1\b", str(inp.get("prompt", ""))):
                 p1_review_rec = ri
-            if p1_review_rec is not None and ri > p1_review_rec and last_commit_rec is None and (name == "Skill" or (name == "Bash" and re.search(GIT + r"commit\b", _exec(cmd)))):
+            if p1_review_rec is not None and ri > p1_review_rec and last_commit_rec is None and (name == "Skill" or (name == "Bash" and re.search("(?:" + GIT + r"commit\b|rp\.sh['\"]?\s+commit\b)", _exec(cmd)))):
                 last_commit_rec = ri
 
     def ctx_at(ri):

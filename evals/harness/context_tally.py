@@ -99,7 +99,7 @@ def split_by_size(files: list[str], chars: int) -> list[tuple[str, int]]:
         sizes = [1] * len(files)
     total = sum(sizes)
     return [(f, round(chars * n / total)) for f, n in zip(files, sizes)]
-GIT_COMMIT = re.compile(r"\bgit\s+(?:-\S+\s+)*commit\b")
+GIT_COMMIT = re.compile(r"\bgit\s+(?:-\S+\s+)*commit\b|rp\.sh['\"]?\s+commit\b")
 # A hand-written brief file: `cat > x-brief.md <<EOF`, `cat <<EOF > x-brief.md`, `tee`, `printf … >`.
 HEREDOC_BRIEF = re.compile(r"(?:(?:cat|tee|printf|echo)\b[^\n|]*>{1,2}\s*['\"]?\S*brief\S*)|(?:<<-?\s*['\"]?\w+['\"]?\s*>{1,2}\s*['\"]?\S*brief\S*)")
 
@@ -213,7 +213,7 @@ def tally(path: Path) -> dict:
                         refs = references_read(str(inp.get("command", "")))
                     if refs:
                         pending_ref[block.get("id", "")] = refs
-                    if ctx and (name == "Skill" or (name == "Bash" and GIT_COMMIT.search(str(inp.get("command", ""))))):
+                    if ctx and (name == "Skill" or (name == "Bash" and GIT_COMMIT.search(spell_out_rp(str(inp.get("command", "")))))):
                         ctx_at_last_commit = ctx
                     if name in AGENT_TOOLS:
                         briefs.append(len(str(inp.get("prompt", ""))))

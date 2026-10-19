@@ -159,7 +159,7 @@ def check(ctx, expect):
     expect.that("orchestrator never Read the plan file", not plan_reads, f"{plan_reads}")
     expect.that("rp.sh init/stage/ledger/brief ran", {"init", "stage", "ledger", "brief"} <= used, f"used={sorted(used)}")
     # --- #11: the completion table comes from rp.sh totals, never from the ledger file
-    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    expect.that("rp.sh totals or summary-inputs rendered the completion table", bool({"totals", "summary-inputs"} & used), f"used={sorted(used)}")
     ledger_dumps = [c for c in shell if any(re.search(r"scratch/run-plan/[^/\s]+/ledger\.md", seg) and re.search(r"\b(cat|less|head|tail|sed|awk|more)\b", seg)
                                              for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", c))]
     expect.that("orchestrator never dumped the scratch ledger.md", not ledger_dumps, f"{ledger_dumps[:3]}")
@@ -167,7 +167,7 @@ def check(ctx, expect):
     expect.at_most("completion-templates.md read at most once", len(ct_reads), 1)
     expect.that("no hand-written git add -A", not any(re.search(r"git\s+add\s+-A", c) for c in main_bash), "")
     review_idx = [i for i, p in agent_idx if re.search(r"\bReview\b", p)]
-    commit_idx = sorted([c.index for c in bash_calls if re.search(r"git\s+commit\b", c.command)] + [c.index for c in tr.tool_calls("Skill", main_only=True)])
+    commit_idx = sorted([c.index for c in bash_calls if re.search(r"git\s+commit\b|rp\.sh['\"]?\s+commit\b", c.command)] + [c.index for c in tr.tool_calls("Skill", main_only=True)])
     expect.that("a review preceded the first commit", bool(review_idx) and bool(commit_idx) and min(review_idx) < min(commit_idx),
                 f"review at {review_idx[:3]}, commits at {commit_idx[:3]}")
     briefs = tr.briefs()
@@ -191,7 +191,7 @@ def check(ctx, expect):
             inp = b.get("input") or {}
             if name in ("Task", "Agent") and re.search(r"\bDiagnose\b", str(inp.get("prompt", ""))) and spawn_rec is None:
                 spawn_rec = ri
-            if spawn_rec is None and (name == "Skill" or (name == "Bash" and re.search(r"git\s+commit\b", str(inp.get("command", ""))))):
+            if spawn_rec is None and (name == "Skill" or (name == "Bash" and re.search(r"git\s+commit\b|rp\.sh['\"]?\s+commit\b", str(inp.get("command", ""))))):
                 last_commit_rec = ri
     def ctx_at(ri):
         for n, _ in recs[ri:]:

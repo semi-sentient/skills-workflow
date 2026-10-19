@@ -110,7 +110,7 @@ def check(ctx, expect):
     # (a Skill tool call) reads `git diff --cached` itself, up to the commit it makes.
     bash_calls = tr.tool_calls("Bash", main_only=True)
     skill_idx = sorted(c.index for c in tr.tool_calls("Skill", main_only=True))
-    commit_bash_idx = sorted(c.index for c in bash_calls if re.search(r"git\s+(?:-\S+\s+)*commit\b", c.command))
+    commit_bash_idx = sorted(c.index for c in bash_calls if re.search(r"git\s+(?:-\S+\s+)*commit\b|rp\.sh['\"]?\s+commit\b", c.command))
     # The pre-`diff` flag repetition must stay unambiguous or it backtracks
     # exponentially (CodeQL py/redos). Two rules: no alternative may match what
     # `-\S+` already matches (so no `--no-pager` branch), and `-c`/`-C`'s separate
@@ -141,13 +141,13 @@ def check(ctx, expect):
     expect.that("rp.sh tick ran (no hand-ticking via Edit)", "tick" in used and not tick_edits,
                 f"used={sorted(used)} hand-ticks={len(tick_edits)}")
     unknown = sorted(used - {"init", "extract", "phases", "criteria", "tick", "untick", "amend", "add-criterion", "ledger", "phase-cost", "stage",
-                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "help"})
+                             "delta", "baselines", "review-path", "evidence", "sync", "drift", "pull", "cleanup", "brief", "wait", "totals", "carry", "summary-inputs", "commit", "anchor", "help"})
     expect.info("rp.sh commands that do not exist (guessed)", unknown)
     expect.that("rp.sh ledger ran", "ledger" in used, f"used={sorted(used)}")
     expect.that("rp.sh brief composed the briefs", "brief" in used, f"used={sorted(used)}")
     expect.that("rp.sh review-path resolved evidence paths", "review-path" in used, f"used={sorted(used)}")
     # --- #11: the completion table comes from rp.sh totals, never from the ledger file
-    expect.that("rp.sh totals rendered the completion table", "totals" in used, f"used={sorted(used)}")
+    expect.that("rp.sh totals or summary-inputs rendered the completion table", bool({"totals", "summary-inputs"} & used), f"used={sorted(used)}")
     ledger_dumps = [c for c in main_bash if _dumps_file(c, r"scratch/run-plan/[^/\s]+/ledger\.md")]
     expect.that("orchestrator never dumped the scratch ledger.md (no cat/sed/head of it)", not ledger_dumps, f"{ledger_dumps[:3]}")
     ct_reads = [p for p in main_reads if p.endswith("completion-templates.md")] + [c for c in main_bash if "completion-templates.md" in c]
@@ -188,7 +188,7 @@ def check(ctx, expect):
     agent_idx = [(c.index, str(c.input.get("prompt", ""))) for c in tr.agent_calls()]
     review_idx = [i for i, p in agent_idx if re.search(r"\bReview\b", p)]
     code_idx = [i for i, p in agent_idx if re.search(r"\bCode\b", p)]
-    commit_idx = [c.index for c in tr.tool_calls("Bash", main_only=True) if re.search(r"git\s+commit\b", c.command)]
+    commit_idx = [c.index for c in tr.tool_calls("Bash", main_only=True) if re.search(r"git\s+commit\b|rp\.sh['\"]?\s+commit\b", c.command)]
     skill_commit_idx = [c.index for c in tr.tool_calls("Skill", main_only=True)]
     commits_all = sorted(commit_idx + skill_commit_idx)
     expect.at_least("review agents spawned", len(review_idx), 2)
@@ -214,7 +214,7 @@ def check(ctx, expect):
     for ri, (n, uses) in enumerate(recs):
         for b in uses:
             inp = b.get("input") or {}
-            if b.get("name") == "Skill" or (b.get("name") == "Bash" and re.search(r"\bgit\s+(?:-\S+\s+)*commit\b", str(inp.get("command", "")))):
+            if b.get("name") == "Skill" or (b.get("name") == "Bash" and re.search(r"\bgit\s+(?:-\S+\s+)*commit\b|rp\.sh['\"]?\s+commit\b", str(inp.get("command", "")))):
                 last_commit_rec = ri
     if last_commit_rec is not None and ctxs:
         start = next((n for n, _ in recs[last_commit_rec:] if n), 0)

@@ -29,7 +29,7 @@ All reported timing derives from summed `duration_ms` (parallel groups at their 
 
 ## The between-phase progress table
 
-After each phase, render progress as a GitHub-flavored markdown table (it displays cleanly in the user's terminal — prefer it over ASCII box-art) of **two rows**: the phase just completed and the phase now starting (the first tracker adds the `setup` row above them). Earlier rows are not re-rendered — the ledger holds them and `rp.sh totals` renders every one at Step 5; re-printing the whole history after each phase was 10–20K resident tokens on a 9-phase run. `rp.sh phase-cost <n>` prints the five cost cells for one row — for every phase, including one that spawned no agent (a human-gate-only or amended-out phase), whose cells it prints as dashes; the orchestrator supplies `#`, the short title, and the Status:
+After each phase, render progress as a GitHub-flavored markdown table (it displays cleanly in the user's terminal — prefer it over ASCII box-art) of **two rows**: the phase just completed and the phase now starting (the first tracker adds the `setup` row above them). Earlier rows are not re-rendered — the ledger holds them and `rp.sh summary-inputs` renders every one at Step 5; re-printing the whole history after each phase was 10–20K resident tokens on a 9-phase run. `rp.sh phase-cost <n>` prints the five cost cells for one row — for every phase, including one that spawned no agent (a human-gate-only or amended-out phase), whose cells it prints as dashes; the orchestrator supplies `#`, the short title, and the Status:
 
 | # | Phase | Status | Research | Code | Review | Total | Active time |
 | - | ----- | ------ | -------: | ---: | -----: | ----: | ----------: |
@@ -50,13 +50,13 @@ Between the table and the next phase, briefly note: the key outcome of the compl
 
 ## The final completion table
 
-At Step 5 the table switches shape: one row per **sub-agent**, grouped under its phase with a *subtotal* line per phase and a Totals row — the ledger already holds exactly these rows, and `rp.sh totals` renders them; the orchestrator never hand-renders the table or reads `ledger.md` for it. This is also where `tool_uses` is reported: per-agent `tool_uses` is the closest available proxy for how full each agent's context window got, and its spread — a 202-call Code agent against 38–44-call reviewers — is the run's context-pressure story.
+At Step 5 the table switches shape: one row per **sub-agent**, grouped under its phase with a *subtotal* line per phase and a Totals row — the ledger already holds exactly these rows, and `rp.sh totals` renders them — at Step 5 as the first section of `rp.sh summary-inputs`, which takes the same arguments; the orchestrator never hand-renders the table or reads `ledger.md` for it. This is also where `tool_uses` is reported: per-agent `tool_uses` is the closest available proxy for how full each agent's context window got, and its spread — a 202-call Code agent against 38–44-call reviewers — is the run's context-pressure story.
 
 ```
-bash <scratch_dir>/rp.sh totals 1='✓ Complete' 2='✓ Complete (↻ retry 1/2)' pre-PR='✓'
+bash <scratch_dir>/rp.sh summary-inputs 1='✓ Complete' 2='✓ Complete (↻ retry 1/2)' pre-PR='✓'
 ```
 
-One `<phase>=<Status>` pair per phase, the tracker's Status cell with its flags; a phase without a pair gets a bare *subtotal*. Phases appear in ledger order (spawn order); **Agent** is the Mode plus the Note in parentheses (`Code (retry 1/2)`, `Research (api client)`); subtotal and Totals Active time follow the parallel-group rule (max, with the Σ as a labelled aside); `n/a` cells stay `n/a` and never enter a sum. The same output is re-pasted verbatim into the PR body's collapsed "Run cost" section.
+One `<phase>=<Status>` pair per phase, the tracker's Status cell with its flags; a phase without a pair gets a bare *subtotal*. Phases appear in ledger order (spawn order); **Agent** is the Mode plus the Note in parentheses (`Code (retry 1/2)`, `Research (api client)`); subtotal and Totals Active time follow the parallel-group rule (max, with the Σ as a labelled aside); `n/a` cells stay `n/a` and never enter a sum. The PR body's collapsed "Run cost" section pastes the table verbatim; the final summary gives only its Totals, unless no PR body is submitted (completion-templates.md).
 
 | Phase | Agent | Tokens | Tool uses | Active time |
 | ----- | ----- | -----: | --------: | ----------: |
@@ -70,4 +70,4 @@ One `<phase>=<Status>` pair per phase, the tracker's Status cell with its flags;
 | 2 | *subtotal* — ✓ Complete (↻ retry 1/2) | 711.0K | — | 2:05:56 |
 | — | **Totals** — 6 sub-agents | **1074.8K** | — | **2:17:13 (Σ 2:27:14, 1 parallel group)** |
 
-**Carried findings** (Step 4 item 10's report route) are the other Step 5 input the ledger's neighbour file holds: `rp.sh carry <phase> '<file:line — one line>'` appends to `<scratch_dir>/carried-findings.md`, and Step 5 reads that file once — for the final summary's caveats and the PR's Review notes (its `NEEDS-RUNTIME C<k>` lines, which Step 4 item 7 carries, are caveats and Test-plan entries instead); absent means nothing was carried — instead of the orchestrator carrying each finding in its own context across phases.
+**Carried findings** (Step 4 item 10's report route) are the other Step 5 input the ledger's neighbour file holds: `rp.sh carry <phase> '<file:line — one line>'` appends to `<scratch_dir>/carried-findings.md`, and Step 5's `rp.sh summary-inputs` prints that file once — for the PR's Review notes (its `NEEDS-RUNTIME C<k>` lines, which Step 4 item 7 carries, are Test-plan entries instead, and the final summary points to them); absent means nothing was carried — instead of the orchestrator carrying each finding in its own context across phases.
