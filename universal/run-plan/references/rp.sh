@@ -65,7 +65,7 @@
 #                    content line, and as many after the last; inner fences stay
 #   commit <n>       the fast-path phase commit: strip-fences on phase-<n>-commit-msg.md,
 #                    git commit -F it, the hook's output to commit-<n>.log (prints the
-#                    new commit and the log's last lines), then cleanup <n>; on a
+#                    new commit and the log's path), then cleanup <n>; on a
 #                    rejection prints the log's tail, keeps the file, exits git's status;
 #                    refuses when the file is absent (the fallback applies)
 #   anchor <fragment> [<after>]
@@ -787,7 +787,7 @@ cmd_commit() {
     exit "$rc"
   fi
   git -C "$top" log --oneline -1
-  if [ -s "$log" ]; then printf 'hook output: %s line(s) in %s; last 5:\n' "$(wc -l < "$log" | tr -d ' ')" "$log"; tail -n 5 "$log"; fi
+  if [ -s "$log" ]; then printf 'hook output: %s line(s) in %s\n' "$(wc -l < "$log" | tr -d ' ')" "$log"; fi
   cmd_cleanup "$id"
 }
 

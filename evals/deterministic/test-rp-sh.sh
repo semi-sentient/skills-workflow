@@ -564,7 +564,7 @@ printf '```\nfeat(x): land it\n\nBody.\n```\n' > "$CS/phase-1-commit-msg.md"; : 
 echo b >> "$CM/a.txt"; git -C "$CM" add a.txt
 out="$(cd "$WORK" && bash "$CS/rp.sh" commit 1 2>"$WORK/err.txt")"; rc=$?
 check "commit lands the phase commit in the recorded repo with the fence-stripped message" $([ $rc -eq 0 ] && [ "$(git -C "$CM" log -1 --format=%B)" = $'feat(x): land it\n\nBody.' ] && grep -q '^2 fence line(s) stripped' "$WORK/err.txt" && echo 0 || echo 1) "rc=$rc $(cat "$WORK/err.txt"; git -C "$CM" log -1 --format=%B)"
-check "…prints the new commit and only the hook log's last lines, keeping the full log" $(printf '%s\n' "$out" | grep -q "^$(git -C "$CM" rev-parse --short HEAD) feat(x): land it" && printf '%s\n' "$out" | grep -q 'Test Files  3 passed' && ! printf '%s\n' "$out" | grep -q 'hook line 1$' && [ "$(wc -l < "$CS/commit-1.log" | tr -d ' ')" = 31 ] && echo 0 || echo 1) "$out"
+check "…prints the new commit and the log's path, none of the hook's output, keeping the full log (#452: the tail was commitlint boilerplate)" $(printf '%s\n' "$out" | grep -q "^$(git -C "$CM" rev-parse --short HEAD) feat(x): land it" && printf '%s\n' "$out" | grep -qx 'hook output: 31 line(s) in .*/scc/commit-1\.log' && ! printf '%s\n' "$out" | grep -q 'Test Files\|hook line' && [ "$(wc -l < "$CS/commit-1.log" | tr -d ' ')" = 31 ] && echo 0 || echo 1) "$out"
 check "…then runs cleanup: the message file and baselines are gone" $([ ! -e "$CS/phase-1-commit-msg.md" ] && [ ! -e "$CS/baseline-a.txt" ] && echo 0 || echo 1) "$(ls "$CS")"
 printf '#!/bin/sh\necho "lint: 1 error"\nexit 1\n' > "$CM/.git/hooks/pre-commit"
 printf 'feat(x): rejected\n' > "$CS/phase-2-commit-msg.md"; : > "$CS/baseline-b.txt"
